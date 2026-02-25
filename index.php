@@ -4,365 +4,186 @@ declare(strict_types=1);
 require __DIR__ . '/bootstrap.php';
 
 $pdo = db();
-if (
-    PHP_SAPI !== 'cli' &&
-    extension_loaded('zlib') &&
-    !headers_sent() &&
-    !ini_get('zlib.output_compression')
-) {
-    $acceptEncoding = strtolower((string) ($_SERVER['HTTP_ACCEPT_ENCODING'] ?? ''));
-    if (str_contains($acceptEncoding, 'gzip')) {
-        header('Vary: Accept-Encoding');
-        ob_start('ob_gzhandler');
-    }
-}
-
-require_once __DIR__ . '/handlers/post_common.php';
-require_once __DIR__ . '/handlers/post_auth.php';
-require_once __DIR__ . '/handlers/post_workspace.php';
-require_once __DIR__ . '/handlers/post_tasks.php';
-require_once __DIR__ . '/handlers/post_vault.php';
-require_once __DIR__ . '/handlers/post_dues.php';
-require_once __DIR__ . '/handlers/post_inventory.php';
-require_once __DIR__ . '/handlers/post_accounting.php';
-require_once __DIR__ . '/handlers/post_task_groups.php';
-require_once __DIR__ . '/handlers/dashboard_overview.php';
-
-$forceAuthScreen = false;
-$authInitialPanel = 'login';
-$passwordResetRequest = null;
-$requestedAuthPanel = trim((string) ($_GET['auth'] ?? ''));
-if (in_array($requestedAuthPanel, ['login', 'register', 'forgot-password', 'reset-password'], true)) {
-    $authInitialPanel = $requestedAuthPanel;
-    $forceAuthScreen = true;
-}
-
-if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $getAction = trim((string) ($_GET['action'] ?? ''));
-
-    if ($getAction === 'reset_password') {
-        $selector = trim((string) ($_GET['selector'] ?? ''));
-        $token = trim((string) ($_GET['token'] ?? ''));
-        if ($selector === '' || $token === '') {
-            flash('error', 'Link de redefinicao invalido.');
-            redirectTo('index.php?auth=forgot-password#forgot-password');
-        }
-
-        $passwordResetRequest = validPasswordResetRequest($selector, $token);
-        if (!$passwordResetRequest) {
-            flash('error', 'Este link de redefinicao e invalido ou expirou.');
-            redirectTo('index.php?auth=forgot-password#forgot-password');
-        }
-
-        $passwordResetRequest['selector'] = $selector;
-        $passwordResetRequest['token'] = $token;
-        $authInitialPanel = 'reset-password';
-        $forceAuthScreen = true;
-    }
-
-    if ($getAction === 'task_notifications_feed') {
-        try {
-            $authUser = currentUser();
-            if (!$authUser) {
-                respondJson([
-                    'ok' => false,
-                    'error' => 'Sessao expirada. Faca login novamente.',
-                ], 401);
-            }
-
-            $workspaceId = activeWorkspaceId($authUser);
-            if ($workspaceId === null) {
-                throw new RuntimeException('Workspace ativo nao encontrado.');
-            }
-
-            applyOverdueTaskPolicyIfNeeded($workspaceId);
-
-            $initialize = ((int) ($_GET['initialize'] ?? 0)) === 1;
-            $sinceHistoryId = max(0, (int) ($_GET['since_id'] ?? 0));
-            $limit = max(1, min(60, (int) ($_GET['limit'] ?? 24)));
-            $latestHistoryId = latestTaskHistoryIdForWorkspace($workspaceId);
-
-            if ($initialize) {
-                respondJson([
-                    'ok' => true,
-                    'latest_history_id' => $latestHistoryId,
-                    'notifications' => [],
-                ]);
-            }
-
-            $notifications = taskNotificationsForUser(
-                $workspaceId,
-                (int) ($authUser['id'] ?? 0),
-                $sinceHistoryId,
-                $limit
-            );
-
-            respondJson([
-                'ok' => true,
-                'latest_history_id' => $latestHistoryId,
-                'notifications' => $notifications,
-            ]);
-        } catch (Throwable $e) {
-            respondJson([
-                'ok' => false,
-                'error' => $e->getMessage(),
-            ], 422);
-        }
-    }
-}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? '');
-    $redirectPathOnError = 'index.php';
 
     try {
         verifyCsrf();
 
         switch ($action) {
+            case 'register':
+                $name = trim((string) ($_POST['name'] ?? ''));
+                $email = strtolower(trim((string) ($_POST['email'] ?? '')));
+                $password = (string) ($_POST['password'] ?? '');
+                $passwordConfirm = (string) ($_POST['password_confirm'] ?? '');
+
+                if ($name === '' || $email === '' || $password === '') {
+                    throw new RuntimeException('Preencha nome, e-mail e senha.');
+                }
+                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    throw new RuntimeException('Informe um e-mail válido.');
+                }
+                if (mb_strlen($password) < 6) {
+                    throw new RuntimeException('A senha deve ter pelo menos 6 caracteres.');
+                }
+                if ($password !== $passwordConfirm) {
+                    throw new RuntimeException('A confirmação de senha não confere.');
+                }
+
+                $check = $pdo->prepare('SELECT id FROM users WHERE email = :email LIMIT 1');
+                $check->execute([':email' => $email]);
+                if ($check->fetch()) {
+                    throw new RuntimeException('Este e-mail já está cadastrado.');
+                }
+
+                $stmt = $pdo->prepare('INSERT INTO users (name, email, password_hash, created_at) VALUES (:n, :e, :p, :c)');
+                $stmt->execute([
+                    ':n' => $name,
+                    ':e' => $email,
+                    ':p' => password_hash($password, PASSWORD_DEFAULT),
+                    ':c' => nowIso(),
+                ]);
+                $_SESSION['user_id'] = (int) $pdo->lastInsertId();
+                session_regenerate_id(true);
+                flash('success', 'Conta criada com sucesso.');
+                redirectTo('index.php');
+
+            case 'login':
+                $email = strtolower(trim((string) ($_POST['email'] ?? '')));
+                $password = (string) ($_POST['password'] ?? '');
+                if ($email === '' || $password === '') {
+                    throw new RuntimeException('Informe e-mail e senha.');
+                }
+
+                $stmt = $pdo->prepare('SELECT * FROM users WHERE email = :email LIMIT 1');
+                $stmt->execute([':email' => $email]);
+                $userRow = $stmt->fetch();
+                if (!$userRow || !password_verify($password, (string) $userRow['password_hash'])) {
+                    throw new RuntimeException('Credenciais inválidas.');
+                }
+
+                $_SESSION['user_id'] = (int) $userRow['id'];
+                session_regenerate_id(true);
+                flash('success', 'Login realizado.');
+                redirectTo('index.php');
+
+            case 'logout':
+                unset($_SESSION['user_id']);
+                session_regenerate_id(true);
+                flash('success', 'Sessão encerrada.');
+                redirectTo('index.php');
+
+            case 'create_task':
+            case 'update_task':
+                $authUser = requireAuth();
+                $taskId = (int) ($_POST['task_id'] ?? 0);
+                $title = trim((string) ($_POST['title'] ?? ''));
+                $description = trim((string) ($_POST['description'] ?? ''));
+                $status = normalizeTaskStatus((string) ($_POST['status'] ?? 'todo'));
+                $priority = normalizeTaskPriority((string) ($_POST['priority'] ?? 'medium'));
+                $dueDate = dueDateForStorage($_POST['due_date'] ?? null);
+                $assignedTo = (int) ($_POST['assigned_to'] ?? 0);
+                $assignedTo = $assignedTo > 0 ? $assignedTo : null;
+
+                if ($title === '') {
+                    throw new RuntimeException('O título da tarefa é obrigatório.');
+                }
+                if (mb_strlen($title) > 140) {
+                    throw new RuntimeException('O título deve ter no máximo 140 caracteres.');
+                }
+                if ($assignedTo !== null) {
+                    $check = $pdo->prepare('SELECT id FROM users WHERE id = :id LIMIT 1');
+                    $check->execute([':id' => $assignedTo]);
+                    if (!$check->fetch()) {
+                        throw new RuntimeException('Responsável inválido.');
+                    }
+                }
+
+                if ($action === 'create_task') {
+                    $stmt = $pdo->prepare(
+                        'INSERT INTO tasks (title, description, status, priority, due_date, created_by, assigned_to, created_at, updated_at)
+                         VALUES (:t, :d, :s, :p, :dd, :cb, :at, :c, :u)'
+                    );
+                    $now = nowIso();
+                    $stmt->execute([
+                        ':t' => $title,
+                        ':d' => $description,
+                        ':s' => $status,
+                        ':p' => $priority,
+                        ':dd' => $dueDate,
+                        ':cb' => (int) $authUser['id'],
+                        ':at' => $assignedTo,
+                        ':c' => $now,
+                        ':u' => $now,
+                    ]);
+                    flash('success', 'Tarefa criada.');
+                    redirectTo('index.php#board');
+                }
+
+                if ($taskId <= 0) {
+                    throw new RuntimeException('Tarefa inválida.');
+                }
+                $stmt = $pdo->prepare(
+                    'UPDATE tasks
+                     SET title = :t, description = :d, status = :s, priority = :p, due_date = :dd, assigned_to = :at, updated_at = :u
+                     WHERE id = :id'
+                );
+                $stmt->execute([
+                    ':t' => $title,
+                    ':d' => $description,
+                    ':s' => $status,
+                    ':p' => $priority,
+                    ':dd' => $dueDate,
+                    ':at' => $assignedTo,
+                    ':u' => nowIso(),
+                    ':id' => $taskId,
+                ]);
+                flash('success', 'Tarefa atualizada.');
+                redirectTo('index.php#task-' . $taskId);
+
+            case 'move_task':
+                requireAuth();
+                $taskId = (int) ($_POST['task_id'] ?? 0);
+                if ($taskId <= 0) {
+                    throw new RuntimeException('Tarefa inválida.');
+                }
+                $status = normalizeTaskStatus((string) ($_POST['status'] ?? 'todo'));
+                $stmt = $pdo->prepare('UPDATE tasks SET status = :s, updated_at = :u WHERE id = :id');
+                $stmt->execute([':s' => $status, ':u' => nowIso(), ':id' => $taskId]);
+                flash('success', 'Status atualizado.');
+                redirectTo('index.php#task-' . $taskId);
+
+            case 'delete_task':
+                requireAuth();
+                $taskId = (int) ($_POST['task_id'] ?? 0);
+                if ($taskId <= 0) {
+                    throw new RuntimeException('Tarefa inválida.');
+                }
+                $stmt = $pdo->prepare('DELETE FROM tasks WHERE id = :id');
+                $stmt->execute([':id' => $taskId]);
+                flash('success', 'Tarefa removida.');
+                redirectTo('index.php#board');
 
             default:
-                if (handleAuthPostAction($pdo, $action, $redirectPathOnError)) {
-                    break;
-                }
-                if (handleWorkspacePostAction($pdo, $action)) {
-                    break;
-                }
-                if (handleTaskPostAction($pdo, $action)) {
-                    break;
-                }
-                if (handleVaultPostAction($pdo, $action)) {
-                    break;
-                }
-                if (handleDuePostAction($pdo, $action)) {
-                    break;
-                }
-                if (handleInventoryPostAction($pdo, $action)) {
-                    break;
-                }
-                if (handleAccountingPostAction($pdo, $action)) {
-                    break;
-                }
-                if (handleTaskGroupPostAction($pdo, $action)) {
-                    break;
-                }
-                throw new RuntimeException('Acao invalida.');
+                throw new RuntimeException('Ação inválida.');
         }
     } catch (Throwable $e) {
-        if (requestExpectsJson()) {
-            respondJson([
-                'ok' => false,
-                'error' => $e->getMessage(),
-            ], 422);
-        }
         flash('error', $e->getMessage());
-        redirectTo($redirectPathOnError);
+        redirectTo('index.php');
     }
 }
 
 $currentUser = currentUser();
-$renderAuthScreen = !$currentUser || $forceAuthScreen;
-$currentWorkspaceId = $currentUser ? activeWorkspaceId($currentUser) : null;
-$currentWorkspace = ($currentUser && $currentWorkspaceId !== null) ? activeWorkspace($currentUser) : null;
-if ($currentUser && $currentWorkspaceId !== null) {
-    applyOverdueTaskPolicyIfNeeded($currentWorkspaceId);
-}
-$userWorkspaces = $currentUser ? workspacesForUser((int) $currentUser['id']) : [];
 $flashes = getFlashes();
 $statusOptions = taskStatuses();
 $priorityOptions = taskPriorities();
-$users = ($currentUser && $currentWorkspaceId !== null) ? usersList($currentWorkspaceId) : [];
-$workspaceMembers = ($currentUser && $currentWorkspaceId !== null) ? workspaceMembersList($currentWorkspaceId) : [];
-$canManageWorkspace = ($currentUser && $currentWorkspaceId !== null)
-    ? userCanManageWorkspace((int) $currentUser['id'], $currentWorkspaceId)
-    : false;
-$isPersonalWorkspace = !empty($currentWorkspace['is_personal']);
-$showUsersDashboardTab = !$isPersonalWorkspace;
-$taskGroupsAll = ($currentUser && $currentWorkspaceId !== null) ? taskGroupsList($currentWorkspaceId) : ['Geral'];
-$vaultGroupsAll = ($currentUser && $currentWorkspaceId !== null) ? vaultGroupsList($currentWorkspaceId) : ['Geral'];
-$dueGroupsAll = ($currentUser && $currentWorkspaceId !== null) ? dueGroupsList($currentWorkspaceId) : ['Geral'];
-$inventoryGroupsAll = ($currentUser && $currentWorkspaceId !== null) ? inventoryGroupsList($currentWorkspaceId) : ['Geral'];
-
-$taskGroupPermissions = [];
-$taskGroupPermissionsByUserMap = [];
-$taskGroups = [];
-$taskGroupsWithAccess = [];
-
-$vaultGroupPermissions = [];
-$vaultGroupPermissionsByUserMap = [];
-$vaultGroups = [];
-$vaultGroupsWithAccess = [];
-
-$dueGroupPermissions = [];
-$dueGroupPermissionsByUserMap = [];
-$dueGroups = [];
-$dueGroupsWithAccess = [];
-
-$inventoryGroups = [];
-$inventoryGroupsWithAccess = [];
-
-if ($currentUser && $currentWorkspaceId !== null) {
-    $currentUserId = (int) $currentUser['id'];
-    $taskPermissionsByGroupMap = [];
-    $vaultPermissionsByGroupMap = [];
-    $duePermissionsByGroupMap = [];
-    if ($canManageWorkspace) {
-        $taskPermissionsByGroupMap = taskGroupPermissionsByUserMapByGroup($currentWorkspaceId);
-        $vaultPermissionsByGroupMap = vaultGroupPermissionsByUserMapByGroup($currentWorkspaceId);
-        $duePermissionsByGroupMap = dueGroupPermissionsByUserMapByGroup($currentWorkspaceId);
-    }
-
-    foreach ($taskGroupsAll as $taskGroupName) {
-        $taskGroupName = normalizeTaskGroupName((string) $taskGroupName);
-        $permission = taskGroupPermissionForUser($currentWorkspaceId, $taskGroupName, $currentUserId);
-        $taskGroupPermissions[$taskGroupName] = $permission;
-
-        if (!empty($permission['can_view'])) {
-            $taskGroups[] = $taskGroupName;
-        }
-        if (!empty($permission['can_access'])) {
-            $taskGroupsWithAccess[] = $taskGroupName;
-        }
-
-        if ($canManageWorkspace) {
-            $taskGroupPermissionsByUserMap[$taskGroupName] = $taskPermissionsByGroupMap[$taskGroupName] ?? [];
-        }
-    }
-
-    foreach ($vaultGroupsAll as $vaultGroupName) {
-        $vaultGroupName = normalizeVaultGroupName((string) $vaultGroupName);
-        $permission = vaultGroupPermissionForUser($currentWorkspaceId, $vaultGroupName, $currentUserId);
-        $vaultGroupPermissions[$vaultGroupName] = $permission;
-
-        if (!empty($permission['can_view'])) {
-            $vaultGroups[] = $vaultGroupName;
-        }
-        if (!empty($permission['can_access'])) {
-            $vaultGroupsWithAccess[] = $vaultGroupName;
-        }
-
-        if ($canManageWorkspace) {
-            $vaultGroupPermissionsByUserMap[$vaultGroupName] = $vaultPermissionsByGroupMap[$vaultGroupName] ?? [];
-        }
-    }
-
-    foreach ($dueGroupsAll as $dueGroupName) {
-        $dueGroupName = normalizeDueGroupName((string) $dueGroupName);
-        $permission = dueGroupPermissionForUser($currentWorkspaceId, $dueGroupName, $currentUserId);
-        $dueGroupPermissions[$dueGroupName] = $permission;
-
-        if (!empty($permission['can_view'])) {
-            $dueGroups[] = $dueGroupName;
-        }
-        if (!empty($permission['can_access'])) {
-            $dueGroupsWithAccess[] = $dueGroupName;
-        }
-
-        if ($canManageWorkspace) {
-            $dueGroupPermissionsByUserMap[$dueGroupName] = $duePermissionsByGroupMap[$dueGroupName] ?? [];
-        }
-    }
-} else {
-    $taskGroups = $taskGroupsAll;
-    $taskGroupsWithAccess = $taskGroupsAll;
-    $vaultGroups = $vaultGroupsAll;
-    $vaultGroupsWithAccess = $vaultGroupsAll;
-    $dueGroups = $dueGroupsAll;
-    $dueGroupsWithAccess = $dueGroupsAll;
-}
-
-$inventoryGroups = $inventoryGroupsAll;
-$inventoryGroupsWithAccess = $inventoryGroupsAll;
-
-$vaultVisibleKeys = [];
-foreach ($vaultGroups as $vaultGroupName) {
-    $vaultVisibleKeys[mb_strtolower(normalizeVaultGroupName($vaultGroupName))] = true;
-}
-$vaultEntries = ($currentUser && $currentWorkspaceId !== null) ? workspaceVaultEntriesList($currentWorkspaceId) : [];
-$vaultEntries = array_values(array_filter(
-    $vaultEntries,
-    static function (array $entry) use ($vaultVisibleKeys): bool {
-        $groupKey = mb_strtolower(normalizeVaultGroupName((string) ($entry['group_name'] ?? 'Geral')));
-        return isset($vaultVisibleKeys[$groupKey]);
-    }
-));
-$vaultEntriesByGroup = $currentUser ? vaultEntriesByGroup($vaultEntries, $vaultGroups) : [];
-
-$dueVisibleKeys = [];
-foreach ($dueGroups as $dueGroupName) {
-    $dueVisibleKeys[mb_strtolower(normalizeDueGroupName($dueGroupName))] = true;
-}
-$dueEntries = ($currentUser && $currentWorkspaceId !== null) ? workspaceDueEntriesList($currentWorkspaceId) : [];
-$dueEntries = array_values(array_filter(
-    $dueEntries,
-    static function (array $entry) use ($dueVisibleKeys): bool {
-        $groupKey = mb_strtolower(normalizeDueGroupName((string) ($entry['group_name'] ?? 'Geral')));
-        return isset($dueVisibleKeys[$groupKey]);
-    }
-));
-$dueEntriesByGroup = $currentUser ? dueEntriesByGroup($dueEntries, $dueGroups) : [];
-$inventoryEntries = ($currentUser && $currentWorkspaceId !== null) ? workspaceInventoryEntriesList($currentWorkspaceId) : [];
-$inventoryEntriesByGroup = $currentUser ? inventoryEntriesByGroup($inventoryEntries, $inventoryGroups) : [];
-$accountingPeriod = normalizeAccountingPeriodKey((string) ($_GET['accounting_period'] ?? ''));
-$accountingPeriodLabel = accountingMonthLabel($accountingPeriod);
-$accountingPeriodDate = DateTimeImmutable::createFromFormat('!Y-m', $accountingPeriod) ?: new DateTimeImmutable('first day of this month');
-$accountingPreviousPeriod = $accountingPeriodDate->modify('-1 month')->format('Y-m');
-$accountingNextPeriod = $accountingPeriodDate->modify('+1 month')->format('Y-m');
-$accountingPreviousPeriodPath = accountingRedirectPathFromRequest(['accounting_period' => $accountingPreviousPeriod], []);
-$accountingNextPeriodPath = accountingRedirectPathFromRequest(['accounting_period' => $accountingNextPeriod], []);
-$accountingEntries = ($currentUser && $currentWorkspaceId !== null)
-    ? workspaceAccountingEntriesList($currentWorkspaceId, $accountingPeriod)
-    : [];
-$accountingEntriesByType = workspaceAccountingEntriesByType($accountingEntries);
-$accountingExpenseEntries = $accountingEntriesByType['expense'] ?? [];
-$accountingIncomeEntries = $accountingEntriesByType['income'] ?? [];
-$accountingOpeningBalanceCents = ($currentUser && $currentWorkspaceId !== null)
-    ? workspaceAccountingOpeningBalanceCents($currentWorkspaceId, $accountingPeriod)
-    : 0;
-$accountingSummary = accountingSummary($accountingEntries, $accountingOpeningBalanceCents);
-$stylesAssetVersion = is_file(__DIR__ . '/assets/styles.css')
-    ? (string) filemtime(__DIR__ . '/assets/styles.css')
-    : '1';
-$appAssetVersion = is_file(__DIR__ . '/assets/app.js')
-    ? (string) filemtime(__DIR__ . '/assets/app.js')
-    : '1';
-$groupFilter = isset($_GET['group']) && trim((string) $_GET['group']) !== ''
-    ? normalizeTaskGroupName((string) $_GET['group'])
-    : null;
-if ($groupFilter !== null && !in_array($groupFilter, $taskGroups, true)) {
-    $groupFilter = null;
-}
-$creatorFilterRaw = $_GET['created_by'] ?? ($_GET['assignee'] ?? null);
-$creatorFilterId = isset($creatorFilterRaw) ? (int) $creatorFilterRaw : null;
-$creatorFilterId = $creatorFilterId && $creatorFilterId > 0 ? $creatorFilterId : null;
-
-$taskVisibleKeys = [];
-foreach ($taskGroups as $taskGroupName) {
-    $taskVisibleKeys[mb_strtolower(normalizeTaskGroupName($taskGroupName))] = true;
-}
-$allTasks = ($currentUser && $currentWorkspaceId !== null) ? allTasks($currentWorkspaceId) : [];
-$allTasks = array_values(array_filter(
-    $allTasks,
-    static function (array $task) use ($taskVisibleKeys): bool {
-        $groupKey = mb_strtolower(normalizeTaskGroupName((string) ($task['group_name'] ?? 'Geral')));
-        return isset($taskVisibleKeys[$groupKey]);
-    }
-));
-$tasks = $currentUser ? filterTasks($allTasks, $groupFilter, $creatorFilterId) : [];
-$showEmptyGroups = $currentUser && $groupFilter === null && $creatorFilterId === null;
-$groupingSource = null;
-if ($showEmptyGroups) {
-    $groupingSource = $taskGroups;
-} elseif ($groupFilter !== null) {
-    $groupingSource = [$groupFilter];
-}
-$tasksGroupedByGroup = $currentUser ? tasksByGroup($tasks, $groupingSource) : [];
-$stats = $currentUser ? dashboardStats($allTasks) : ['total' => 0, 'done' => 0, 'due_today' => 0, 'urgent' => 0];
-$myOpenTasks = $currentUser ? countMyAssignedTasks($allTasks, (int) $currentUser['id']) : 0;
+$users = usersList();
+$tasks = $currentUser ? allTasks() : [];
+$groupedTasks = $currentUser ? tasksByStatus($tasks) : [];
+$stats = $currentUser ? dashboardStats($tasks) : ['total' => 0, 'done' => 0, 'due_today' => 0, 'urgent' => 0];
+$myOpenTasks = $currentUser ? countMyAssignedTasks($tasks, (int) $currentUser['id']) : 0;
 $completionRate = $stats['total'] > 0 ? (int) round(($stats['done'] / $stats['total']) * 100) : 0;
-
-$globalDashboardOverview = buildGlobalDashboardOverview($currentUser, $userWorkspaces);
-
-$defaultTaskGroupName = $taskGroups[0] ?? 'Geral';
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -370,20 +191,13 @@ $defaultTaskGroupName = $taskGroups[0] ?? 'Geral';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e(APP_NAME) ?></title>
-    <link rel="icon" type="image/svg+xml" href="assets/WorkForm - Símbolo.svg?v=1">
-    <link rel="shortcut icon" href="assets/WorkForm - Símbolo.svg?v=1">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/styles.css?v=<?= e($stylesAssetVersion) ?>">
-    <script src="assets/app.js?v=<?= e($appAssetVersion) ?>" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/styles.css?v=1">
+    <script src="assets/app.js?v=1" defer></script>
 </head>
-<body
-    class="<?= $renderAuthScreen ? 'is-auth' : 'is-dashboard' ?>"
-    data-default-group-name="<?= e((string) $defaultTaskGroupName) ?>"
-    data-workspace-id="<?= e((string) ($renderAuthScreen ? '' : ($currentWorkspaceId ?? ''))) ?>"
-    data-user-id="<?= e((string) ($renderAuthScreen ? '' : ($currentUser['id'] ?? ''))) ?>"
->
+<body class="<?= $currentUser ? 'is-dashboard' : 'is-auth' ?>">
     <div class="bg-layer bg-layer-one" aria-hidden="true"></div>
     <div class="bg-layer bg-layer-two" aria-hidden="true"></div>
     <div class="grain" aria-hidden="true"></div>
@@ -400,7 +214,7 @@ $defaultTaskGroupName = $taskGroups[0] ?? 'Geral';
             </div>
         <?php endif; ?>
 
-        <?php if ($renderAuthScreen): ?>
+        <?php if (!$currentUser): ?>
             <?php include __DIR__ . '/partials/auth.php'; ?>
         <?php else: ?>
             <?php include __DIR__ . '/partials/dashboard.php'; ?>
