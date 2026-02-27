@@ -30,6 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 setActiveWorkspaceId($workspaceId);
+                flash('success', 'Workspace atualizado.');
                 redirectTo('workspace-settings.php');
 
             case 'create_workspace':
@@ -52,9 +53,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($workspaceId === null) {
                     throw new RuntimeException('Workspace ativo nao encontrado.');
                 }
-                if (workspaceIsPersonal($workspaceId)) {
-                    throw new RuntimeException('O nome do workspace pessoal e definido automaticamente.');
-                }
                 if (!userCanManageWorkspace((int) $currentUser['id'], $workspaceId)) {
                     throw new RuntimeException('Somente administradores podem alterar o workspace.');
                 }
@@ -67,9 +65,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $workspaceId = activeWorkspaceId($currentUser);
                 if ($workspaceId === null) {
                     throw new RuntimeException('Workspace ativo nao encontrado.');
-                }
-                if (workspaceIsPersonal($workspaceId)) {
-                    throw new RuntimeException('Workspace pessoal nao permite gerenciar usuarios.');
                 }
                 if (!userCanManageWorkspace((int) $currentUser['id'], $workspaceId)) {
                     throw new RuntimeException('Somente administradores podem adicionar usuarios.');
@@ -91,69 +86,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash('success', 'Usuario adicionado ao workspace.');
                 redirectTo('workspace-settings.php');
 
-            case 'workspace_promote_member':
-                $workspaceId = activeWorkspaceId($currentUser);
-                if ($workspaceId === null) {
-                    throw new RuntimeException('Workspace ativo nao encontrado.');
-                }
-                if (workspaceIsPersonal($workspaceId)) {
-                    throw new RuntimeException('Workspace pessoal nao permite gerenciar usuarios.');
-                }
-                if (!userCanManageWorkspace((int) $currentUser['id'], $workspaceId)) {
-                    throw new RuntimeException('Somente administradores podem alterar permissoes.');
-                }
-
-                $memberId = (int) ($_POST['member_id'] ?? 0);
-                if ($memberId <= 0) {
-                    throw new RuntimeException('Usuario invalido.');
-                }
-                if ($memberId === (int) $currentUser['id']) {
-                    throw new RuntimeException('Sua conta ja possui permissao de administrador.');
-                }
-                if (!userHasWorkspaceAccess($memberId, $workspaceId)) {
-                    throw new RuntimeException('Usuario nao pertence a este workspace.');
-                }
-
-                upsertWorkspaceMember($pdo, $workspaceId, $memberId, 'admin');
-                flash('success', 'Permissao de administrador concedida.');
-                redirectTo('workspace-settings.php');
-
-            case 'workspace_demote_member':
-                $workspaceId = activeWorkspaceId($currentUser);
-                if ($workspaceId === null) {
-                    throw new RuntimeException('Workspace ativo nao encontrado.');
-                }
-                if (workspaceIsPersonal($workspaceId)) {
-                    throw new RuntimeException('Workspace pessoal nao permite gerenciar usuarios.');
-                }
-                if (!userCanManageWorkspace((int) $currentUser['id'], $workspaceId)) {
-                    throw new RuntimeException('Somente administradores podem alterar permissoes.');
-                }
-
-                $memberId = (int) ($_POST['member_id'] ?? 0);
-                if ($memberId <= 0) {
-                    throw new RuntimeException('Usuario invalido.');
-                }
-                if ($memberId === (int) $currentUser['id']) {
-                    throw new RuntimeException('Nao e possivel alterar a propria permissao.');
-                }
-
-                $targetRole = workspaceRoleForUser($memberId, $workspaceId);
-                if ($targetRole !== 'admin') {
-                    throw new RuntimeException('Este usuario nao e administrador.');
-                }
-
-                updateWorkspaceMemberRole($pdo, $workspaceId, $memberId, 'member');
-                flash('success', 'Permissao alterada para usuario.');
-                redirectTo('workspace-settings.php');
-
             case 'workspace_remove_member':
                 $workspaceId = activeWorkspaceId($currentUser);
                 if ($workspaceId === null) {
                     throw new RuntimeException('Workspace ativo nao encontrado.');
-                }
-                if (workspaceIsPersonal($workspaceId)) {
-                    throw new RuntimeException('Workspace pessoal nao permite gerenciar usuarios.');
                 }
                 if (!userCanManageWorkspace((int) $currentUser['id'], $workspaceId)) {
                     throw new RuntimeException('Somente administradores podem remover usuarios.');
@@ -188,9 +124,9 @@ if ($currentWorkspaceId === null) {
 }
 
 $currentWorkspace = activeWorkspace($currentUser);
+$userWorkspaces = workspacesForUser((int) $currentUser['id']);
+$workspaceRole = normalizeWorkspaceRole((string) ($currentWorkspace['member_role'] ?? 'member'));
 $canManageWorkspace = userCanManageWorkspace((int) $currentUser['id'], $currentWorkspaceId);
-$isPersonalWorkspace = !empty($currentWorkspace['is_personal']);
-$canManageWorkspaceMembers = $canManageWorkspace && !$isPersonalWorkspace;
 $workspaceMembers = workspaceMembersList($currentWorkspaceId);
 $flashes = getFlashes();
 ?>
@@ -205,7 +141,7 @@ $flashes = getFlashes();
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/styles.css?v=102">
+    <link rel="stylesheet" href="assets/styles.css?v=33">
 </head>
 <body class="is-dashboard is-workspace-settings" data-workspace-id="<?= e((string) $currentWorkspaceId) ?>">
     <div class="bg-layer bg-layer-one" aria-hidden="true"></div>
@@ -225,22 +161,36 @@ $flashes = getFlashes();
         <?php endif; ?>
 
         <header class="top-nav dashboard-nav">
-            <div class="top-nav-leading">
-                <a href="index.php#tasks" class="btn btn-mini btn-ghost nav-back-button" aria-label="Voltar para dashboard">
-                    <span aria-hidden="true">&#8592;</span>
-                    <span>Voltar</span>
-                </a>
-                <a href="index.php" class="brand" aria-label="WorkForm">
-                    <img
-                        src="assets/WorkForm - Logo.svg?v=2"
-                        data-theme-logo-light="assets/WorkForm - Logo.svg?v=2"
-                        data-theme-logo-dark="assets/WorkForm - Logo (Negativa).svg?v=1"
-                        alt="WorkForm"
-                        class="brand-lockup"
-                        width="116"
-                        height="29"
-                    >
-                </a>
+            <a href="index.php" class="brand" aria-label="WorkForm">
+                <img src="assets/WorkForm - Logo (Negativa).svg?v=1" alt="WorkForm" class="brand-lockup" width="116" height="29">
+            </a>
+
+            <div class="workspace-top-controls">
+                <form method="post" class="workspace-switch-form">
+                    <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+                    <input type="hidden" name="action" value="switch_workspace">
+                    <label>
+                        <span class="sr-only">Workspace ativo</span>
+                        <select name="workspace_id" onchange="this.form.submit()">
+                            <?php foreach ($userWorkspaces as $workspaceOption): ?>
+                                <?php $workspaceOptionId = (int) ($workspaceOption['id'] ?? 0); ?>
+                                <option value="<?= e((string) $workspaceOptionId) ?>"<?= $currentWorkspaceId === $workspaceOptionId ? ' selected' : '' ?>>
+                                    <?= e((string) ($workspaceOption['name'] ?? 'Workspace')) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                </form>
+
+                <form method="post" class="workspace-create-form">
+                    <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+                    <input type="hidden" name="action" value="create_workspace">
+                    <label>
+                        <span class="sr-only">Novo workspace</span>
+                        <input type="text" name="workspace_name" maxlength="80" placeholder="Novo workspace" required>
+                    </label>
+                    <button type="submit" class="btn btn-mini btn-ghost">Criar</button>
+                </form>
             </div>
 
             <div class="user-chip">
@@ -251,16 +201,10 @@ $flashes = getFlashes();
                 </div>
             </div>
             <div class="top-nav-actions">
-                <a
-                    href="account-settings.php"
-                    class="icon-gear-button top-account-settings-button"
-                    aria-label="Configuracoes da conta"
-                >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M10.3 2.6h3.4l.5 2a7.8 7.8 0 0 1 1.9.8l1.8-1 2.4 2.4-1 1.8c.3.6.6 1.2.8 1.9l2 .5v3.4l-2 .5a7.8 7.8 0 0 1-.8 1.9l1 1.8-2.4 2.4-1.8-1a7.8 7.8 0 0 1-1.9.8l-.5 2h-3.4l-.5-2a7.8 7.8 0 0 1-1.9-.8l-1.8 1-2.4-2.4 1-1.8a7.8 7.8 0 0 1-.8-1.9l-2-.5v-3.4l2-.5c.2-.7.5-1.3.8-1.9l-1-1.8 2.4-2.4 1.8 1c.6-.3 1.2-.6 1.9-.8l.5-2Z"></path>
-                        <circle cx="12" cy="12" r="3.2"></circle>
-                    </svg>
-                </a>
+                <span class="workspace-role-badge workspace-role-<?= e((string) $workspaceRole) ?>">
+                    <?= e((string) (workspaceRoles()[$workspaceRole] ?? 'Usuario')) ?>
+                </span>
+                <a href="index.php#tasks" class="btn btn-mini btn-ghost workspace-settings-back">Voltar</a>
                 <form method="post">
                     <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
                     <input type="hidden" name="action" value="logout">
@@ -273,13 +217,13 @@ $flashes = getFlashes();
             <section class="panel workspace-settings-panel">
                 <div class="panel-header workspace-settings-header">
                     <h2>Configuracoes do workspace</h2>
-                    <p><?= $isPersonalWorkspace ? 'Workspace pessoal: gerenciamento individual sem membros.' : 'Gerencie nome e usuarios do espaco.' ?></p>
+                    <p>Gerencie nome e usuarios do espaco.</p>
                 </div>
 
                 <div class="workspace-settings-grid">
                     <section class="workspace-settings-card">
                         <h3>Dados do workspace</h3>
-                        <?php if ($canManageWorkspace && !$isPersonalWorkspace): ?>
+                        <?php if ($canManageWorkspace): ?>
                             <form method="post" class="workspace-settings-form">
                                 <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
                                 <input type="hidden" name="action" value="workspace_update_name">
@@ -302,9 +246,7 @@ $flashes = getFlashes();
 
                     <section class="workspace-settings-card">
                         <h3>Usuarios do workspace</h3>
-                        <?php if ($isPersonalWorkspace): ?>
-                            <p class="workspace-settings-readonly">Este workspace e pessoal e nao permite adicionar outros usuarios.</p>
-                        <?php elseif ($canManageWorkspaceMembers): ?>
+                        <?php if ($canManageWorkspace): ?>
                             <form method="post" class="workspace-settings-form workspace-settings-member-form">
                                 <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
                                 <input type="hidden" name="action" value="workspace_add_member">
@@ -333,30 +275,13 @@ $flashes = getFlashes();
                                             <span class="workspace-member-role workspace-role-<?= e((string) $memberRole) ?>"><?= e((string) $memberRoleLabel) ?></span>
                                             <span><?= e((string) $workspaceMember['email']) ?></span>
                                         </div>
-                                        <?php if ($canManageWorkspaceMembers && $workspaceMemberId !== (int) $currentUser['id']): ?>
-                                            <div class="workspace-settings-member-actions">
-                                                <?php if ($memberRole !== 'admin'): ?>
-                                                    <form method="post" class="workspace-settings-member-remove">
-                                                        <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
-                                                        <input type="hidden" name="action" value="workspace_promote_member">
-                                                        <input type="hidden" name="member_id" value="<?= e((string) $workspaceMemberId) ?>">
-                                                        <button type="submit" class="btn btn-mini btn-ghost">Tornar admin</button>
-                                                    </form>
-                                                <?php else: ?>
-                                                    <form method="post" class="workspace-settings-member-remove">
-                                                        <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
-                                                        <input type="hidden" name="action" value="workspace_demote_member">
-                                                        <input type="hidden" name="member_id" value="<?= e((string) $workspaceMemberId) ?>">
-                                                        <button type="submit" class="btn btn-mini btn-ghost">Tornar usuario</button>
-                                                    </form>
-                                                <?php endif; ?>
-                                                <form method="post" class="workspace-settings-member-remove">
-                                                    <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
-                                                    <input type="hidden" name="action" value="workspace_remove_member">
-                                                    <input type="hidden" name="member_id" value="<?= e((string) $workspaceMemberId) ?>">
-                                                    <button type="submit" class="btn btn-mini btn-ghost">Remover</button>
-                                                </form>
-                                            </div>
+                                        <?php if ($canManageWorkspace && $workspaceMemberId !== (int) $currentUser['id']): ?>
+                                            <form method="post" class="workspace-settings-member-remove">
+                                                <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+                                                <input type="hidden" name="action" value="workspace_remove_member">
+                                                <input type="hidden" name="member_id" value="<?= e((string) $workspaceMemberId) ?>">
+                                                <button type="submit" class="btn btn-mini btn-ghost">Remover</button>
+                                            </form>
                                         <?php endif; ?>
                                     </li>
                                 <?php endforeach; ?>
