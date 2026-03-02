@@ -1,5 +1,8 @@
 document.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-flash-close]");
+  const target =
+    event.target instanceof Element ? event.target : event.target?.parentElement;
+  if (!(target instanceof Element)) return;
+  const button = target.closest("[data-flash-close]");
   if (!button) return;
   const flash = button.closest("[data-flash]");
   if (flash) flash.remove();
@@ -52,6 +55,13 @@ window.addEventListener("DOMContentLoaded", () => {
       });
     });
   }
+
+  const getEventTargetElement = (event) => {
+    const rawTarget = event?.target;
+    if (rawTarget instanceof Element) return rawTarget;
+    if (rawTarget instanceof Node) return rawTarget.parentElement;
+    return null;
+  };
 
   const syncStatusStepper = (select) => {
     if (!(select instanceof HTMLSelectElement)) return;
@@ -410,14 +420,17 @@ window.addEventListener("DOMContentLoaded", () => {
     .forEach(syncSelectColor);
 
   document.addEventListener("change", (event) => {
-    const vaultLabelInput = event.target.closest("[data-vault-entry-label-input]");
+    const target = getEventTargetElement(event);
+    if (!(target instanceof Element)) return;
+
+    const vaultLabelInput = target.closest("[data-vault-entry-label-input]");
     if (vaultLabelInput instanceof HTMLInputElement) {
       const renameForm = vaultLabelInput.closest("[data-vault-entry-name-form]");
       void submitVaultEntryNameForm(renameForm);
       return;
     }
 
-    const select = event.target.closest(".status-select, .priority-select");
+    const select = target.closest(".status-select, .priority-select");
     if (select) {
       syncSelectColor(select);
     }
@@ -577,8 +590,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   document.addEventListener("click", (event) => {
-    const target =
-      event.target instanceof Element ? event.target : event.target?.parentElement;
+    const target = getEventTargetElement(event);
     if (!(target instanceof Element)) return;
     const formatButton = target.closest("[data-task-detail-description-format]");
     if (!formatButton) return;
@@ -1444,7 +1456,9 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   document.addEventListener("change", (event) => {
-    const checkbox = event.target.closest('.assignee-picker input[type="checkbox"]');
+    const target = getEventTargetElement(event);
+    if (!(target instanceof Element)) return;
+    const checkbox = target.closest('.assignee-picker input[type="checkbox"]');
     if (!checkbox) return;
     const picker = checkbox.closest(".assignee-picker");
     if (picker) updateAssigneePickerSummary(picker);
@@ -2015,7 +2029,10 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   document.addEventListener("click", (event) => {
-    const statusStepButton = event.target.closest("[data-status-step]");
+    const target = getEventTargetElement(event);
+    if (!(target instanceof Element)) return;
+
+    const statusStepButton = target.closest("[data-status-step]");
     if (statusStepButton) {
       const stepper = statusStepButton.closest("[data-status-stepper]");
       const statusSelect = stepper?.querySelector("select.status-select");
@@ -2036,7 +2053,7 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const inlineSelectOption = event.target.closest("[data-inline-select-option]");
+    const inlineSelectOption = target.closest("[data-inline-select-option]");
     if (inlineSelectOption) {
       const wrap = getInlineSelectWrap(inlineSelectOption);
       const details = inlineSelectOption.closest("[data-inline-select-picker]");
@@ -2074,8 +2091,8 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const dueDisplay = event.target.closest("[data-due-date-display]");
-    const overdueBadgeTrigger = event.target.closest("[data-task-overdue-badge]");
+    const dueDisplay = target.closest("[data-due-date-display]");
+    const overdueBadgeTrigger = target.closest("[data-task-overdue-badge]");
     if (overdueBadgeTrigger) {
       const form = overdueBadgeTrigger.closest("[data-task-autosave-form]");
       const overdueField = form?.querySelector?.("[data-task-overdue-flag]");
@@ -2111,7 +2128,7 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const deleteButton = event.target.closest(".task-row-delete");
+    const deleteButton = target.closest(".task-row-delete");
     if (deleteButton) {
       const formId = deleteButton.getAttribute("form");
       const deleteForm = formId ? document.getElementById(formId) : null;
@@ -2135,7 +2152,7 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const groupDeleteButton = event.target.closest("[data-group-delete]");
+    const groupDeleteButton = target.closest("[data-group-delete]");
     if (groupDeleteButton) {
       const deleteForm = groupDeleteButton.closest("[data-group-delete-form]");
       const groupSection = groupDeleteButton.closest("[data-task-group]");
@@ -2165,7 +2182,7 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const groupToggleButton = event.target.closest("[data-group-toggle]");
+    const groupToggleButton = target.closest("[data-group-toggle]");
     if (groupToggleButton) {
       const groupSection = groupToggleButton.closest("[data-task-group]");
       if (groupSection instanceof HTMLElement) {
@@ -2175,16 +2192,16 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const taskItem = event.target.closest("[data-task-item]");
+    const taskItem = target.closest("[data-task-item]");
     if (!(taskItem instanceof HTMLElement)) return;
 
-    const toggleButton = event.target.closest("[data-task-expand]");
+    const toggleButton = target.closest("[data-task-expand]");
     if (toggleButton) {
       openTaskDetailModal(taskItem);
       return;
     }
 
-    const interactiveTarget = event.target.closest(
+    const interactiveTarget = target.closest(
       [
         "a[href]",
         "button",
@@ -2518,8 +2535,8 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   document.addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
+    const target = getEventTargetElement(event);
+    if (!(target instanceof Element)) return;
     const removeButton = target.closest("[data-task-detail-image-remove]");
     if (!(removeButton instanceof HTMLButtonElement)) return;
 
