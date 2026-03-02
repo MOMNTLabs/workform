@@ -2255,6 +2255,11 @@ window.addEventListener("DOMContentLoaded", () => {
     return normalizeDashboardView(rawHash);
   };
 
+  const dashboardToggleLockIcon =
+    '<rect x="5" y="10" width="14" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 1 1 8 0v3"></path>';
+  const dashboardToggleTasksIcon =
+    '<path d="M8 7h11"></path><path d="M8 12h11"></path><path d="M8 17h11"></path><path d="M4.5 7h.01"></path><path d="M4.5 12h.01"></path><path d="M4.5 17h.01"></path>';
+
   const setDashboardView = (nextView, { updateHash = false } = {}) => {
     if (!dashboardViewPanels.length) return;
 
@@ -2273,6 +2278,10 @@ window.addEventListener("DOMContentLoaded", () => {
       const label = button.querySelector(".sidebar-view-toggle-label");
       if (label instanceof HTMLElement) {
         label.textContent = view === "vault" ? "Lista de tarefas" : "Cofre de acessos";
+      }
+      const icon = button.querySelector(".sidebar-view-toggle-icon svg");
+      if (icon instanceof SVGElement) {
+        icon.innerHTML = view === "vault" ? dashboardToggleTasksIcon : dashboardToggleLockIcon;
       }
       button.setAttribute("aria-pressed", isActive ? "true" : "false");
       button.setAttribute(

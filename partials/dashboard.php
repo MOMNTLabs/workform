@@ -608,13 +608,32 @@
                         class="icon-gear-button vault-summary-button"
                         data-open-vault-group-modal
                         aria-label="Criar grupo no cofre"
-                    ><span aria-hidden="true">+</span></button>
+                    >
+                        <span class="vault-summary-button-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <path d="M3 8a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8Z"></path>
+                                <path d="M12 11v5"></path>
+                                <path d="M9.5 13.5h5"></path>
+                            </svg>
+                        </span>
+                        <span class="vault-summary-button-label">Novo grupo</span>
+                    </button>
                     <button
                         type="button"
                         class="icon-gear-button vault-summary-button"
                         data-open-vault-entry-modal
                         aria-label="Adicionar dado de acesso"
-                    ><span aria-hidden="true">+</span></button>
+                    >
+                        <span class="vault-summary-button-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <circle cx="8" cy="12" r="2.4"></circle>
+                                <path d="M10.4 12h9.6"></path>
+                                <path d="M16 12v2.5"></path>
+                                <path d="M19 12v2"></path>
+                            </svg>
+                        </span>
+                        <span class="vault-summary-button-label">Novo acesso</span>
+                    </button>
                     <span><?= e((string) count($vaultEntries)) ?> item(ns)</span>
                 </div>
             </div>
@@ -699,10 +718,6 @@
                                     $vaultLogin = (string) ($vaultEntry['login_value'] ?? '');
                                     $vaultPassword = (string) ($vaultEntry['password_value'] ?? '');
                                     $vaultGroupValue = (string) ($vaultEntry['group_name'] ?? $vaultGroupName);
-                                    $vaultUpdatedAtLabel = '';
-                                    if (!empty($vaultEntry['updated_at'])) {
-                                        $vaultUpdatedAtLabel = (new DateTimeImmutable((string) $vaultEntry['updated_at']))->format('d/m H:i');
-                                    }
                                     ?>
                                     <article
                                         class="vault-entry-row"
@@ -805,15 +820,6 @@
                                                 </div>
                                             </div>
                                         </form>
-
-                                        <div class="vault-entry-meta">
-                                            <?php if (!empty($vaultEntry['created_by_name'])): ?>
-                                                <span>Criado por <?= e((string) $vaultEntry['created_by_name']) ?></span>
-                                            <?php endif; ?>
-                                            <?php if ($vaultUpdatedAtLabel !== ''): ?>
-                                                <span>Atualizado em <?= e($vaultUpdatedAtLabel) ?></span>
-                                            <?php endif; ?>
-                                        </div>
 
                                         <form method="post" id="delete-vault-entry-<?= e((string) $vaultEntryId) ?>" class="vault-entry-delete-form">
                                             <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">

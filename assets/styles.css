@@ -1990,14 +1990,58 @@ textarea:focus {
 }
 
 .vault-summary-button {
-    width: 32px;
-    height: 32px;
+    width: auto;
+    min-height: 32px;
+    height: auto;
+    padding: 6px 10px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: rgba(228, 241, 255, 0.9);
 }
 
-.vault-summary-button span {
-    font-size: 1.06rem;
-    line-height: 1;
-    transform: translateY(-1px);
+.vault-summary-button-icon {
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.vault-summary-button-icon svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.vault-summary-button-label {
+    white-space: nowrap;
+}
+
+.vault-summary > span:last-child {
+    margin-left: 2px;
+}
+
+@media (max-width: 640px) {
+    .vault-summary-button {
+        min-height: 30px;
+        padding: 5px 8px;
+        font-size: 0.72rem;
+    }
+
+    .vault-summary-button-label {
+        max-width: 96px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 }
 
 .vault-groups-list {
