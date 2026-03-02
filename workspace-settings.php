@@ -110,6 +110,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash('success', 'Permissao de administrador concedida.');
                 redirectTo('workspace-settings.php');
 
+            case 'workspace_demote_member':
+                $workspaceId = activeWorkspaceId($currentUser);
+                if ($workspaceId === null) {
+                    throw new RuntimeException('Workspace ativo nao encontrado.');
+                }
+                if (!userCanManageWorkspace((int) $currentUser['id'], $workspaceId)) {
+                    throw new RuntimeException('Somente administradores podem alterar permissoes.');
+                }
+
+                $memberId = (int) ($_POST['member_id'] ?? 0);
+                if ($memberId <= 0) {
+                    throw new RuntimeException('Usuario invalido.');
+                }
+                if ($memberId === (int) $currentUser['id']) {
+                    throw new RuntimeException('Nao e possivel alterar a propria permissao.');
+                }
+
+                $targetRole = workspaceRoleForUser($memberId, $workspaceId);
+                if ($targetRole !== 'admin') {
+                    throw new RuntimeException('Este usuario nao e administrador.');
+                }
+
+                updateWorkspaceMemberRole($pdo, $workspaceId, $memberId, 'member');
+                flash('success', 'Permissao alterada para usuario.');
+                redirectTo('workspace-settings.php');
+
             case 'workspace_remove_member':
                 $workspaceId = activeWorkspaceId($currentUser);
                 if ($workspaceId === null) {
@@ -289,6 +315,13 @@ $flashes = getFlashes();
                                                         <input type="hidden" name="action" value="workspace_promote_member">
                                                         <input type="hidden" name="member_id" value="<?= e((string) $workspaceMemberId) ?>">
                                                         <button type="submit" class="btn btn-mini btn-ghost">Tornar admin</button>
+                                                    </form>
+                                                <?php else: ?>
+                                                    <form method="post" class="workspace-settings-member-remove">
+                                                        <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+                                                        <input type="hidden" name="action" value="workspace_demote_member">
+                                                        <input type="hidden" name="member_id" value="<?= e((string) $workspaceMemberId) ?>">
+                                                        <button type="submit" class="btn btn-mini btn-ghost">Tornar usuario</button>
                                                     </form>
                                                 <?php endif; ?>
                                                 <form method="post" class="workspace-settings-member-remove">

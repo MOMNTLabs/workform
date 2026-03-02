@@ -1454,6 +1454,38 @@ function workspaceAdminCount(int $workspaceId): int
     return (int) $stmt->fetchColumn();
 }
 
+function updateWorkspaceMemberRole(PDO $pdo, int $workspaceId, int $userId, string $role): void
+{
+    if ($workspaceId <= 0 || $userId <= 0) {
+        throw new RuntimeException('Usuario invalido.');
+    }
+
+    $nextRole = normalizeWorkspaceRole($role);
+    $currentRole = workspaceRoleForUser($userId, $workspaceId);
+    if ($currentRole === null) {
+        throw new RuntimeException('Usuario nao pertence a este workspace.');
+    }
+    if ($currentRole === $nextRole) {
+        return;
+    }
+
+    if ($currentRole === 'admin' && $nextRole !== 'admin' && workspaceAdminCount($workspaceId) <= 1) {
+        throw new RuntimeException('Mantenha pelo menos um administrador no workspace.');
+    }
+
+    $stmt = $pdo->prepare(
+        'UPDATE workspace_members
+         SET role = :role
+         WHERE workspace_id = :workspace_id
+           AND user_id = :user_id'
+    );
+    $stmt->execute([
+        ':role' => $nextRole,
+        ':workspace_id' => $workspaceId,
+        ':user_id' => $userId,
+    ]);
+}
+
 function removeWorkspaceMember(PDO $pdo, int $workspaceId, int $userId): void
 {
     if ($workspaceId <= 0 || $userId <= 0) {
