@@ -3697,6 +3697,8 @@ textarea:focus {
 .group-permissions-toggle {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    flex-direction: row;
     gap: 6px;
     min-height: 30px;
     padding: 4px 10px;
@@ -3706,14 +3708,59 @@ textarea:focus {
     font-size: 0.76rem;
     color: rgba(244, 247, 255, 0.86);
     white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color 160ms ease, background 160ms ease;
+}
+
+.form-stack label.group-permissions-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: row;
+    gap: 6px;
+}
+
+.form-stack label.group-permissions-toggle > span {
+    margin: 0;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1.15;
+    color: rgba(244, 247, 255, 0.86);
+}
+
+.group-permissions-toggle:hover,
+.group-permissions-toggle:focus-within {
+    border-color: rgba(122, 209, 255, 0.42);
+    background: rgba(26, 76, 126, 0.24);
 }
 
 .group-permissions-toggle input {
     margin: 0;
+    width: 15px;
+    height: 15px;
+    min-height: auto;
+    accent-color: #53caff;
+    cursor: pointer;
+}
+
+.group-permissions-toggle:has(input:checked) {
+    border-color: rgba(122, 209, 255, 0.5);
+    background: linear-gradient(120deg, rgba(59, 147, 255, 0.26), rgba(33, 102, 170, 0.2));
 }
 
 .group-permissions-toggle input:disabled + span {
     opacity: 0.72;
+}
+
+.group-permissions-toggle input:disabled {
+    cursor: not-allowed;
+}
+
+.group-permissions-toggle:has(input:disabled) {
+    opacity: 0.86;
+    cursor: default;
 }
 
 @media (max-width: 780px) {
