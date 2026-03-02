@@ -2949,11 +2949,15 @@ textarea:focus {
 
 .task-line-title {
     min-width: 0;
-    display: grid;
-    gap: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .task-title-input {
+    width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
     min-height: 34px;
     border-radius: 10px;
     border-color: transparent;
@@ -2971,6 +2975,7 @@ textarea:focus {
 
 .task-subtasks-progress {
     display: flex;
+    flex: 0 0 auto;
     align-items: center;
     gap: 8px;
     min-height: 16px;
