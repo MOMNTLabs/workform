@@ -2243,10 +2243,20 @@ textarea:focus {
 .due-entry-main {
     min-width: 0;
     display: grid;
-    gap: 2px;
+    gap: 4px;
+}
+
+.due-entry-headline {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
 .due-entry-title {
+    min-width: 0;
+    flex: 1 1 220px;
     font-size: 0.92rem;
     color: rgba(244, 248, 255, 0.96);
     overflow: hidden;
@@ -2254,9 +2264,26 @@ textarea:focus {
     white-space: nowrap;
 }
 
-.due-entry-date {
-    font-size: 0.8rem;
-    color: rgba(156, 216, 255, 0.88);
+.due-entry-schedule {
+    max-width: 100%;
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(120, 195, 255, 0.34);
+    background: rgba(13, 28, 50, 0.6);
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: rgba(180, 224, 255, 0.92);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.due-entry-schedule.is-fixed {
+    border-color: rgba(177, 193, 230, 0.34);
+    background: rgba(17, 26, 46, 0.6);
+    color: rgba(228, 236, 255, 0.9);
 }
 
 .due-entry-notes {
@@ -2265,6 +2292,16 @@ textarea:focus {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.due-entry-schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.due-entry-schedule-grid > label {
+    margin: 0;
 }
 
 .vault-entry-name-form,
@@ -4907,6 +4944,10 @@ textarea:focus {
     .due-entry-row {
         grid-template-columns: minmax(0, 1fr) auto;
     }
+
+    .due-entry-schedule-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 640px) {
@@ -5015,6 +5056,21 @@ textarea:focus {
     }
 
     .due-entry-row {
+        grid-template-columns: 1fr;
+    }
+
+    .due-entry-headline {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .due-entry-title {
+        width: 100%;
+        flex-basis: auto;
+    }
+
+    .due-entry-schedule-grid {
         grid-template-columns: 1fr;
     }
 

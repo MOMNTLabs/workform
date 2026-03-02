@@ -844,6 +844,8 @@ function ensureWorkspaceDueSchema(PDO $pdo): void
                 id BIGSERIAL PRIMARY KEY,
                 workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
                 label TEXT NOT NULL,
+                recurrence_type VARCHAR(16) NOT NULL DEFAULT \'monthly\',
+                monthly_day SMALLINT DEFAULT NULL,
                 due_date DATE DEFAULT NULL,
                 group_name TEXT NOT NULL DEFAULT \'Geral\',
                 notes TEXT NOT NULL DEFAULT \'\',
@@ -867,6 +869,8 @@ function ensureWorkspaceDueSchema(PDO $pdo): void
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 workspace_id INTEGER NOT NULL,
                 label TEXT NOT NULL,
+                recurrence_type TEXT NOT NULL DEFAULT \'monthly\',
+                monthly_day INTEGER DEFAULT NULL,
                 due_date TEXT DEFAULT NULL,
                 group_name TEXT NOT NULL DEFAULT \'Geral\',
                 notes TEXT NOT NULL DEFAULT \'\',
@@ -900,6 +904,20 @@ function ensureWorkspaceDueSchema(PDO $pdo): void
             $pdo->exec("ALTER TABLE workspace_due_entries ADD COLUMN due_date TEXT DEFAULT NULL");
         }
     }
+    if (!tableHasColumn($pdo, 'workspace_due_entries', 'recurrence_type')) {
+        if (dbDriverName($pdo) === 'pgsql') {
+            $pdo->exec("ALTER TABLE workspace_due_entries ADD COLUMN recurrence_type VARCHAR(16) NOT NULL DEFAULT 'monthly'");
+        } else {
+            $pdo->exec("ALTER TABLE workspace_due_entries ADD COLUMN recurrence_type TEXT NOT NULL DEFAULT 'monthly'");
+        }
+    }
+    if (!tableHasColumn($pdo, 'workspace_due_entries', 'monthly_day')) {
+        if (dbDriverName($pdo) === 'pgsql') {
+            $pdo->exec("ALTER TABLE workspace_due_entries ADD COLUMN monthly_day SMALLINT DEFAULT NULL");
+        } else {
+            $pdo->exec("ALTER TABLE workspace_due_entries ADD COLUMN monthly_day INTEGER DEFAULT NULL");
+        }
+    }
     if (!tableHasColumn($pdo, 'workspace_due_entries', 'notes')) {
         $pdo->exec("ALTER TABLE workspace_due_entries ADD COLUMN notes TEXT NOT NULL DEFAULT ''");
     }
@@ -911,6 +929,10 @@ function ensureWorkspaceDueSchema(PDO $pdo): void
     $pdo->exec(
         'CREATE INDEX IF NOT EXISTS idx_workspace_due_entries_workspace_due
          ON workspace_due_entries(workspace_id, due_date)'
+    );
+    $pdo->exec(
+        'CREATE INDEX IF NOT EXISTS idx_workspace_due_entries_workspace_monthly_day
+         ON workspace_due_entries(workspace_id, monthly_day)'
     );
     $pdo->exec(
         'CREATE INDEX IF NOT EXISTS idx_workspace_due_entries_workspace_group
@@ -926,21 +948,46 @@ function ensureWorkspaceDueSchema(PDO $pdo): void
     );
 
     $rows = $pdo->query(
-        'SELECT id, label, due_date, group_name
+        'SELECT id, label, recurrence_type, monthly_day, due_date, group_name
          FROM workspace_due_entries'
     )->fetchAll();
     if ($rows) {
         $normalizeStmt = $pdo->prepare(
             'UPDATE workspace_due_entries
              SET label = :label,
+                 recurrence_type = :recurrence_type,
+                 monthly_day = :monthly_day,
                  due_date = :due_date,
                  group_name = :group_name
              WHERE id = :id'
         );
         foreach ($rows as $row) {
+            $dueDate = dueDateForStorage((string) ($row['due_date'] ?? ''));
+            $recurrenceType = normalizeDueRecurrenceType((string) ($row['recurrence_type'] ?? 'monthly'));
+            $monthlyDay = normalizeDueMonthlyDay($row['monthly_day'] ?? null);
+            if ($monthlyDay === null && $dueDate !== null) {
+                $monthlyDay = dueMonthlyDayFromDate($dueDate);
+            }
+            if ($recurrenceType === 'monthly') {
+                if ($monthlyDay === null) {
+                    $monthlyDay = (int) (new DateTimeImmutable('today'))->format('j');
+                }
+            } else {
+                if ($dueDate === null) {
+                    $dueDate = (new DateTimeImmutable('today'))->format('Y-m-d');
+                }
+                $monthlyDay = null;
+            }
+            $nextDueDate = dueNextDueDate($recurrenceType, $monthlyDay, $dueDate);
+            if ($nextDueDate === null) {
+                $nextDueDate = (new DateTimeImmutable('today'))->format('Y-m-d');
+            }
+
             $normalizeStmt->execute([
                 ':label' => normalizeDueEntryLabel((string) ($row['label'] ?? '')),
-                ':due_date' => dueDateForStorage((string) ($row['due_date'] ?? '')),
+                ':recurrence_type' => $recurrenceType,
+                ':monthly_day' => $monthlyDay,
+                ':due_date' => $nextDueDate,
                 ':group_name' => normalizeDueGroupName((string) ($row['group_name'] ?? 'Geral')),
                 ':id' => (int) ($row['id'] ?? 0),
             ]);
@@ -2920,6 +2967,8 @@ function workspaceDueEntriesList(?int $workspaceId = null): array
         'SELECT de.id,
                 de.workspace_id,
                 de.label,
+                de.recurrence_type,
+                de.monthly_day,
                 de.due_date,
                 de.group_name,
                 de.notes,
@@ -2930,7 +2979,7 @@ function workspaceDueEntriesList(?int $workspaceId = null): array
          FROM workspace_due_entries de
          LEFT JOIN users u ON u.id = de.created_by
          WHERE de.workspace_id = :workspace_id
-         ORDER BY de.group_name ASC, de.due_date ASC, de.updated_at DESC, de.id DESC'
+         ORDER BY de.group_name ASC, de.updated_at DESC, de.id DESC'
     );
     $stmt->execute([':workspace_id' => $workspaceId]);
     $rows = $stmt->fetchAll();
@@ -2943,8 +2992,54 @@ function workspaceDueEntriesList(?int $workspaceId = null): array
         $row['due_date'] = dueDateForStorage((string) ($row['due_date'] ?? ''));
         $row['group_name'] = normalizeDueGroupName((string) ($row['group_name'] ?? 'Geral'));
         $row['notes'] = normalizeDueEntryNotes((string) ($row['notes'] ?? ''));
+        $row['recurrence_type'] = normalizeDueRecurrenceType((string) ($row['recurrence_type'] ?? 'monthly'));
+        $row['monthly_day'] = normalizeDueMonthlyDay($row['monthly_day'] ?? null);
+        if ($row['recurrence_type'] === 'monthly') {
+            if ($row['monthly_day'] === null && $row['due_date'] !== null) {
+                $row['monthly_day'] = dueMonthlyDayFromDate($row['due_date']);
+            }
+            if ($row['monthly_day'] === null) {
+                $row['monthly_day'] = (int) (new DateTimeImmutable('today'))->format('j');
+            }
+        } else {
+            $row['monthly_day'] = null;
+        }
+        $row['next_due_date'] = dueNextDueDate(
+            (string) $row['recurrence_type'],
+            $row['monthly_day'],
+            $row['due_date']
+        );
     }
     unset($row);
+
+    usort(
+        $rows,
+        static function (array $a, array $b): int {
+            $groupCompare = strcasecmp(
+                (string) ($a['group_name'] ?? ''),
+                (string) ($b['group_name'] ?? '')
+            );
+            if ($groupCompare !== 0) {
+                return $groupCompare;
+            }
+
+            $nextDueA = dueDateForStorage((string) ($a['next_due_date'] ?? ''));
+            $nextDueB = dueDateForStorage((string) ($b['next_due_date'] ?? ''));
+            $dateA = $nextDueA ?? '9999-12-31';
+            $dateB = $nextDueB ?? '9999-12-31';
+            if ($dateA !== $dateB) {
+                return strcmp($dateA, $dateB);
+            }
+
+            $updatedA = (string) ($a['updated_at'] ?? '');
+            $updatedB = (string) ($b['updated_at'] ?? '');
+            if ($updatedA !== $updatedB) {
+                return strcmp($updatedB, $updatedA);
+            }
+
+            return ((int) ($b['id'] ?? 0)) <=> ((int) ($a['id'] ?? 0));
+        }
+    );
 
     return $rows;
 }
@@ -2986,6 +3081,89 @@ function normalizeDueEntryNotes(string $value): string
     }
 
     return $value;
+}
+
+function normalizeDueRecurrenceType(string $value): string
+{
+    $normalized = mb_strtolower(trim($value));
+    return $normalized === 'fixed' ? 'fixed' : 'monthly';
+}
+
+function normalizeDueMonthlyDay($value): ?int
+{
+    if ($value === null) {
+        return null;
+    }
+
+    $raw = trim((string) $value);
+    if ($raw === '') {
+        return null;
+    }
+
+    $day = (int) $raw;
+    if ($day < 1 || $day > 31) {
+        return null;
+    }
+
+    return $day;
+}
+
+function dueMonthlyDayFromDate(?string $dueDate): ?int
+{
+    $normalizedDate = dueDateForStorage($dueDate);
+    if ($normalizedDate === null) {
+        return null;
+    }
+
+    $date = DateTimeImmutable::createFromFormat('Y-m-d', $normalizedDate);
+    if (!$date) {
+        return null;
+    }
+
+    return (int) $date->format('j');
+}
+
+function dueNextMonthlyDate(?int $monthlyDay, ?DateTimeImmutable $fromDate = null): ?string
+{
+    $monthlyDay = normalizeDueMonthlyDay($monthlyDay);
+    if ($monthlyDay === null) {
+        return null;
+    }
+
+    $baseDate = $fromDate instanceof DateTimeImmutable ? $fromDate : new DateTimeImmutable('today');
+    $year = (int) $baseDate->format('Y');
+    $month = (int) $baseDate->format('n');
+    $daysInMonth = (int) $baseDate->format('t');
+    $targetDay = min($monthlyDay, $daysInMonth);
+    $candidate = $baseDate->setDate($year, $month, $targetDay);
+
+    if ($candidate->format('Y-m-d') < $baseDate->format('Y-m-d')) {
+        $nextMonthBase = $baseDate->modify('first day of next month');
+        $nextYear = (int) $nextMonthBase->format('Y');
+        $nextMonth = (int) $nextMonthBase->format('n');
+        $nextDaysInMonth = (int) $nextMonthBase->format('t');
+        $nextTargetDay = min($monthlyDay, $nextDaysInMonth);
+        $candidate = $nextMonthBase->setDate($nextYear, $nextMonth, $nextTargetDay);
+    }
+
+    return $candidate->format('Y-m-d');
+}
+
+function dueNextDueDate(string $recurrenceType, ?int $monthlyDay, ?string $dueDate): ?string
+{
+    $recurrenceType = normalizeDueRecurrenceType($recurrenceType);
+    $dueDate = dueDateForStorage($dueDate);
+    $monthlyDay = normalizeDueMonthlyDay($monthlyDay);
+
+    if ($recurrenceType === 'fixed') {
+        return $dueDate;
+    }
+
+    if ($monthlyDay === null && $dueDate !== null) {
+        $monthlyDay = dueMonthlyDayFromDate($dueDate);
+    }
+
+    return dueNextMonthlyDate($monthlyDay);
 }
 
 function findDueGroupByName(string $groupName, ?int $workspaceId = null): ?string
@@ -3161,7 +3339,9 @@ function createWorkspaceDueEntry(
     ?string $dueDate,
     string $groupName = 'Geral',
     string $notes = '',
-    ?int $createdBy = null
+    ?int $createdBy = null,
+    string $recurrenceType = 'monthly',
+    $monthlyDay = null
 ): int {
     if ($workspaceId <= 0) {
         throw new RuntimeException('Workspace invalido.');
@@ -3172,9 +3352,23 @@ function createWorkspaceDueEntry(
         throw new RuntimeException('Informe um nome para o vencimento.');
     }
 
+    $recurrenceType = normalizeDueRecurrenceType($recurrenceType);
     $dueDate = dueDateForStorage($dueDate);
-    if ($dueDate === null) {
-        throw new RuntimeException('Informe uma data de vencimento valida.');
+    $monthlyDay = normalizeDueMonthlyDay($monthlyDay);
+
+    if ($recurrenceType === 'monthly') {
+        if ($monthlyDay === null && $dueDate !== null) {
+            $monthlyDay = dueMonthlyDayFromDate($dueDate);
+        }
+        if ($monthlyDay === null) {
+            throw new RuntimeException('Informe um dia valido para o vencimento mensal.');
+        }
+        $dueDate = dueNextMonthlyDate($monthlyDay);
+    } else {
+        if ($dueDate === null) {
+            throw new RuntimeException('Informe uma data de vencimento valida.');
+        }
+        $monthlyDay = null;
     }
 
     $groupName = normalizeDueGroupName($groupName);
@@ -3187,14 +3381,20 @@ function createWorkspaceDueEntry(
     if (dbDriverName($pdo) === 'pgsql') {
         $stmt = $pdo->prepare(
             'INSERT INTO workspace_due_entries (
-                workspace_id, label, due_date, group_name, notes, created_by, created_at, updated_at
+                workspace_id, label, recurrence_type, monthly_day, due_date, group_name, notes, created_by, created_at, updated_at
             ) VALUES (
-                :workspace_id, :label, :due_date, :group_name, :notes, :created_by, :created_at, :updated_at
+                :workspace_id, :label, :recurrence_type, :monthly_day, :due_date, :group_name, :notes, :created_by, :created_at, :updated_at
             )
             RETURNING id'
         );
         $stmt->bindValue(':workspace_id', $workspaceId, PDO::PARAM_INT);
         $stmt->bindValue(':label', $label, PDO::PARAM_STR);
+        $stmt->bindValue(':recurrence_type', $recurrenceType, PDO::PARAM_STR);
+        if ($monthlyDay !== null) {
+            $stmt->bindValue(':monthly_day', $monthlyDay, PDO::PARAM_INT);
+        } else {
+            $stmt->bindValue(':monthly_day', null, PDO::PARAM_NULL);
+        }
         $stmt->bindValue(':due_date', $dueDate, PDO::PARAM_STR);
         $stmt->bindValue(':group_name', $groupName, PDO::PARAM_STR);
         $stmt->bindValue(':notes', $notes, PDO::PARAM_STR);
@@ -3212,13 +3412,19 @@ function createWorkspaceDueEntry(
 
     $stmt = $pdo->prepare(
         'INSERT INTO workspace_due_entries (
-            workspace_id, label, due_date, group_name, notes, created_by, created_at, updated_at
+            workspace_id, label, recurrence_type, monthly_day, due_date, group_name, notes, created_by, created_at, updated_at
         ) VALUES (
-            :workspace_id, :label, :due_date, :group_name, :notes, :created_by, :created_at, :updated_at
+            :workspace_id, :label, :recurrence_type, :monthly_day, :due_date, :group_name, :notes, :created_by, :created_at, :updated_at
         )'
     );
     $stmt->bindValue(':workspace_id', $workspaceId, PDO::PARAM_INT);
     $stmt->bindValue(':label', $label, PDO::PARAM_STR);
+    $stmt->bindValue(':recurrence_type', $recurrenceType, PDO::PARAM_STR);
+    if ($monthlyDay !== null) {
+        $stmt->bindValue(':monthly_day', $monthlyDay, PDO::PARAM_INT);
+    } else {
+        $stmt->bindValue(':monthly_day', null, PDO::PARAM_NULL);
+    }
     $stmt->bindValue(':due_date', $dueDate, PDO::PARAM_STR);
     $stmt->bindValue(':group_name', $groupName, PDO::PARAM_STR);
     $stmt->bindValue(':notes', $notes, PDO::PARAM_STR);
@@ -3241,7 +3447,9 @@ function updateWorkspaceDueEntry(
     string $label,
     ?string $dueDate,
     string $groupName = 'Geral',
-    string $notes = ''
+    string $notes = '',
+    string $recurrenceType = 'monthly',
+    $monthlyDay = null
 ): void {
     if ($workspaceId <= 0 || $entryId <= 0) {
         throw new RuntimeException('Registro invalido.');
@@ -3252,9 +3460,23 @@ function updateWorkspaceDueEntry(
         throw new RuntimeException('Informe um nome para o vencimento.');
     }
 
+    $recurrenceType = normalizeDueRecurrenceType($recurrenceType);
     $dueDate = dueDateForStorage($dueDate);
-    if ($dueDate === null) {
-        throw new RuntimeException('Informe uma data de vencimento valida.');
+    $monthlyDay = normalizeDueMonthlyDay($monthlyDay);
+
+    if ($recurrenceType === 'monthly') {
+        if ($monthlyDay === null && $dueDate !== null) {
+            $monthlyDay = dueMonthlyDayFromDate($dueDate);
+        }
+        if ($monthlyDay === null) {
+            throw new RuntimeException('Informe um dia valido para o vencimento mensal.');
+        }
+        $dueDate = dueNextMonthlyDate($monthlyDay);
+    } else {
+        if ($dueDate === null) {
+            throw new RuntimeException('Informe uma data de vencimento valida.');
+        }
+        $monthlyDay = null;
     }
 
     $groupName = normalizeDueGroupName($groupName);
@@ -3264,6 +3486,8 @@ function updateWorkspaceDueEntry(
     $stmt = $pdo->prepare(
         'UPDATE workspace_due_entries
          SET label = :label,
+             recurrence_type = :recurrence_type,
+             monthly_day = :monthly_day,
              due_date = :due_date,
              group_name = :group_name,
              notes = :notes,
@@ -3273,6 +3497,8 @@ function updateWorkspaceDueEntry(
     );
     $stmt->execute([
         ':label' => $label,
+        ':recurrence_type' => $recurrenceType,
+        ':monthly_day' => $monthlyDay,
         ':due_date' => $dueDate,
         ':group_name' => $groupName,
         ':notes' => $notes,

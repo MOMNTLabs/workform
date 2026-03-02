@@ -1088,8 +1088,28 @@
                                     $dueEntryId = (int) ($dueEntry['id'] ?? 0);
                                     $dueLabel = (string) ($dueEntry['label'] ?? '');
                                     $dueDateValue = dueDateForStorage((string) ($dueEntry['due_date'] ?? ''));
-                                    $dueDatePresentation = taskDueDatePresentation($dueDateValue);
-                                    $dueDateDisplay = (string) ($dueDatePresentation['display'] ?? '-');
+                                    $dueRecurrenceType = normalizeDueRecurrenceType((string) ($dueEntry['recurrence_type'] ?? 'monthly'));
+                                    $dueMonthlyDay = normalizeDueMonthlyDay($dueEntry['monthly_day'] ?? null);
+                                    if ($dueRecurrenceType === 'monthly' && $dueMonthlyDay === null) {
+                                        $dueMonthlyDay = dueMonthlyDayFromDate($dueDateValue);
+                                    }
+                                    $dueNextDateValue = dueDateForStorage((string) ($dueEntry['next_due_date'] ?? ''));
+                                    if ($dueNextDateValue === null) {
+                                        $dueNextDateValue = dueNextDueDate($dueRecurrenceType, $dueMonthlyDay, $dueDateValue);
+                                    }
+                                    $dueNextPresentation = taskDueDatePresentation($dueNextDateValue);
+                                    $dueNextDisplay = (string) ($dueNextPresentation['display'] ?? '-');
+                                    $dueNextTitle = (string) ($dueNextPresentation['title'] ?? $dueNextDisplay);
+                                    if ($dueRecurrenceType === 'monthly') {
+                                        $dueMonthlyDayLabel = $dueMonthlyDay !== null
+                                            ? str_pad((string) $dueMonthlyDay, 2, '0', STR_PAD_LEFT)
+                                            : '--';
+                                        $dueScheduleLabel = 'Mensal - dia ' . $dueMonthlyDayLabel . ' - Prox.: ' . $dueNextDisplay;
+                                        $dueScheduleTitle = 'Vencimento mensal no dia ' . $dueMonthlyDayLabel . '. Proximo: ' . $dueNextTitle;
+                                    } else {
+                                        $dueScheduleLabel = 'Data definida - ' . $dueNextDisplay;
+                                        $dueScheduleTitle = 'Vencimento em ' . $dueNextTitle;
+                                    }
                                     $dueGroupValue = (string) ($dueEntry['group_name'] ?? $dueGroupName);
                                     $dueNotes = trim((string) ($dueEntry['notes'] ?? ''));
                                     ?>
@@ -1099,12 +1119,20 @@
                                         data-entry-id="<?= e((string) $dueEntryId) ?>"
                                         data-entry-label="<?= e($dueLabel) ?>"
                                         data-entry-date="<?= e((string) ($dueDateValue ?? '')) ?>"
+                                        data-entry-next-date="<?= e((string) ($dueNextDateValue ?? '')) ?>"
+                                        data-entry-recurrence-type="<?= e($dueRecurrenceType) ?>"
+                                        data-entry-monthly-day="<?= e((string) ($dueMonthlyDay ?? '')) ?>"
                                         data-entry-group="<?= e($dueGroupValue) ?>"
                                         data-entry-notes="<?= e($dueNotes) ?>"
                                     >
                                         <div class="due-entry-main">
-                                            <strong class="due-entry-title"><?= e($dueLabel) ?></strong>
-                                            <span class="due-entry-date"><?= e($dueDateDisplay) ?></span>
+                                            <div class="due-entry-headline">
+                                                <strong class="due-entry-title"><?= e($dueLabel) ?></strong>
+                                                <span
+                                                    class="due-entry-schedule<?= $dueRecurrenceType === 'monthly' ? ' is-monthly' : ' is-fixed' ?>"
+                                                    title="<?= e($dueScheduleTitle) ?>"
+                                                ><?= e($dueScheduleLabel) ?></span>
+                                            </div>
                                             <?php if ($dueNotes !== ''): ?>
                                                 <span class="due-entry-notes"><?= e($dueNotes) ?></span>
                                             <?php endif; ?>
@@ -1636,9 +1664,24 @@
             </label>
 
             <label>
-                <span>Data de vencimento</span>
-                <input type="date" name="due_date" required data-due-entry-date>
+                <span>Recorrencia</span>
+                <select name="recurrence_type" data-due-entry-recurrence>
+                    <option value="monthly" selected>Mensal</option>
+                    <option value="fixed">Data definida (nao periodica)</option>
+                </select>
             </label>
+
+            <div class="due-entry-schedule-grid">
+                <label data-due-entry-monthly-wrap>
+                    <span>Dia do mes</span>
+                    <input type="number" name="monthly_day" min="1" max="31" step="1" data-due-entry-monthly-day>
+                </label>
+
+                <label data-due-entry-fixed-wrap hidden>
+                    <span>Data definida</span>
+                    <input type="date" name="due_date" data-due-entry-date>
+                </label>
+            </div>
 
             <label>
                 <span>Observacao (opcional)</span>
@@ -1687,9 +1730,24 @@
             </label>
 
             <label>
-                <span>Data de vencimento</span>
-                <input type="date" name="due_date" required data-due-entry-edit-date>
+                <span>Recorrencia</span>
+                <select name="recurrence_type" data-due-entry-edit-recurrence>
+                    <option value="monthly">Mensal</option>
+                    <option value="fixed">Data definida (nao periodica)</option>
+                </select>
             </label>
+
+            <div class="due-entry-schedule-grid">
+                <label data-due-entry-edit-monthly-wrap>
+                    <span>Dia do mes</span>
+                    <input type="number" name="monthly_day" min="1" max="31" step="1" data-due-entry-edit-monthly-day>
+                </label>
+
+                <label data-due-entry-edit-fixed-wrap hidden>
+                    <span>Data definida</span>
+                    <input type="date" name="due_date" data-due-entry-edit-date>
+                </label>
+            </div>
 
             <label>
                 <span>Observacao (opcional)</span>
