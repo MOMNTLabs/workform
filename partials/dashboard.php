@@ -186,14 +186,13 @@
 
             <form method="get" class="task-filters" id="task-filters" data-task-filter-form>
                 <label>
-                    <span>Grupo</span>
                     <?php $groupFilterValue = (string) ($groupFilter ?? ''); ?>
                     <div class="tag-field row-inline-picker-wrap" data-inline-select-wrap>
                         <details class="row-inline-picker filter-inline-picker" data-inline-select-picker>
                             <summary aria-label="Filtrar por grupo">
                                 <span class="row-inline-picker-summary-text" data-inline-select-text>
                                     <?php if ($groupFilterValue === ''): ?>
-                                        Todos
+                                        Todos Grupos
                                     <?php else: ?>
                                         <?= e($groupFilterValue) ?>
                                     <?php endif; ?>
@@ -205,10 +204,10 @@
                                     class="row-inline-picker-option<?= $groupFilterValue === '' ? ' is-active' : '' ?>"
                                     data-inline-select-option
                                     data-value=""
-                                    data-label="Todos"
+                                    data-label="Todos Grupos"
                                     role="option"
                                     aria-selected="<?= $groupFilterValue === '' ? 'true' : 'false' ?>"
-                                >Todos</button>
+                                >Todos Grupos</button>
                                 <?php foreach ($taskGroups as $groupOption): ?>
                                     <button
                                         type="button"
@@ -228,7 +227,7 @@
                             data-inline-select-source
                             hidden
                         >
-                            <option value="">Todos</option>
+                            <option value="">Todos Grupos</option>
                             <?php foreach ($taskGroups as $groupOption): ?>
                                 <option value="<?= e((string) $groupOption) ?>"<?= $groupFilterValue === (string) $groupOption ? ' selected' : '' ?>>
                                     <?= e((string) $groupOption) ?>
@@ -239,17 +238,16 @@
                 </label>
 
                 <label>
-                    <span>Responsavel</span>
                     <?php $assigneeFilterValue = $assigneeFilterId !== null ? (string) $assigneeFilterId : ''; ?>
                     <div class="tag-field row-inline-picker-wrap" data-inline-select-wrap>
                         <details class="row-inline-picker filter-inline-picker" data-inline-select-picker>
                             <summary aria-label="Filtrar por responsavel">
                                 <span class="row-inline-picker-summary-text" data-inline-select-text>
                                     <?php if ($assigneeFilterValue === ''): ?>
-                                        Todos
+                                        Todos Responsáveis
                                     <?php else: ?>
                                         <?php
-                                        $assigneeLabel = 'Todos';
+                                        $assigneeLabel = 'Todos Responsáveis';
                                         foreach ($users as $user) {
                                             if ((string) ((int) $user['id']) === $assigneeFilterValue) {
                                                 $assigneeLabel = (string) $user['name'];
@@ -267,10 +265,10 @@
                                     class="row-inline-picker-option<?= $assigneeFilterValue === '' ? ' is-active' : '' ?>"
                                     data-inline-select-option
                                     data-value=""
-                                    data-label="Todos"
+                                    data-label="Todos Responsáveis"
                                     role="option"
                                     aria-selected="<?= $assigneeFilterValue === '' ? 'true' : 'false' ?>"
-                                >Todos</button>
+                                >Todos Responsáveis</button>
                                 <?php foreach ($users as $user): ?>
                                     <?php $optionValue = (string) ((int) $user['id']); ?>
                                     <button
@@ -286,7 +284,7 @@
                             </div>
                         </details>
                         <select name="assignee" class="tag-select row-inline-picker-native" data-inline-select-source hidden>
-                            <option value="">Todos</option>
+                            <option value="">Todos Responsáveis</option>
                             <?php foreach ($users as $user): ?>
                                 <option value="<?= e((string) $user['id']) ?>"<?= $assigneeFilterId === (int) $user['id'] ? ' selected' : '' ?>>
                                     <?= e((string) $user['name']) ?>

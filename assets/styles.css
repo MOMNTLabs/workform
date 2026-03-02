@@ -2942,7 +2942,7 @@ textarea:focus {
 
 .task-line-row {
     display: grid;
-    grid-template-columns: minmax(220px, 1.9fr) 190px 168px 168px 138px 18px 20px;
+    grid-template-columns: minmax(220px, 2fr) 190px 52px 168px 138px 18px 20px;
     gap: 6px;
     align-items: center;
 }
@@ -3209,23 +3209,27 @@ textarea:focus {
     font-size: 0.92rem;
     letter-spacing: 0;
     color: #e9d2a2;
-    min-width: 0;
-    padding-left: 12px;
-    padding-right: 22px;
+    width: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0;
+    border-radius: 999px;
     border-color: rgba(255, 255, 255, 0.12);
     background: rgba(255, 255, 255, 0.03);
 }
 
 .priority-inline-picker > summary::after {
-    right: 9px;
+    display: none;
 }
 
 .priority-inline-picker .row-inline-picker-summary-icon {
     line-height: 1;
+    font-size: 0.86rem;
+    transform: translateY(-0.5px);
 }
 
 .tag-field-priority.row-inline-picker-wrap {
-    width: 88px;
+    width: 44px;
     justify-self: center;
 }
 
