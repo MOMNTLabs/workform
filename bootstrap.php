@@ -150,6 +150,7 @@ function migrate(PDO $pdo): void
         migrateSqlite($pdo);
     }
 
+    ensureAppMetaSchema($pdo);
     ensureWorkspaceSchema($pdo);
     ensureWorkspaceVaultSchema($pdo);
     ensureWorkspaceDueSchema($pdo);
@@ -293,6 +294,81 @@ function migratePostgres(PDO $pdo): void
             created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL
         )'
     );
+}
+
+function ensureAppMetaSchema(PDO $pdo): void
+{
+    if (dbDriverName($pdo) === 'pgsql') {
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS app_meta (
+                meta_key TEXT PRIMARY KEY,
+                meta_value TEXT NOT NULL DEFAULT \'\',
+                updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL
+            )'
+        );
+        return;
+    }
+
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS app_meta (
+            meta_key TEXT PRIMARY KEY,
+            meta_value TEXT NOT NULL DEFAULT \'\',
+            updated_at TEXT NOT NULL
+        )'
+    );
+}
+
+function appMetaGet(PDO $pdo, string $metaKey): ?string
+{
+    $metaKey = trim($metaKey);
+    if ($metaKey === '') {
+        return null;
+    }
+
+    $stmt = $pdo->prepare(
+        'SELECT meta_value
+         FROM app_meta
+         WHERE meta_key = :meta_key
+         LIMIT 1'
+    );
+    $stmt->execute([':meta_key' => $metaKey]);
+    $value = $stmt->fetchColumn();
+    if (!is_string($value)) {
+        return null;
+    }
+
+    return $value;
+}
+
+function appMetaSet(PDO $pdo, string $metaKey, string $metaValue): void
+{
+    $metaKey = trim($metaKey);
+    if ($metaKey === '') {
+        return;
+    }
+
+    $updatedAt = nowIso();
+    if (dbDriverName($pdo) === 'pgsql') {
+        $stmt = $pdo->prepare(
+            'INSERT INTO app_meta (meta_key, meta_value, updated_at)
+             VALUES (:meta_key, :meta_value, :updated_at)
+             ON CONFLICT (meta_key)
+             DO UPDATE SET
+                meta_value = EXCLUDED.meta_value,
+                updated_at = EXCLUDED.updated_at'
+        );
+    } else {
+        $stmt = $pdo->prepare(
+            'INSERT OR REPLACE INTO app_meta (meta_key, meta_value, updated_at)
+             VALUES (:meta_key, :meta_value, :updated_at)'
+        );
+    }
+
+    $stmt->execute([
+        ':meta_key' => $metaKey,
+        ':meta_value' => $metaValue,
+        ':updated_at' => $updatedAt,
+    ]);
 }
 
 function ensureWorkspaceSchema(PDO $pdo): void
@@ -497,21 +573,29 @@ function ensureWorkspaceSchema(PDO $pdo): void
 
 function ensureTaskExtendedSchema(PDO $pdo): void
 {
+    $needsBackfill = false;
+    $backfillMetaKey = 'task_extended_backfill_v3';
+
     if (!tableHasColumn($pdo, 'tasks', 'group_name')) {
         $pdo->exec("ALTER TABLE tasks ADD COLUMN group_name TEXT NOT NULL DEFAULT 'Geral'");
+        $needsBackfill = true;
     }
 
     if (!tableHasColumn($pdo, 'tasks', 'assignee_ids_json')) {
         $pdo->exec("ALTER TABLE tasks ADD COLUMN assignee_ids_json TEXT NOT NULL DEFAULT '[]'");
+        $needsBackfill = true;
     }
     if (!tableHasColumn($pdo, 'tasks', 'reference_links_json')) {
         $pdo->exec("ALTER TABLE tasks ADD COLUMN reference_links_json TEXT NOT NULL DEFAULT '[]'");
+        $needsBackfill = true;
     }
     if (!tableHasColumn($pdo, 'tasks', 'reference_images_json')) {
         $pdo->exec("ALTER TABLE tasks ADD COLUMN reference_images_json TEXT NOT NULL DEFAULT '[]'");
+        $needsBackfill = true;
     }
     if (!tableHasColumn($pdo, 'tasks', 'overdue_flag')) {
         $pdo->exec("ALTER TABLE tasks ADD COLUMN overdue_flag INTEGER NOT NULL DEFAULT 0");
+        $needsBackfill = true;
     }
     if (!tableHasColumn($pdo, 'tasks', 'overdue_since_date')) {
         if (dbDriverName($pdo) === 'pgsql') {
@@ -519,13 +603,23 @@ function ensureTaskExtendedSchema(PDO $pdo): void
         } else {
             $pdo->exec("ALTER TABLE tasks ADD COLUMN overdue_since_date TEXT DEFAULT NULL");
         }
+        $needsBackfill = true;
     }
     if (!tableHasColumn($pdo, 'tasks', 'subtasks_json')) {
         $pdo->exec("ALTER TABLE tasks ADD COLUMN subtasks_json TEXT NOT NULL DEFAULT '[]'");
+        $needsBackfill = true;
+    }
+
+    if (!$needsBackfill && appMetaGet($pdo, $backfillMetaKey) === '1') {
+        return;
     }
 
     $stmt = $pdo->query('SELECT id, assigned_to, group_name, assignee_ids_json, reference_links_json, reference_images_json, subtasks_json FROM tasks');
     $rows = $stmt ? $stmt->fetchAll() : [];
+    if (!$rows) {
+        appMetaSet($pdo, $backfillMetaKey, '1');
+        return;
+    }
 
     $update = $pdo->prepare(
         'UPDATE tasks
@@ -556,6 +650,8 @@ function ensureTaskExtendedSchema(PDO $pdo): void
             ':id' => (int) $row['id'],
         ]);
     }
+
+    appMetaSet($pdo, $backfillMetaKey, '1');
 }
 
 function ensureTaskHistorySchema(PDO $pdo): void

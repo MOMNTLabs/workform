@@ -1913,10 +1913,6 @@ if ($groupFilter !== null && !in_array($groupFilter, $taskGroups, true)) {
 $assigneeFilterId = isset($_GET['assignee']) ? (int) $_GET['assignee'] : null;
 $assigneeFilterId = $assigneeFilterId && $assigneeFilterId > 0 ? $assigneeFilterId : null;
 
-if ($currentUser && $currentWorkspaceId !== null) {
-    applyOverdueTaskPolicy($currentWorkspaceId);
-}
-
 $taskVisibleKeys = [];
 foreach ($taskGroups as $taskGroupName) {
     $taskVisibleKeys[mb_strtolower(normalizeTaskGroupName($taskGroupName))] = true;
