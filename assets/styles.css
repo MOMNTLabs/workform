@@ -2621,6 +2621,21 @@ textarea:focus {
 
 .task-groups-list.is-reorder-mode .task-group {
     cursor: grab;
+    user-select: none;
+}
+
+.task-groups-list.is-reorder-mode .task-group-head {
+    cursor: grab;
+}
+
+.task-groups-list.is-reorder-mode .task-group-head:active {
+    cursor: grabbing;
+}
+
+.task-groups-list.is-reorder-mode .task-group-rename-form,
+.task-groups-list.is-reorder-mode .task-group-head-actions,
+.task-groups-list.is-reorder-mode .task-list-rows {
+    pointer-events: none;
 }
 
 .task-groups-list.is-reorder-mode .task-group:hover {

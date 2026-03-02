@@ -1939,17 +1939,14 @@ window.addEventListener("DOMContentLoaded", () => {
     if (!(target instanceof HTMLElement)) return;
 
     if (taskGroupReorderMode) {
-      const groupSection = target.closest("[data-task-group]");
+      const dragSource = target.closest(".task-group-head, [data-task-group]");
+      const groupSection = dragSource?.closest("[data-task-group]");
       if (!(groupSection instanceof HTMLElement)) {
         event.preventDefault();
         return;
       }
 
-      if (!target.closest(".task-group-head")) {
-        event.preventDefault();
-        return;
-      }
-      if (target.closest("input, select, textarea, button, summary, label, a")) {
+      if (groupSection.getAttribute("draggable") !== "true") {
         event.preventDefault();
         return;
       }
@@ -2711,6 +2708,10 @@ window.addEventListener("DOMContentLoaded", () => {
 
     getTaskGroupSections().forEach((section) => {
       section.setAttribute("draggable", shouldEnable ? "true" : "false");
+      const head = section.querySelector(".task-group-head");
+      if (head instanceof HTMLElement) {
+        head.setAttribute("draggable", shouldEnable ? "true" : "false");
+      }
     });
 
     document.querySelectorAll("[data-task-item]").forEach((taskItem) => {
