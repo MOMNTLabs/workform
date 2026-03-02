@@ -577,8 +577,9 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   document.addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
+    const target =
+      event.target instanceof Element ? event.target : event.target?.parentElement;
+    if (!(target instanceof Element)) return;
     const formatButton = target.closest("[data-task-detail-description-format]");
     if (!formatButton) return;
     event.preventDefault();
@@ -3550,8 +3551,9 @@ window.addEventListener("DOMContentLoaded", () => {
   };
 
   document.addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
+    const target =
+      event.target instanceof Element ? event.target : event.target?.parentElement;
+    if (!(target instanceof Element)) return;
 
     if (
       fabWrap &&
