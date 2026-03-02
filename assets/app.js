@@ -1903,12 +1903,21 @@ window.addEventListener("DOMContentLoaded", () => {
 
   let draggedTaskItem = null;
   let activeDropzone = null;
+  let activeTaskGroupDropTarget = null;
 
   const clearDropzoneHighlight = () => {
     document
       .querySelectorAll(".task-list-rows.is-drop-target")
       .forEach((zone) => zone.classList.remove("is-drop-target"));
     activeDropzone = null;
+  };
+
+  const clearTaskGroupDropTarget = () => {
+    if (activeTaskGroupDropTarget instanceof HTMLElement) {
+      activeTaskGroupDropTarget.classList.remove("is-group-drop-before", "is-group-drop-after");
+    }
+    activeTaskGroupDropTarget = null;
+    clearTaskGroupDropIndicators();
   };
 
   const getTaskGroupField = (taskItem) => {
@@ -1928,6 +1937,38 @@ window.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("dragstart", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
+
+    if (taskGroupReorderMode) {
+      const groupSection = target.closest("[data-task-group]");
+      if (!(groupSection instanceof HTMLElement)) {
+        event.preventDefault();
+        return;
+      }
+
+      if (!target.closest(".task-group-head")) {
+        event.preventDefault();
+        return;
+      }
+      if (target.closest("input, select, textarea, button, summary, label, a")) {
+        event.preventDefault();
+        return;
+      }
+
+      draggedTaskGroup = groupSection;
+      draggedTaskGroupInitialOrder = getCurrentTaskGroupOrder();
+      groupSection.classList.add("is-group-dragging");
+      clearTaskGroupDropTarget();
+
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+        try {
+          event.dataTransfer.setData("text/plain", groupSection.dataset.groupName || "group");
+        } catch (e) {
+          // noop
+        }
+      }
+      return;
+    }
 
     const taskItem = target.closest("[data-task-item]");
     if (!(taskItem instanceof HTMLElement)) return;
@@ -1962,6 +2003,20 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   document.addEventListener("dragend", () => {
+    if (draggedTaskGroup instanceof HTMLElement) {
+      draggedTaskGroup.classList.remove("is-group-dragging");
+      clearTaskGroupDropTarget();
+      const finalOrder = getCurrentTaskGroupOrder();
+      if (draggedTaskGroupInitialOrder.join("|") !== finalOrder.join("|")) {
+        persistTaskGroupOrder();
+        if (typeof syncTaskGroupInputs === "function") {
+          syncTaskGroupInputs();
+        }
+      }
+    }
+    draggedTaskGroup = null;
+    draggedTaskGroupInitialOrder = [];
+
     if (draggedTaskItem) {
       draggedTaskItem.classList.remove("is-dragging", "drag-ghost");
     }
@@ -1971,7 +2026,40 @@ window.addEventListener("DOMContentLoaded", () => {
 
   document.addEventListener("dragover", (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLElement) || !draggedTaskItem) return;
+    if (!(target instanceof HTMLElement)) return;
+
+    if (draggedTaskGroup instanceof HTMLElement) {
+      const overGroup = target.closest("[data-task-group]");
+      if (!(overGroup instanceof HTMLElement) || overGroup === draggedTaskGroup) {
+        return;
+      }
+      if (
+        !(taskGroupsListElement instanceof HTMLElement) ||
+        overGroup.parentElement !== taskGroupsListElement ||
+        draggedTaskGroup.parentElement !== taskGroupsListElement
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "move";
+      }
+
+      clearTaskGroupDropIndicators();
+      const overRect = overGroup.getBoundingClientRect();
+      const placeAfter = event.clientY > overRect.top + overRect.height / 2;
+      overGroup.classList.add(placeAfter ? "is-group-drop-after" : "is-group-drop-before");
+      activeTaskGroupDropTarget = overGroup;
+
+      const referenceNode = placeAfter ? overGroup.nextElementSibling : overGroup;
+      if (referenceNode !== draggedTaskGroup) {
+        taskGroupsListElement.insertBefore(draggedTaskGroup, referenceNode);
+      }
+      return;
+    }
+
+    if (!draggedTaskItem) return;
 
     const dropzone = target.closest("[data-task-dropzone]");
     if (!(dropzone instanceof HTMLElement)) return;
@@ -1993,6 +2081,22 @@ window.addEventListener("DOMContentLoaded", () => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
 
+    if (draggedTaskGroup instanceof HTMLElement) {
+      const overGroup = target.closest("[data-task-group]");
+      if (!(overGroup instanceof HTMLElement)) return;
+
+      const related = event.relatedTarget;
+      if (related instanceof Node && overGroup.contains(related)) {
+        return;
+      }
+
+      overGroup.classList.remove("is-group-drop-before", "is-group-drop-after");
+      if (activeTaskGroupDropTarget === overGroup) {
+        activeTaskGroupDropTarget = null;
+      }
+      return;
+    }
+
     const dropzone = target.closest("[data-task-dropzone]");
     if (!(dropzone instanceof HTMLElement)) return;
 
@@ -2009,7 +2113,18 @@ window.addEventListener("DOMContentLoaded", () => {
 
   document.addEventListener("drop", (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLElement) || !draggedTaskItem) return;
+    if (!(target instanceof HTMLElement)) return;
+
+    if (draggedTaskGroup instanceof HTMLElement) {
+      const overGroup = target.closest("[data-task-group]");
+      if (overGroup instanceof HTMLElement) {
+        event.preventDefault();
+      }
+      clearTaskGroupDropTarget();
+      return;
+    }
+
+    if (!draggedTaskItem) return;
 
     const dropzone = target.closest("[data-task-dropzone]");
     if (!(dropzone instanceof HTMLElement)) return;
@@ -2258,6 +2373,10 @@ window.addEventListener("DOMContentLoaded", () => {
   const fabMenu = document.querySelector("[data-task-fab-menu]");
   const taskGroupsDatalist = document.querySelector("#task-group-options");
   const taskFilterForm = document.querySelector("[data-task-filter-form]");
+  const taskGroupsListElement = document.querySelector("[data-task-groups-list]");
+  const taskGroupReorderButtons = Array.from(
+    document.querySelectorAll("[data-toggle-task-group-reorder]")
+  );
   const dashboardViewPanels = Array.from(
     document.querySelectorAll("[data-dashboard-view-panel]")
   );
@@ -2443,6 +2562,171 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     return "Geral";
+  };
+
+  let taskGroupReorderMode = false;
+  let draggedTaskGroup = null;
+  let draggedTaskGroupInitialOrder = [];
+
+  const normalizeTaskGroupNameKey = (value) =>
+    String(value || "").trim().toLocaleLowerCase("pt-BR");
+
+  const getTaskGroupOrderStorageKey = () => {
+    const workspaceId = String(document.body?.dataset?.workspaceId || "").trim() || "default";
+    return `wf_task_group_order:${workspaceId}`;
+  };
+
+  const getTaskGroupSections = () => {
+    if (!(taskGroupsListElement instanceof HTMLElement)) return [];
+    return Array.from(taskGroupsListElement.querySelectorAll("[data-task-group]")).filter(
+      (section) => section instanceof HTMLElement
+    );
+  };
+
+  const getCurrentTaskGroupOrder = () =>
+    getTaskGroupSections()
+      .map((section) => String(section.dataset.groupName || "").trim())
+      .filter((name) => name !== "");
+
+  const persistTaskGroupOrder = () => {
+    if (!window.localStorage) return;
+    const key = getTaskGroupOrderStorageKey();
+    const order = getCurrentTaskGroupOrder();
+    try {
+      if (!order.length) {
+        window.localStorage.removeItem(key);
+        return;
+      }
+      window.localStorage.setItem(key, JSON.stringify(order));
+    } catch (error) {
+      // noop
+    }
+  };
+
+  const replaceStoredTaskGroupName = (oldName, nextName) => {
+    if (!window.localStorage) return;
+
+    const previous = String(oldName || "").trim();
+    const current = String(nextName || "").trim();
+    if (!previous || !current) return;
+
+    const key = getTaskGroupOrderStorageKey();
+    let order = [];
+    try {
+      const raw = window.localStorage.getItem(key);
+      const decoded = raw ? JSON.parse(raw) : [];
+      order = Array.isArray(decoded) ? decoded.map((value) => String(value || "").trim()) : [];
+    } catch (error) {
+      order = [];
+    }
+
+    if (!order.length) return;
+
+    const previousKey = normalizeTaskGroupNameKey(previous);
+    let changed = false;
+    order = order.map((value) => {
+      if (!value || normalizeTaskGroupNameKey(value) !== previousKey) {
+        return value;
+      }
+      changed = true;
+      return current;
+    });
+
+    if (!changed) return;
+
+    try {
+      window.localStorage.setItem(key, JSON.stringify(order));
+    } catch (error) {
+      // noop
+    }
+  };
+
+  const applyStoredTaskGroupOrder = () => {
+    if (!(taskGroupsListElement instanceof HTMLElement) || !window.localStorage) return;
+
+    const key = getTaskGroupOrderStorageKey();
+    let storedOrder = [];
+    try {
+      const raw = window.localStorage.getItem(key);
+      const decoded = raw ? JSON.parse(raw) : [];
+      storedOrder = Array.isArray(decoded) ? decoded : [];
+    } catch (error) {
+      storedOrder = [];
+    }
+
+    if (!storedOrder.length) return;
+
+    const sectionsByKey = new Map();
+    getTaskGroupSections().forEach((section) => {
+      const groupName = String(section.dataset.groupName || "").trim();
+      if (!groupName) return;
+      sectionsByKey.set(normalizeTaskGroupNameKey(groupName), section);
+    });
+
+    if (!sectionsByKey.size) return;
+
+    let moved = false;
+    storedOrder.forEach((groupNameRaw) => {
+      const keyName = normalizeTaskGroupNameKey(groupNameRaw);
+      const section = sectionsByKey.get(keyName);
+      if (!(section instanceof HTMLElement)) return;
+      taskGroupsListElement.append(section);
+      sectionsByKey.delete(keyName);
+      moved = true;
+    });
+
+    sectionsByKey.forEach((section) => {
+      taskGroupsListElement.append(section);
+    });
+
+    if (moved && typeof syncTaskGroupInputs === "function") {
+      syncTaskGroupInputs();
+    }
+  };
+
+  const clearTaskGroupDropIndicators = () => {
+    if (!(taskGroupsListElement instanceof HTMLElement)) return;
+    taskGroupsListElement
+      .querySelectorAll(".task-group.is-group-drop-before, .task-group.is-group-drop-after")
+      .forEach((section) => section.classList.remove("is-group-drop-before", "is-group-drop-after"));
+  };
+
+  const setTaskGroupReorderMode = (enabled) => {
+    const shouldEnable = Boolean(enabled) && taskGroupsListElement instanceof HTMLElement;
+    taskGroupReorderMode = shouldEnable;
+
+    if (taskGroupsListElement instanceof HTMLElement) {
+      taskGroupsListElement.classList.toggle("is-reorder-mode", shouldEnable);
+    }
+
+    taskGroupReorderButtons.forEach((button) => {
+      if (!(button instanceof HTMLElement)) return;
+      button.classList.toggle("is-active", shouldEnable);
+      button.setAttribute("aria-pressed", shouldEnable ? "true" : "false");
+      button.setAttribute(
+        "aria-label",
+        shouldEnable ? "Desativar organizacao de grupos" : "Ativar organizacao de grupos"
+      );
+    });
+
+    getTaskGroupSections().forEach((section) => {
+      section.setAttribute("draggable", shouldEnable ? "true" : "false");
+    });
+
+    document.querySelectorAll("[data-task-item]").forEach((taskItem) => {
+      if (!(taskItem instanceof HTMLElement)) return;
+      const canDragTask = (taskItem.dataset.taskReadonly || "0") !== "1";
+      taskItem.setAttribute("draggable", !shouldEnable && canDragTask ? "true" : "false");
+    });
+
+    if (!shouldEnable) {
+      clearTaskGroupDropIndicators();
+      if (draggedTaskGroup instanceof HTMLElement) {
+        draggedTaskGroup.classList.remove("is-group-dragging");
+      }
+      draggedTaskGroup = null;
+      draggedTaskGroupInitialOrder = [];
+    }
   };
 
   const syncGroupPermissionsModal = (modalElement) => {
@@ -3288,6 +3572,7 @@ window.addEventListener("DOMContentLoaded", () => {
       ) {
         document.body.dataset.defaultGroupName = nextGroupName;
       }
+      replaceStoredTaskGroupName(oldGroupName, nextGroupName);
 
       const groupSection = renameForm.closest("[data-task-group]");
       const dropzone = groupSection?.querySelector("[data-task-dropzone]");
@@ -3371,14 +3656,26 @@ window.addEventListener("DOMContentLoaded", () => {
   };
 
   const collectGroupNames = () => {
-    const names = new Set();
+    const names = [];
+    const seen = new Set();
+    const addName = (value) => {
+      const text = String(value || "").trim();
+      if (!text) return;
+      const key = normalizeTaskGroupNameKey(text);
+      if (seen.has(key)) return;
+      seen.add(key);
+      names.push(text);
+    };
 
-    document.querySelectorAll("[data-task-group]").forEach((section) => {
+    const sections =
+      taskGroupsListElement instanceof HTMLElement
+        ? taskGroupsListElement.querySelectorAll("[data-task-group]")
+        : document.querySelectorAll("[data-task-group]");
+    sections.forEach((section) => {
       if (!(section instanceof HTMLElement)) return;
       const canAccess = (section.dataset.groupCanAccess || "1") !== "0";
       if (!canAccess) return;
-      const text = section?.dataset?.groupName?.trim();
-      if (text) names.add(text);
+      addName(section?.dataset?.groupName || "");
     });
 
     if (
@@ -3386,14 +3683,11 @@ window.addEventListener("DOMContentLoaded", () => {
       createTaskGroupInput instanceof HTMLSelectElement
     ) {
       Array.from(createTaskGroupInput.options).forEach((option) => {
-        const text = option.value?.trim();
-        if (text) names.add(text);
+        addName(option.value || "");
       });
     }
 
-    return Array.from(names).sort((a, b) =>
-      a.localeCompare(b, "pt-BR", { sensitivity: "base" })
-    );
+    return names;
   };
 
   const syncTaskGroupInputs = () => {
@@ -3440,7 +3734,9 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  applyStoredTaskGroupOrder();
   syncTaskGroupInputs();
+  setTaskGroupReorderMode(false);
   groupPermissionModals.forEach((modal) => syncGroupPermissionsModal(modal));
   document.querySelectorAll("[data-task-group]").forEach((section) => {
     setTaskGroupCollapsed(section, section.classList.contains("is-collapsed"));
@@ -3697,6 +3993,12 @@ window.addEventListener("DOMContentLoaded", () => {
 
     if (fabWrap && fabWrap.classList.contains("is-open") && !target.closest("[data-task-fab-wrap]")) {
       setFabMenuOpen(false);
+    }
+
+    const toggleTaskGroupReorder = target.closest("[data-toggle-task-group-reorder]");
+    if (toggleTaskGroupReorder instanceof HTMLElement) {
+      setTaskGroupReorderMode(!taskGroupReorderMode);
+      return;
     }
 
     const dashboardViewToggle = target.closest("[data-dashboard-view-toggle]");

@@ -272,6 +272,22 @@
                 <div class="task-filters-create">
                     <button
                         type="button"
+                        class="icon-gear-button task-filters-reorder-groups"
+                        data-toggle-task-group-reorder
+                        aria-label="Ativar organizacao de grupos"
+                        aria-pressed="false"
+                    >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M8 7h10"></path>
+                            <path d="M8 12h10"></path>
+                            <path d="M8 17h10"></path>
+                            <path d="M5 7h.01"></path>
+                            <path d="M5 12h.01"></path>
+                            <path d="M5 17h.01"></path>
+                        </svg>
+                    </button>
+                    <button
+                        type="button"
                         class="icon-gear-button task-filters-create-group"
                         data-open-create-group-modal
                         aria-label="Criar grupo"
@@ -287,7 +303,7 @@
                 <?php endforeach; ?>
             </datalist>
 
-            <div class="task-groups-list">
+            <div class="task-groups-list" data-task-groups-list>
                 <?php if (empty($tasksGroupedByGroup)): ?>
                     <div class="empty-card task-list-empty">
                         <p>Nenhuma tarefa encontrada com os filtros atuais.</p>

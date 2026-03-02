@@ -1384,6 +1384,8 @@ textarea:focus {
     margin: 0;
     padding: 0;
     display: grid;
+    align-content: start;
+    grid-auto-rows: max-content;
     gap: 8px;
 }
 
@@ -1398,6 +1400,7 @@ textarea:focus {
     grid-template-columns: auto minmax(0, 1fr);
     gap: 10px;
     align-items: center;
+    min-height: 64px;
     padding: 8px;
     border-radius: 14px;
     background: rgba(255, 255, 255, 0.02);
@@ -1553,6 +1556,8 @@ textarea:focus {
     margin: 0;
     padding: 0;
     display: grid;
+    align-content: start;
+    grid-auto-rows: max-content;
     gap: 12px;
 }
 
@@ -1561,6 +1566,7 @@ textarea:focus {
     grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 10px;
     align-items: center;
+    min-height: 64px;
     padding: 8px;
     border-radius: 14px;
     background: rgba(255, 255, 255, 0.02);
@@ -2141,12 +2147,10 @@ textarea:focus {
     min-height: 0;
     overflow: auto;
     display: grid;
+    align-content: start;
+    grid-auto-rows: max-content;
     gap: 10px;
     padding-right: 2px;
-}
-
-.vault-group.is-collapsed .vault-group-rows {
-    display: none;
 }
 
 .vault-group-rows {
@@ -2356,6 +2360,9 @@ textarea:focus {
 }
 
 .task-filters-create {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     justify-self: end;
     align-self: end;
 }
@@ -2363,6 +2370,18 @@ textarea:focus {
 .task-filters-create-group {
     width: 34px;
     height: 34px;
+}
+
+.task-filters-reorder-groups {
+    width: 34px;
+    height: 34px;
+}
+
+.task-filters-reorder-groups.is-active {
+    color: rgba(243, 248, 255, 0.95);
+    border-color: rgba(122, 209, 255, 0.42);
+    background: linear-gradient(120deg, rgba(59, 147, 255, 0.26), rgba(33, 102, 170, 0.2));
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .task-filters-create-group span {
@@ -2373,6 +2392,8 @@ textarea:focus {
 
 .task-groups-list {
     display: grid;
+    align-content: start;
+    grid-auto-rows: max-content;
     gap: 14px;
 }
 
@@ -2393,6 +2414,7 @@ textarea:focus {
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.015);
     overflow: visible;
+    transition: border-color 140ms ease, background-color 140ms ease, transform 140ms ease;
 }
 
 .task-group-head {
@@ -2517,6 +2539,11 @@ textarea:focus {
     transform: translateY(-1px) rotate(-90deg);
 }
 
+.task-group.is-collapsed .task-list-rows,
+.vault-group.is-collapsed .vault-group-rows {
+    display: none;
+}
+
 .group-add-button {
     width: 26px;
     height: 26px;
@@ -2590,6 +2617,28 @@ textarea:focus {
     background: rgba(255, 255, 255, 0.04);
     color: var(--muted);
     font-size: 0.82rem;
+}
+
+.task-groups-list.is-reorder-mode .task-group {
+    cursor: grab;
+}
+
+.task-groups-list.is-reorder-mode .task-group:hover {
+    border-color: rgba(122, 209, 255, 0.26);
+    background: rgba(18, 52, 86, 0.18);
+}
+
+.task-groups-list.is-reorder-mode .task-group.is-group-dragging {
+    opacity: 0.56;
+    transform: scale(0.995);
+}
+
+.task-groups-list.is-reorder-mode .task-group.is-group-drop-before {
+    box-shadow: inset 0 3px 0 rgba(97, 198, 255, 0.72);
+}
+
+.task-groups-list.is-reorder-mode .task-group.is-group-drop-after {
+    box-shadow: inset 0 -3px 0 rgba(97, 198, 255, 0.72);
 }
 
 .task-list-rows {
