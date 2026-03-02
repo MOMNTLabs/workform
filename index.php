@@ -1113,6 +1113,9 @@ $statusOptions = taskStatuses();
 $priorityOptions = taskPriorities();
 $users = ($currentUser && $currentWorkspaceId !== null) ? usersList($currentWorkspaceId) : [];
 $workspaceMembers = ($currentUser && $currentWorkspaceId !== null) ? workspaceMembersList($currentWorkspaceId) : [];
+$canManageWorkspace = ($currentUser && $currentWorkspaceId !== null)
+    ? userCanManageWorkspace((int) $currentUser['id'], $currentWorkspaceId)
+    : false;
 $vaultEntries = ($currentUser && $currentWorkspaceId !== null) ? workspaceVaultEntriesList($currentWorkspaceId) : [];
 $vaultGroups = ($currentUser && $currentWorkspaceId !== null) ? vaultGroupsList($currentWorkspaceId) : ['Geral'];
 $protectedVaultGroupName = ($currentUser && $currentWorkspaceId !== null) ? defaultVaultGroupName($currentWorkspaceId) : 'Geral';
@@ -1178,8 +1181,8 @@ $completionRate = $stats['total'] > 0 ? (int) round(($stats['done'] / $stats['to
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/styles.css?v=42">
-    <script src="assets/app.js?v=20" defer></script>
+    <link rel="stylesheet" href="assets/styles.css?v=44">
+    <script src="assets/app.js?v=21" defer></script>
 </head>
 <body
     class="<?= $currentUser ? 'is-dashboard' : 'is-auth' ?>"

@@ -121,18 +121,23 @@
                             <path d="M8 10V7a4 4 0 1 1 8 0v3"></path>
                         </svg>
                     </span>
-                    <span class="sidebar-view-toggle-label">Cofre de acessos</span>
+                    <span class="sidebar-view-toggle-label">Gerenciador de acessos</span>
                 </button>
-                <a
-                    href="workspace-settings.php"
-                    class="icon-gear-button sidebar-settings-button"
-                    aria-label="Configuracoes do workspace"
-                >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M10.3 2.6h3.4l.5 2a7.8 7.8 0 0 1 1.9.8l1.8-1 2.4 2.4-1 1.8c.3.6.6 1.2.8 1.9l2 .5v3.4l-2 .5a7.8 7.8 0 0 1-.8 1.9l1 1.8-2.4 2.4-1.8-1a7.8 7.8 0 0 1-1.9.8l-.5 2h-3.4l-.5-2a7.8 7.8 0 0 1-1.9-.8l-1.8 1-2.4-2.4 1-1.8a7.8 7.8 0 0 1-.8-1.9l-2-.5v-3.4l2-.5c.2-.7.5-1.3.8-1.9l-1-1.8 2.4-2.4 1.8 1c.6-.3 1.2-.6 1.9-.8l.5-2Z"></path>
-                        <circle cx="12" cy="12" r="3.2"></circle>
-                    </svg>
-                </a>
+                <?php if (!empty($canManageWorkspace)): ?>
+                    <a
+                        href="workspace-settings.php"
+                        class="workspace-sidebar-settings-link"
+                        aria-label="Configurar workspace"
+                    >
+                        <span class="workspace-sidebar-settings-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <path d="M10.3 2.6h3.4l.5 2a7.8 7.8 0 0 1 1.9.8l1.8-1 2.4 2.4-1 1.8c.3.6.6 1.2.8 1.9l2 .5v3.4l-2 .5a7.8 7.8 0 0 1-.8 1.9l1 1.8-2.4 2.4-1.8-1a7.8 7.8 0 0 1-1.9.8l-.5 2h-3.4l-.5-2a7.8 7.8 0 0 1-1.9-.8l-1.8 1-2.4-2.4 1-1.8a7.8 7.8 0 0 1-.8-1.9l-2-.5v-3.4l2-.5c.2-.7.5-1.3.8-1.9l-1-1.8 2.4-2.4 1.8 1c.6-.3 1.2-.6 1.9-.8l.5-2Z"></path>
+                                <circle cx="12" cy="12" r="3.2"></circle>
+                            </svg>
+                        </span>
+                        <span>Configurar workspace</span>
+                    </a>
+                <?php endif; ?>
             </footer>
         </aside>
 
@@ -600,7 +605,7 @@
         <section class="vault-wrap panel" id="vault" data-dashboard-view-panel="vault" hidden>
             <div class="panel-header board-header vault-header">
                 <div>
-                    <h2>Cofre de acessos</h2>
+                    <h2>Gerenciador de acessos</h2>
                 </div>
                 <div class="board-summary vault-summary">
                     <button

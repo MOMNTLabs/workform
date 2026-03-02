@@ -2277,7 +2277,7 @@ window.addEventListener("DOMContentLoaded", () => {
       button.classList.toggle("is-active", isActive);
       const label = button.querySelector(".sidebar-view-toggle-label");
       if (label instanceof HTMLElement) {
-        label.textContent = view === "vault" ? "Lista de tarefas" : "Cofre de acessos";
+        label.textContent = view === "vault" ? "Lista de tarefas" : "Gerenciador de acessos";
       }
       const icon = button.querySelector(".sidebar-view-toggle-icon svg");
       if (icon instanceof SVGElement) {
@@ -2286,7 +2286,7 @@ window.addEventListener("DOMContentLoaded", () => {
       button.setAttribute("aria-pressed", isActive ? "true" : "false");
       button.setAttribute(
         "aria-label",
-        isActive ? "Voltar para lista de tarefas" : "Abrir cofre de acessos"
+        isActive ? "Voltar para lista de tarefas" : "Abrir gerenciador de acessos"
       );
     });
 

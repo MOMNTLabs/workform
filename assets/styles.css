@@ -177,6 +177,28 @@ select optgroup {
     white-space: nowrap;
 }
 
+.top-nav-leading {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.nav-back-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 34px;
+    padding-inline: 10px;
+    white-space: nowrap;
+}
+
+.nav-back-button > span[aria-hidden="true"] {
+    font-size: 0.95rem;
+    line-height: 1;
+    transform: translateY(-1px);
+}
+
 .brand-icon-wrap {
     width: 22px;
     height: 22px;
@@ -1303,6 +1325,50 @@ textarea:focus {
     text-decoration: none;
 }
 
+.workspace-sidebar-settings-link {
+    width: min(100%, 220px);
+    min-height: 38px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(240, 246, 255, 0.86);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 12px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.workspace-sidebar-settings-link:hover,
+.workspace-sidebar-settings-link:focus-visible {
+    border-color: rgba(120, 204, 255, 0.32);
+    background: rgba(58, 148, 255, 0.14);
+    transform: translateY(-1px);
+}
+
+.workspace-sidebar-settings-icon {
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.workspace-sidebar-settings-icon svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
 .icon-gear-button {
     width: 36px;
     height: 36px;
@@ -1395,14 +1461,14 @@ textarea:focus {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 20px;
-    padding: 0 10px;
+    min-height: 17px;
+    padding: 0 8px;
     margin-top: 1px;
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.02);
-    font-size: 0.62rem;
-    letter-spacing: 0.05em;
+    font-size: 0.56rem;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
 }
 
@@ -1544,6 +1610,14 @@ textarea:focus {
 
 .workspace-settings-member-remove {
     margin: 0;
+}
+
+.workspace-settings-member-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-self: end;
+    flex-wrap: wrap;
+    gap: 6px;
 }
 
 .workspace-settings-member-remove .btn {
@@ -4260,6 +4334,10 @@ textarea:focus {
         justify-self: start;
     }
 
+    .top-nav-leading {
+        flex-wrap: wrap;
+    }
+
     .workspace-settings-grid {
         grid-template-columns: 1fr;
     }
@@ -4378,8 +4456,9 @@ textarea:focus {
         grid-template-columns: auto minmax(0, 1fr);
     }
 
-    .workspace-settings-member-remove {
+    .workspace-settings-member-actions {
         grid-column: 1 / -1;
+        justify-self: start;
     }
 
     .task-filters-actions {

@@ -86,6 +86,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash('success', 'Usuario adicionado ao workspace.');
                 redirectTo('workspace-settings.php');
 
+            case 'workspace_promote_member':
+                $workspaceId = activeWorkspaceId($currentUser);
+                if ($workspaceId === null) {
+                    throw new RuntimeException('Workspace ativo nao encontrado.');
+                }
+                if (!userCanManageWorkspace((int) $currentUser['id'], $workspaceId)) {
+                    throw new RuntimeException('Somente administradores podem alterar permissoes.');
+                }
+
+                $memberId = (int) ($_POST['member_id'] ?? 0);
+                if ($memberId <= 0) {
+                    throw new RuntimeException('Usuario invalido.');
+                }
+                if ($memberId === (int) $currentUser['id']) {
+                    throw new RuntimeException('Sua conta ja possui permissao de administrador.');
+                }
+                if (!userHasWorkspaceAccess($memberId, $workspaceId)) {
+                    throw new RuntimeException('Usuario nao pertence a este workspace.');
+                }
+
+                upsertWorkspaceMember($pdo, $workspaceId, $memberId, 'admin');
+                flash('success', 'Permissao de administrador concedida.');
+                redirectTo('workspace-settings.php');
+
             case 'workspace_remove_member':
                 $workspaceId = activeWorkspaceId($currentUser);
                 if ($workspaceId === null) {
@@ -139,7 +163,7 @@ $flashes = getFlashes();
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/styles.css?v=40">
+    <link rel="stylesheet" href="assets/styles.css?v=44">
 </head>
 <body class="is-dashboard is-workspace-settings" data-workspace-id="<?= e((string) $currentWorkspaceId) ?>">
     <div class="bg-layer bg-layer-one" aria-hidden="true"></div>
@@ -159,9 +183,15 @@ $flashes = getFlashes();
         <?php endif; ?>
 
         <header class="top-nav dashboard-nav">
-            <a href="index.php" class="brand" aria-label="WorkForm">
-                <img src="assets/WorkForm - Logo (Negativa).svg?v=1" alt="WorkForm" class="brand-lockup" width="116" height="29">
-            </a>
+            <div class="top-nav-leading">
+                <a href="index.php#tasks" class="btn btn-mini btn-ghost nav-back-button" aria-label="Voltar para dashboard">
+                    <span aria-hidden="true">&#8592;</span>
+                    <span>Voltar</span>
+                </a>
+                <a href="index.php" class="brand" aria-label="WorkForm">
+                    <img src="assets/WorkForm - Logo (Negativa).svg?v=1" alt="WorkForm" class="brand-lockup" width="116" height="29">
+                </a>
+            </div>
 
             <div class="user-chip">
                 <div class="avatar" aria-hidden="true"><?= e(strtoupper(substr((string) $currentUser['name'], 0, 1))) ?></div>
@@ -181,7 +211,6 @@ $flashes = getFlashes();
                         <circle cx="12" cy="12" r="3.2"></circle>
                     </svg>
                 </a>
-                <a href="index.php#tasks" class="btn btn-mini btn-ghost">Voltar</a>
                 <form method="post">
                     <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
                     <input type="hidden" name="action" value="logout">
@@ -253,12 +282,22 @@ $flashes = getFlashes();
                                             <span><?= e((string) $workspaceMember['email']) ?></span>
                                         </div>
                                         <?php if ($canManageWorkspace && $workspaceMemberId !== (int) $currentUser['id']): ?>
-                                            <form method="post" class="workspace-settings-member-remove">
-                                                <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
-                                                <input type="hidden" name="action" value="workspace_remove_member">
-                                                <input type="hidden" name="member_id" value="<?= e((string) $workspaceMemberId) ?>">
-                                                <button type="submit" class="btn btn-mini btn-ghost">Remover</button>
-                                            </form>
+                                            <div class="workspace-settings-member-actions">
+                                                <?php if ($memberRole !== 'admin'): ?>
+                                                    <form method="post" class="workspace-settings-member-remove">
+                                                        <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+                                                        <input type="hidden" name="action" value="workspace_promote_member">
+                                                        <input type="hidden" name="member_id" value="<?= e((string) $workspaceMemberId) ?>">
+                                                        <button type="submit" class="btn btn-mini btn-ghost">Tornar admin</button>
+                                                    </form>
+                                                <?php endif; ?>
+                                                <form method="post" class="workspace-settings-member-remove">
+                                                    <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+                                                    <input type="hidden" name="action" value="workspace_remove_member">
+                                                    <input type="hidden" name="member_id" value="<?= e((string) $workspaceMemberId) ?>">
+                                                    <button type="submit" class="btn btn-mini btn-ghost">Remover</button>
+                                                </form>
+                                            </div>
                                         <?php endif; ?>
                                     </li>
                                 <?php endforeach; ?>
