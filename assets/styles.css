@@ -2616,6 +2616,12 @@ textarea:focus {
         rgba(255, 255, 255, 0.01);
 }
 
+[data-task-group-head-toggle],
+[data-vault-group-head-toggle],
+[data-due-group-head-toggle] {
+    cursor: pointer;
+}
+
 .task-group-head-main {
     min-width: 0;
 }
@@ -2694,30 +2700,18 @@ textarea:focus {
 }
 
 .task-group-collapse {
-    width: 22px;
-    height: 22px;
-    border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.02);
     color: rgba(255, 255, 255, 0.72);
-    display: grid;
-    place-items: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 10px;
     padding: 0;
-    cursor: pointer;
-    transition: border-color 160ms ease, color 160ms ease, background-color 160ms ease;
-}
-
-.task-group-collapse:hover,
-.task-group-collapse:focus-visible {
-    color: var(--text);
-    border-color: rgba(44, 199, 255, 0.24);
-    background: rgba(44, 199, 255, 0.07);
-    outline: none;
+    pointer-events: none;
 }
 
 .task-group-collapse span {
     line-height: 1;
-    font-size: 0.75rem;
+    font-size: 0.68rem;
     transform: translateY(-1px) rotate(0deg);
     transition: transform 160ms ease;
 }

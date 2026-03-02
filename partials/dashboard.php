@@ -356,7 +356,7 @@
                             data-group-name="<?= e((string) $groupName) ?>"
                             data-group-can-access="<?= $taskGroupCanAccess ? '1' : '0' ?>"
                         >
-                            <header class="task-group-head">
+                            <header class="task-group-head" data-task-group-head-toggle>
                                 <div class="task-group-head-main">
                                     <form method="post" class="task-group-rename-form" data-group-rename-form>
                                         <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
@@ -378,13 +378,7 @@
                                     </form>
                                 </div>
                                 <div class="task-group-head-actions">
-                                    <button
-                                        type="button"
-                                        class="task-group-collapse"
-                                        data-group-toggle
-                                        aria-expanded="true"
-                                        aria-label="Retrair grupo"
-                                    ><span aria-hidden="true">&#9662;</span></button>
+                                    <span class="task-group-collapse" data-group-toggle-indicator aria-hidden="true"><span>&#9662;</span></span>
                                     <?php if (!empty($canManageWorkspace)): ?>
                                         <button
                                             type="button"
@@ -739,7 +733,7 @@
                         $vaultGroupPermissionsModalKey = 'vault-group-perm-' . md5((string) $vaultGroupName);
                         ?>
                         <section class="task-group vault-group<?= $vaultGroupCanAccess ? '' : ' task-group-readonly' ?>" data-vault-group data-group-name="<?= e((string) $vaultGroupName) ?>">
-                            <header class="task-group-head">
+                            <header class="task-group-head" data-vault-group-head-toggle>
                                 <div class="task-group-head-main">
                                     <form method="post" class="task-group-rename-form">
                                         <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
@@ -761,13 +755,7 @@
                                     </form>
                                 </div>
                                 <div class="task-group-head-actions">
-                                    <button
-                                        type="button"
-                                        class="task-group-collapse"
-                                        data-vault-group-toggle
-                                        aria-expanded="true"
-                                        aria-label="Retrair grupo do cofre"
-                                    ><span aria-hidden="true">&#9662;</span></button>
+                                    <span class="task-group-collapse" data-group-toggle-indicator aria-hidden="true"><span>&#9662;</span></span>
                                     <?php if (!empty($canManageWorkspace)): ?>
                                         <button
                                             type="button"
@@ -1003,7 +991,7 @@
                         $dueGroupPermissionsModalKey = 'due-group-perm-' . md5((string) $dueGroupName);
                         ?>
                         <section class="task-group due-group<?= $dueGroupCanAccess ? '' : ' task-group-readonly' ?>" data-due-group data-group-name="<?= e((string) $dueGroupName) ?>">
-                            <header class="task-group-head">
+                            <header class="task-group-head" data-due-group-head-toggle>
                                 <div class="task-group-head-main">
                                     <form method="post" class="task-group-rename-form">
                                         <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
@@ -1025,13 +1013,7 @@
                                     </form>
                                 </div>
                                 <div class="task-group-head-actions">
-                                    <button
-                                        type="button"
-                                        class="task-group-collapse"
-                                        data-due-group-toggle
-                                        aria-expanded="true"
-                                        aria-label="Retrair grupo de vencimentos"
-                                    ><span aria-hidden="true">&#9662;</span></button>
+                                    <span class="task-group-collapse" data-group-toggle-indicator aria-hidden="true"><span>&#9662;</span></span>
                                     <?php if (!empty($canManageWorkspace)): ?>
                                         <button
                                             type="button"

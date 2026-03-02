@@ -1594,58 +1594,55 @@ window.addEventListener("DOMContentLoaded", () => {
   const setTaskGroupCollapsed = (groupSection, collapsed) => {
     if (!(groupSection instanceof HTMLElement)) return;
     const dropzone = groupSection.querySelector("[data-task-dropzone]");
-    const toggleButton = groupSection.querySelector("[data-group-toggle]");
     const shouldCollapse = Boolean(collapsed);
 
     groupSection.classList.toggle("is-collapsed", shouldCollapse);
     if (dropzone instanceof HTMLElement) {
       dropzone.hidden = shouldCollapse;
     }
-    if (toggleButton instanceof HTMLButtonElement) {
-      toggleButton.setAttribute("aria-expanded", shouldCollapse ? "false" : "true");
-      toggleButton.setAttribute(
-        "aria-label",
-        shouldCollapse ? "Expandir grupo" : "Retrair grupo"
-      );
-    }
   };
 
   const setVaultGroupCollapsed = (groupSection, collapsed) => {
     if (!(groupSection instanceof HTMLElement)) return;
     const rows = groupSection.querySelector("[data-vault-group-rows]");
-    const toggleButton = groupSection.querySelector("[data-vault-group-toggle]");
     const shouldCollapse = Boolean(collapsed);
 
     groupSection.classList.toggle("is-collapsed", shouldCollapse);
     if (rows instanceof HTMLElement) {
       rows.hidden = shouldCollapse;
-    }
-    if (toggleButton instanceof HTMLButtonElement) {
-      toggleButton.setAttribute("aria-expanded", shouldCollapse ? "false" : "true");
-      toggleButton.setAttribute(
-        "aria-label",
-        shouldCollapse ? "Expandir grupo do cofre" : "Retrair grupo do cofre"
-      );
     }
   };
 
   const setDueGroupCollapsed = (groupSection, collapsed) => {
     if (!(groupSection instanceof HTMLElement)) return;
     const rows = groupSection.querySelector("[data-due-group-rows]");
-    const toggleButton = groupSection.querySelector("[data-due-group-toggle]");
     const shouldCollapse = Boolean(collapsed);
 
     groupSection.classList.toggle("is-collapsed", shouldCollapse);
     if (rows instanceof HTMLElement) {
       rows.hidden = shouldCollapse;
     }
-    if (toggleButton instanceof HTMLButtonElement) {
-      toggleButton.setAttribute("aria-expanded", shouldCollapse ? "false" : "true");
-      toggleButton.setAttribute(
-        "aria-label",
-        shouldCollapse ? "Expandir grupo de vencimentos" : "Retrair grupo de vencimentos"
-      );
-    }
+  };
+
+  const isGroupHeadToggleTargetBlocked = (target, groupHead) => {
+    if (!(target instanceof HTMLElement) || !(groupHead instanceof HTMLElement)) return true;
+    const blockedTarget = target.closest(
+      [
+        ".task-group-head-actions",
+        "button",
+        "a[href]",
+        "input",
+        "select",
+        "textarea",
+        "label",
+        "summary",
+        "details",
+        "[contenteditable='true']",
+        "[role='button']",
+        "[role='option']",
+      ].join(",")
+    );
+    return blockedTarget instanceof HTMLElement && groupHead.contains(blockedTarget);
   };
 
   const moveTaskItemToGroupDom = (taskItem, groupName) => {
@@ -2336,12 +2333,23 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const groupToggleButton = target.closest("[data-group-toggle]");
-    if (groupToggleButton) {
-      const groupSection = groupToggleButton.closest("[data-task-group]");
+    const taskGroupHeadToggle = target.closest("[data-task-group-head-toggle]");
+    if (taskGroupHeadToggle instanceof HTMLElement) {
+      if (isGroupHeadToggleTargetBlocked(target, taskGroupHeadToggle)) {
+        return;
+      }
+
+      if (
+        taskGroupsListElement instanceof HTMLElement &&
+        taskGroupsListElement.classList.contains("is-reorder-mode")
+      ) {
+        return;
+      }
+
+      const groupSection = taskGroupHeadToggle.closest("[data-task-group]");
       if (groupSection instanceof HTMLElement) {
-        const isExpanded = groupToggleButton.getAttribute("aria-expanded") !== "false";
-        setTaskGroupCollapsed(groupSection, isExpanded);
+        const shouldCollapse = !groupSection.classList.contains("is-collapsed");
+        setTaskGroupCollapsed(groupSection, shouldCollapse);
       }
       return;
     }
@@ -4697,24 +4705,28 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const vaultGroupToggleButton = target.closest("[data-vault-group-toggle]");
-    if (vaultGroupToggleButton instanceof HTMLElement) {
-      const groupSection = vaultGroupToggleButton.closest("[data-vault-group]");
-      if (groupSection instanceof HTMLElement) {
-        const isExpanded = vaultGroupToggleButton.getAttribute("aria-expanded") !== "false";
-        setVaultGroupCollapsed(groupSection, isExpanded);
+    const vaultGroupHeadToggle = target.closest("[data-vault-group-head-toggle]");
+    if (vaultGroupHeadToggle instanceof HTMLElement) {
+      if (!isGroupHeadToggleTargetBlocked(target, vaultGroupHeadToggle)) {
+        const groupSection = vaultGroupHeadToggle.closest("[data-vault-group]");
+        if (groupSection instanceof HTMLElement) {
+          const shouldCollapse = !groupSection.classList.contains("is-collapsed");
+          setVaultGroupCollapsed(groupSection, shouldCollapse);
+        }
+        return;
       }
-      return;
     }
 
-    const dueGroupToggleButton = target.closest("[data-due-group-toggle]");
-    if (dueGroupToggleButton instanceof HTMLElement) {
-      const groupSection = dueGroupToggleButton.closest("[data-due-group]");
-      if (groupSection instanceof HTMLElement) {
-        const isExpanded = dueGroupToggleButton.getAttribute("aria-expanded") !== "false";
-        setDueGroupCollapsed(groupSection, isExpanded);
+    const dueGroupHeadToggle = target.closest("[data-due-group-head-toggle]");
+    if (dueGroupHeadToggle instanceof HTMLElement) {
+      if (!isGroupHeadToggleTargetBlocked(target, dueGroupHeadToggle)) {
+        const groupSection = dueGroupHeadToggle.closest("[data-due-group]");
+        if (groupSection instanceof HTMLElement) {
+          const shouldCollapse = !groupSection.classList.contains("is-collapsed");
+          setDueGroupCollapsed(groupSection, shouldCollapse);
+        }
+        return;
       }
-      return;
     }
 
     const openTaskTrigger = target.closest("[data-open-create-task-modal]");
