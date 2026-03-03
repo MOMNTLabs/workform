@@ -3137,7 +3137,7 @@ textarea:focus {
     height: 18px;
     border: 0;
     background: transparent;
-    color: rgba(255, 255, 255, 0.4);
+    color: #67a3e9;
     display: grid;
     place-items: center;
     cursor: pointer;
@@ -3216,7 +3216,7 @@ textarea:focus {
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     background: rgba(255, 255, 255, 0.02);
-    color: rgba(232, 243, 255, 0.86);
+    color: rgba(103, 163, 233, 0.86);
     padding: 4px 10px;
     cursor: pointer;
     font-size: 0.72rem;
@@ -4333,9 +4333,9 @@ textarea:focus {
     width: 28px;
     height: 28px;
     border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(103, 163, 233, 0.6);
     background: rgba(255, 255, 255, 0.02);
-    color: rgba(255, 255, 255, 0.78);
+    color: rgba(103, 163, 233, 0.8);
     display: grid;
     place-items: center;
     padding: 0;
@@ -6269,7 +6269,7 @@ textarea:focus {
     --panel: rgba(255, 255, 255, 0.92);
     --panel-strong: rgba(255, 255, 255, 0.98);
     --border: rgba(32, 98, 162, 0.16);
-    --text: #1e3048;
+    --text: #697d97;
     --muted: rgba(61, 85, 117, 0.92);
     --muted-2: rgba(72, 97, 132, 0.8);
     --shadow: 0 14px 36px rgba(35, 97, 156, 0.12);
@@ -6323,7 +6323,6 @@ select optgroup,
 .workspace-settings-card,
 .workspace-settings-panel,
 .task-group,
-.task-group-head,
 .task-list-item,
 .task-card,
 .empty-card,
@@ -6513,7 +6512,7 @@ textarea:focus,
 }
 
 .task-group-head {
-    border-bottom-color: rgba(39, 106, 171, 0.12);
+    border-bottom-color: rgba(255, 255, 255, 0.63);
     background:
         radial-gradient(circle at 100% 0%, rgba(77, 174, 248, 0.12), transparent 44%),
         rgba(246, 251, 255, 0.94);
@@ -6785,7 +6784,7 @@ textarea:focus,
 .task-detail-edit-description-toolbar button {
     border: 1px solid rgba(53, 126, 196, 0.34);
     background: #edf6ff;
-    color: #1f548b;
+    color: #697d97;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
@@ -6895,8 +6894,8 @@ textarea:focus,
 /* High-contrast pass requested by user */
 .top-nav.dashboard-nav {
     background:
-        radial-gradient(circle at 0% 0%, rgba(120, 189, 250, 0.24), transparent 42%),
-        linear-gradient(135deg, #2f649f 0%, #27588d 55%, #214b7a 100%);
+        radial-gradient(circle at 0% 0%, rgba(255, 255, 255, 1), transparent 42%),
+        linear-gradient(135deg, #e0eefb 0%, #f6fbff 55%, #e0eefb 100%);
     border-color: rgba(145, 196, 245, 0.5);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.12),
@@ -6918,6 +6917,7 @@ textarea:focus,
 .top-nav.dashboard-nav .dashboard-nav-stats {
     border-color: rgba(160, 202, 244, 0.5);
     background: rgba(243, 250, 255, 0.96);
+    box-shadow: none;
 }
 
 .top-nav.dashboard-nav .dashboard-nav-stats .stat-cell span {
@@ -6931,6 +6931,7 @@ textarea:focus,
 .top-nav.dashboard-nav .user-chip {
     border-color: rgba(165, 205, 244, 0.52);
     background: rgba(245, 251, 255, 0.98);
+    box-shadow: none;
 }
 
 .top-nav.dashboard-nav .user-chip strong {
@@ -6941,9 +6942,16 @@ textarea:focus,
     color: #4e6c93;
 }
 
+.top-nav.dashboard-nav .btn-logout,
+.top-nav.dashboard-nav .btn-logout:hover,
+.top-nav.dashboard-nav .btn-logout:focus-visible,
+.top-nav.dashboard-nav .btn-logout::before {
+    box-shadow: none;
+}
+
 .task-group {
     border-color: rgba(149, 181, 212, 0.54);
-    background: linear-gradient(180deg, #eef5fd 0%, #e6f1fb 100%);
+    background: linear-gradient(338deg, #ecf5ff 0%, #ffffff 100%);
     overflow: hidden;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.52);
 }
@@ -7065,6 +7073,59 @@ textarea:focus,
     border-color: rgba(199, 86, 106, 0.66);
     background: #ffe8ed;
     color: #b43f57;
+}
+
+.create-task-title-composer {
+    border-color: rgba(93, 143, 194, 0.52);
+    background: linear-gradient(180deg, #eef6ff 0%, #e4f0ff 100%);
+}
+
+.create-task-title-composer:focus-within {
+    border-color: rgba(44, 130, 209, 0.72);
+    background: linear-gradient(180deg, #e8f3ff 0%, #deecff 100%);
+}
+
+.create-task-title-composer > [data-create-task-title-input],
+.create-task-title-composer > [data-task-detail-edit-title] {
+    color: #1f4f83;
+}
+
+.create-task-title-composer > [data-create-task-title-input]::placeholder,
+.create-task-title-composer > [data-task-detail-edit-title]::placeholder {
+    color: rgba(73, 103, 142, 0.78);
+}
+
+.create-task-title-tag-trigger,
+.create-task-title-tag-picker > [data-create-task-title-tag-custom],
+.create-task-title-tag-picker > [data-task-detail-edit-title-tag-custom] {
+    border-color: rgba(86, 142, 197, 0.58);
+    background: #edf6ff;
+    color: #1f548b;
+}
+
+.create-task-title-tag-picker > [data-create-task-title-tag-custom]::placeholder,
+.create-task-title-tag-picker > [data-task-detail-edit-title-tag-custom]::placeholder {
+    color: rgba(73, 103, 142, 0.72);
+}
+
+.create-task-title-tag-trigger.is-empty {
+    border-color: rgba(86, 142, 197, 0.5);
+    background: #e3f0ff;
+    color: #4b6f98;
+}
+
+.create-task-modal .form-stack label > span,
+.create-task-modal .assignee-picker-label,
+.create-task-modal .task-detail-inline-field > span,
+.create-task-modal .task-subtasks-editor > span,
+.create-task-modal .task-detail-edit-images-field > span {
+    color: #4d6a90;
+}
+
+.create-task-modal input::placeholder,
+.create-task-modal textarea::placeholder,
+.create-task-modal [data-create-task-subtask-input]::placeholder {
+    color: rgba(77, 106, 144, 0.72);
 }
 
 .btn,
@@ -7362,4 +7423,3 @@ textarea:focus,
         grid-row: auto;
     }
 }
-
