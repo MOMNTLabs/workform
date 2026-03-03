@@ -6651,12 +6651,12 @@ function tasksByStatus(array $tasks): array
     return $grouped;
 }
 
-function filterTasks(array $tasks, ?string $groupFilter, ?int $assigneeFilterId): array
+function filterTasks(array $tasks, ?string $groupFilter, ?int $creatorFilterId): array
 {
     $groupFilter = $groupFilter ? normalizeTaskGroupName($groupFilter) : null;
-    $assigneeFilterId = $assigneeFilterId && $assigneeFilterId > 0 ? $assigneeFilterId : null;
+    $creatorFilterId = $creatorFilterId && $creatorFilterId > 0 ? $creatorFilterId : null;
 
-    if ($groupFilter === null && $assigneeFilterId === null) {
+    if ($groupFilter === null && $creatorFilterId === null) {
         return $tasks;
     }
 
@@ -6668,9 +6668,9 @@ function filterTasks(array $tasks, ?string $groupFilter, ?int $assigneeFilterId)
             continue;
         }
 
-        if ($assigneeFilterId !== null) {
-            $taskAssigneeIds = $task['assignee_ids'] ?? [];
-            if (!in_array($assigneeFilterId, $taskAssigneeIds, true)) {
+        if ($creatorFilterId !== null) {
+            $taskCreatorId = isset($task['created_by']) ? (int) $task['created_by'] : null;
+            if ($taskCreatorId !== $creatorFilterId) {
                 continue;
             }
         }

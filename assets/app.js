@@ -2907,12 +2907,12 @@ window.addEventListener("DOMContentLoaded", () => {
     syncSelectOptionsFromSource(currentGroupFilterSelect, nextGroupFilterSelect);
     syncInlineSelectPicker(currentGroupFilterSelect);
 
-    const currentAssigneeFilterSelect = taskFilterForm?.querySelector('select[name="assignee"]');
-    const nextAssigneeFilterSelect = nextDoc.querySelector(
-      '[data-task-filter-form] select[name="assignee"]'
+    const currentCreatorFilterSelect = taskFilterForm?.querySelector('select[name="created_by"]');
+    const nextCreatorFilterSelect = nextDoc.querySelector(
+      '[data-task-filter-form] select[name="created_by"]'
     );
-    syncSelectOptionsFromSource(currentAssigneeFilterSelect, nextAssigneeFilterSelect);
-    syncInlineSelectPicker(currentAssigneeFilterSelect);
+    syncSelectOptionsFromSource(currentCreatorFilterSelect, nextCreatorFilterSelect);
+    syncInlineSelectPicker(currentCreatorFilterSelect);
 
     if (taskGroupsDatalist instanceof HTMLDataListElement) {
       const nextGroupsDatalist = nextDoc.querySelector("#task-group-options");
@@ -8051,13 +8051,13 @@ window.addEventListener("DOMContentLoaded", () => {
     if (!(form instanceof HTMLFormElement)) return;
     const params = new URLSearchParams();
     const groupField = form.querySelector('select[name="group"]');
-    const assigneeField = form.querySelector('select[name="assignee"]');
+    const creatorField = form.querySelector('select[name="created_by"]');
 
     if (groupField instanceof HTMLSelectElement && (groupField.value || "").trim() !== "") {
       params.set("group", groupField.value.trim());
     }
-    if (assigneeField instanceof HTMLSelectElement && (assigneeField.value || "").trim() !== "") {
-      params.set("assignee", assigneeField.value.trim());
+    if (creatorField instanceof HTMLSelectElement && (creatorField.value || "").trim() !== "") {
+      params.set("created_by", creatorField.value.trim());
     }
 
     const query = params.toString();
@@ -8074,7 +8074,7 @@ window.addEventListener("DOMContentLoaded", () => {
     taskFilterForm.addEventListener("change", (event) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
-      const select = target.closest('select[name="group"], select[name="assignee"]');
+      const select = target.closest('select[name="group"], select[name="created_by"]');
       if (!(select instanceof HTMLSelectElement)) return;
       applyTaskFilterForm(taskFilterForm);
     });

@@ -311,55 +311,55 @@ $taskTitleTagOptions = array_values($taskTitleTagOptions);
                 </label>
 
                 <label>
-                    <?php $assigneeFilterValue = $assigneeFilterId !== null ? (string) $assigneeFilterId : ''; ?>
+                    <?php $creatorFilterValue = $creatorFilterId !== null ? (string) $creatorFilterId : ''; ?>
                     <div class="tag-field row-inline-picker-wrap" data-inline-select-wrap>
                         <details class="row-inline-picker filter-inline-picker" data-inline-select-picker>
-                            <summary aria-label="Filtrar por responsavel">
+                            <summary aria-label="Filtrar por criador">
                                 <span class="row-inline-picker-summary-text" data-inline-select-text>
-                                    <?php if ($assigneeFilterValue === ''): ?>
-                                        Todos Responsáveis
+                                    <?php if ($creatorFilterValue === ''): ?>
+                                        Todos Criados por
                                     <?php else: ?>
                                         <?php
-                                        $assigneeLabel = 'Todos Responsáveis';
+                                        $creatorLabel = 'Todos Criados por';
                                         foreach ($users as $user) {
-                                            if ((string) ((int) $user['id']) === $assigneeFilterValue) {
-                                                $assigneeLabel = (string) $user['name'];
+                                            if ((string) ((int) $user['id']) === $creatorFilterValue) {
+                                                $creatorLabel = (string) $user['name'];
                                                 break;
                                             }
                                         }
                                         ?>
-                                        <?= e($assigneeLabel) ?>
+                                        <?= e($creatorLabel) ?>
                                     <?php endif; ?>
                                 </span>
                             </summary>
-                            <div class="assignee-picker-menu row-inline-picker-menu" role="listbox" aria-label="Filtro de responsavel">
+                            <div class="assignee-picker-menu row-inline-picker-menu" role="listbox" aria-label="Filtro de criador">
                                 <button
                                     type="button"
-                                    class="row-inline-picker-option<?= $assigneeFilterValue === '' ? ' is-active' : '' ?>"
+                                    class="row-inline-picker-option<?= $creatorFilterValue === '' ? ' is-active' : '' ?>"
                                     data-inline-select-option
                                     data-value=""
-                                    data-label="Todos Responsáveis"
+                                    data-label="Todos Criados por"
                                     role="option"
-                                    aria-selected="<?= $assigneeFilterValue === '' ? 'true' : 'false' ?>"
-                                >Todos Responsáveis</button>
+                                    aria-selected="<?= $creatorFilterValue === '' ? 'true' : 'false' ?>"
+                                >Todos Criados por</button>
                                 <?php foreach ($users as $user): ?>
                                     <?php $optionValue = (string) ((int) $user['id']); ?>
                                     <button
                                         type="button"
-                                        class="row-inline-picker-option<?= $assigneeFilterValue === $optionValue ? ' is-active' : '' ?>"
+                                        class="row-inline-picker-option<?= $creatorFilterValue === $optionValue ? ' is-active' : '' ?>"
                                         data-inline-select-option
                                         data-value="<?= e($optionValue) ?>"
                                         data-label="<?= e((string) $user['name']) ?>"
                                         role="option"
-                                        aria-selected="<?= $assigneeFilterValue === $optionValue ? 'true' : 'false' ?>"
+                                        aria-selected="<?= $creatorFilterValue === $optionValue ? 'true' : 'false' ?>"
                                     ><?= e((string) $user['name']) ?></button>
                                 <?php endforeach; ?>
                             </div>
                         </details>
-                        <select name="assignee" class="tag-select row-inline-picker-native" data-inline-select-source hidden>
-                            <option value="">Todos Responsáveis</option>
+                        <select name="created_by" class="tag-select row-inline-picker-native" data-inline-select-source hidden>
+                            <option value="">Todos Criados por</option>
                             <?php foreach ($users as $user): ?>
-                                <option value="<?= e((string) $user['id']) ?>"<?= $assigneeFilterId === (int) $user['id'] ? ' selected' : '' ?>>
+                                <option value="<?= e((string) $user['id']) ?>"<?= $creatorFilterId === (int) $user['id'] ? ' selected' : '' ?>>
                                     <?= e((string) $user['name']) ?>
                                 </option>
                             <?php endforeach; ?>
@@ -390,7 +390,8 @@ $taskTitleTagOptions = array_values($taskTitleTagOptions);
                         data-open-create-group-modal
                         aria-label="Criar grupo"
                     >
-                        <span aria-hidden="true">+</span>
+                        <span class="task-filters-create-group-plus" aria-hidden="true">+</span>
+                        <span>Grupo</span>
                     </button>
                 </div>
             </form>
@@ -1743,14 +1744,52 @@ $taskTitleTagOptions = array_values($taskTitleTagOptions);
 
                 <div class="task-detail-inline-field task-detail-inline-priority">
                     <span>Prioridade</span>
-                    <label class="tag-field">
-                        <span class="sr-only">Prioridade</span>
-                        <select name="priority" class="tag-select priority-select priority-medium" aria-label="Prioridade">
+                    <div
+                        class="tag-field tag-field-priority row-inline-picker-wrap"
+                        data-inline-select-wrap
+                        data-inline-picker-kind="priority"
+                    >
+                        <details
+                            class="row-inline-picker priority-inline-picker priority-medium"
+                            data-inline-select-picker
+                        >
+                            <summary aria-label="Prioridade da tarefa">
+                                <span class="row-inline-picker-summary-icon" aria-hidden="true">&#9873;</span>
+                                <span class="row-inline-picker-summary-text sr-only" data-inline-select-text>Media</span>
+                            </summary>
+                            <div
+                                class="assignee-picker-menu row-inline-picker-menu"
+                                role="listbox"
+                                aria-label="Selecionar prioridade"
+                            >
+                                <?php foreach ($priorityOptions as $key => $label): ?>
+                                    <button
+                                        type="button"
+                                        class="row-inline-picker-option priority-<?= e($key) ?><?= $key === 'medium' ? ' is-active' : '' ?>"
+                                        data-inline-select-option
+                                        data-value="<?= e($key) ?>"
+                                        data-label="<?= e($label) ?>"
+                                        role="option"
+                                        aria-selected="<?= $key === 'medium' ? 'true' : 'false' ?>"
+                                    >
+                                        <span class="row-inline-picker-option-flag" aria-hidden="true">&#9873;</span>
+                                        <span><?= e($label) ?></span>
+                                    </button>
+                                <?php endforeach; ?>
+                            </div>
+                        </details>
+                        <select
+                            name="priority"
+                            class="tag-select priority-select priority-medium row-inline-picker-native"
+                            data-inline-select-source
+                            aria-label="Prioridade"
+                            hidden
+                        >
                             <?php foreach ($priorityOptions as $key => $label): ?>
                                 <option value="<?= e($key) ?>"<?= $key === 'medium' ? ' selected' : '' ?>>&#9873;</option>
                             <?php endforeach; ?>
                         </select>
-                    </label>
+                    </div>
                 </div>
             </div>
 

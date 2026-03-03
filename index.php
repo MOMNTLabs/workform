@@ -2494,8 +2494,9 @@ $groupFilter = isset($_GET['group']) && trim((string) $_GET['group']) !== ''
 if ($groupFilter !== null && !in_array($groupFilter, $taskGroups, true)) {
     $groupFilter = null;
 }
-$assigneeFilterId = isset($_GET['assignee']) ? (int) $_GET['assignee'] : null;
-$assigneeFilterId = $assigneeFilterId && $assigneeFilterId > 0 ? $assigneeFilterId : null;
+$creatorFilterRaw = $_GET['created_by'] ?? ($_GET['assignee'] ?? null);
+$creatorFilterId = isset($creatorFilterRaw) ? (int) $creatorFilterRaw : null;
+$creatorFilterId = $creatorFilterId && $creatorFilterId > 0 ? $creatorFilterId : null;
 
 $taskVisibleKeys = [];
 foreach ($taskGroups as $taskGroupName) {
@@ -2509,8 +2510,8 @@ $allTasks = array_values(array_filter(
         return isset($taskVisibleKeys[$groupKey]);
     }
 ));
-$tasks = $currentUser ? filterTasks($allTasks, $groupFilter, $assigneeFilterId) : [];
-$showEmptyGroups = $currentUser && $groupFilter === null && $assigneeFilterId === null;
+$tasks = $currentUser ? filterTasks($allTasks, $groupFilter, $creatorFilterId) : [];
+$showEmptyGroups = $currentUser && $groupFilter === null && $creatorFilterId === null;
 $groupingSource = null;
 if ($showEmptyGroups) {
     $groupingSource = $taskGroups;
@@ -2534,8 +2535,8 @@ $defaultTaskGroupName = $taskGroups[0] ?? 'Geral';
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/styles.css?v=86">
-    <script src="assets/app.js?v=61" defer></script>
+    <link rel="stylesheet" href="assets/styles.css?v=87">
+    <script src="assets/app.js?v=62" defer></script>
 </head>
 <body
     class="<?= $currentUser ? 'is-dashboard' : 'is-auth' ?>"
