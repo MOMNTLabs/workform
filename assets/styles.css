@@ -6766,3 +6766,129 @@ textarea:focus,
     background: rgba(255, 223, 230, 0.92);
 }
 
+/* Button visibility pass for light theme */
+.brand-lockup,
+.auth-brand-lockup {
+    filter: none;
+    opacity: 1;
+}
+
+.header-notification-button,
+.icon-gear-button,
+.team-user-settings-button,
+.vault-icon-button,
+.group-add-button,
+.group-permissions-button,
+.task-fab-action,
+.task-fab-main,
+.create-task-title-tag-trigger,
+.task-detail-edit-description-toolbar button {
+    border: 1px solid rgba(53, 126, 196, 0.34);
+    background: #edf6ff;
+    color: #1f548b;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.header-notification-button:hover,
+.header-notification-button:focus-visible,
+.icon-gear-button:hover,
+.icon-gear-button:focus-visible,
+.team-user-settings-button:hover,
+.team-user-settings-button:focus-visible,
+.vault-icon-button:hover,
+.vault-icon-button:focus-visible,
+.group-add-button:hover,
+.group-add-button:focus-visible,
+.group-permissions-button:hover,
+.group-permissions-button:focus-visible,
+.task-fab-action:hover,
+.task-fab-action:focus-visible,
+.task-fab-main:hover,
+.task-fab-main:focus-visible,
+.create-task-title-tag-trigger:hover,
+.create-task-title-tag-trigger:focus-visible,
+.task-detail-edit-description-toolbar button:hover,
+.task-detail-edit-description-toolbar button:focus-visible {
+    border-color: rgba(35, 123, 209, 0.56);
+    background: #ddecff;
+    color: #0f5ca8;
+}
+
+.task-filters-reorder-groups.is-active {
+    color: #0f5ca8;
+    border-color: rgba(35, 123, 209, 0.56);
+    background: linear-gradient(120deg, rgba(175, 220, 255, 0.94), rgba(210, 237, 255, 0.98));
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.85);
+}
+
+.btn-ghost {
+    background: #edf6ff;
+    color: #1f548b;
+    border-color: rgba(53, 126, 196, 0.34);
+}
+
+.btn-ghost:hover,
+.btn-ghost:focus-visible {
+    background: #ddecff;
+    color: #0f5ca8;
+    border-color: rgba(35, 123, 209, 0.56);
+}
+
+.status-stepper .task-revision-badge {
+    border-color: rgba(133, 102, 197, 0.54);
+    background: rgba(232, 223, 251, 0.96);
+    color: #62499a;
+}
+
+.status-stepper .task-revision-badge:hover,
+.status-stepper .task-revision-badge:focus-visible {
+    border-color: rgba(118, 88, 186, 0.66);
+    background: rgba(222, 209, 248, 0.98);
+}
+
+.status-stepper-btn,
+.task-expand-toggle,
+.task-row-delete,
+.vault-entry-delete-button {
+    border: 1px solid rgba(83, 134, 191, 0.32);
+    background: #f3f9ff;
+    color: #4a678f;
+    border-radius: 6px;
+}
+
+.status-stepper-btn:hover,
+.status-stepper-btn:focus-visible,
+.task-expand-toggle:hover,
+.task-expand-toggle:focus-visible {
+    border-color: rgba(42, 123, 202, 0.52);
+    background: #e5f1ff;
+    color: #1a5d9f;
+}
+
+.task-row-delete:hover,
+.task-row-delete:focus-visible,
+.vault-entry-delete-button:hover,
+.vault-entry-delete-button:focus-visible {
+    border-color: rgba(203, 86, 105, 0.54);
+    background: #ffe9ee;
+    color: #b64258;
+}
+
+.workspace-role-badge {
+    border-color: rgba(62, 126, 191, 0.3);
+    background: #eff7ff;
+    color: #2a5687;
+}
+
+.workspace-role-admin {
+    border-color: rgba(205, 143, 72, 0.42);
+    background: #fff3e4;
+    color: #9a5a19;
+}
+
+.workspace-role-member {
+    border-color: rgba(53, 126, 196, 0.42);
+    background: #e8f3ff;
+    color: #1e5d96;
+}
+
