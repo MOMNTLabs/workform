@@ -1625,6 +1625,103 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 redirectTo('index.php#task-' . $taskId);
 
+            case 'request_task_revision':
+                $authUser = requireAuth();
+                $workspaceId = activeWorkspaceId($authUser);
+                if ($workspaceId === null) {
+                    throw new RuntimeException('Workspace ativo nao encontrado.');
+                }
+
+                $taskId = (int) ($_POST['task_id'] ?? 0);
+                if ($taskId <= 0) {
+                    throw new RuntimeException('Tarefa invalida.');
+                }
+
+                $newDescription = trim((string) ($_POST['revision_description'] ?? ''));
+                if ($newDescription === '') {
+                    throw new RuntimeException('A nova descricao e obrigatoria.');
+                }
+                if (mb_strlen($newDescription) > 8000) {
+                    throw new RuntimeException('A nova descricao deve ter no maximo 8000 caracteres.');
+                }
+
+                $taskStmt = $pdo->prepare(
+                    'SELECT status, group_name, description
+                     FROM tasks
+                     WHERE id = :id
+                       AND workspace_id = :workspace_id
+                     LIMIT 1'
+                );
+                $taskStmt->execute([
+                    ':id' => $taskId,
+                    ':workspace_id' => $workspaceId,
+                ]);
+                $taskRow = $taskStmt->fetch();
+                if (!$taskRow) {
+                    throw new RuntimeException('Tarefa invalida.');
+                }
+
+                $taskGroupName = normalizeTaskGroupName((string) ($taskRow['group_name'] ?? 'Geral'));
+                if (!userCanAccessTaskGroup((int) $authUser['id'], $workspaceId, $taskGroupName)) {
+                    throw new RuntimeException('Voce nao possui acesso para atualizar esta tarefa.');
+                }
+
+                $taskStatus = normalizeTaskStatus((string) ($taskRow['status'] ?? 'todo'));
+                if ($taskStatus !== 'review') {
+                    throw new RuntimeException('A solicitacao de ajuste so pode ser feita em tarefas em revisao.');
+                }
+
+                $previousDescription = trim((string) ($taskRow['description'] ?? ''));
+                if ($previousDescription === $newDescription) {
+                    throw new RuntimeException('A nova descricao precisa ser diferente da descricao atual.');
+                }
+
+                $updatedAt = nowIso();
+                $updateStmt = $pdo->prepare(
+                    'UPDATE tasks
+                     SET description = :description,
+                         updated_at = :updated_at
+                     WHERE id = :id
+                       AND workspace_id = :workspace_id'
+                );
+                $updateStmt->execute([
+                    ':description' => $newDescription,
+                    ':updated_at' => $updatedAt,
+                    ':id' => $taskId,
+                    ':workspace_id' => $workspaceId,
+                ]);
+
+                logTaskHistory(
+                    $pdo,
+                    $taskId,
+                    'revision_requested',
+                    [
+                        'previous_description' => $previousDescription,
+                        'new_description' => $newDescription,
+                    ],
+                    (int) $authUser['id'],
+                    $updatedAt
+                );
+
+                $taskHistory = taskHistoryList($taskId);
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'task' => [
+                            'id' => $taskId,
+                            'description' => $newDescription,
+                            'status' => $taskStatus,
+                            'history' => $taskHistory,
+                            'updated_at' => $updatedAt,
+                            'updated_at_label' => (new DateTimeImmutable($updatedAt))->format('d/m H:i'),
+                        ],
+                        'dashboard' => dashboardSummaryPayloadForUser((int) $authUser['id'], $workspaceId),
+                    ]);
+                }
+
+                flash('success', 'Ajuste solicitado na tarefa.');
+                redirectTo('index.php#task-' . $taskId);
+
             case 'move_task':
                 $authUser = requireAuth();
                 $workspaceId = activeWorkspaceId($authUser);

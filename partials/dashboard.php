@@ -2170,6 +2170,7 @@
             <div class="task-detail-modal-head-actions">
                 <button type="button" class="btn btn-mini btn-danger" data-task-detail-delete>Remover</button>
                 <button type="button" class="btn btn-mini btn-ghost" data-task-detail-edit>Editar</button>
+                <button type="button" class="btn btn-mini btn-ghost" data-task-detail-request-revision hidden>Solicitar ajuste</button>
                 <button type="button" class="btn btn-mini" data-task-detail-save hidden>Salvar</button>
                 <button type="button" class="btn btn-mini btn-ghost" data-task-detail-cancel-edit hidden>Cancelar</button>
                 <button type="button" class="modal-close-button" data-close-task-detail-modal aria-label="Fechar modal">
@@ -2195,6 +2196,7 @@
                         <div class="task-detail-view-block">
                             <div class="task-detail-view-label">Descricao</div>
                             <div class="task-detail-view-description" data-task-detail-view-description></div>
+                            <div class="task-detail-description-versions" data-task-detail-view-description-versions hidden></div>
                         </div>
 
                         <div class="task-detail-view-block" data-task-detail-view-subtasks-wrap hidden>
@@ -2361,6 +2363,34 @@
                 </div>
             </section>
         </div>
+    </section>
+</div>
+
+<div class="modal-backdrop" data-task-review-modal hidden>
+    <div class="modal-scrim" data-close-task-review-modal></div>
+    <section class="modal-card review-task-modal" role="dialog" aria-modal="true" aria-labelledby="task-review-modal-title">
+        <header class="modal-head">
+            <h2 id="task-review-modal-title">Solicitar ajuste</h2>
+            <button type="button" class="modal-close-button" data-close-task-review-modal aria-label="Fechar modal">
+                <span aria-hidden="true">&#10005;</span>
+            </button>
+        </header>
+
+        <form method="post" class="form-stack modal-form" data-task-review-form>
+            <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+            <input type="hidden" name="action" value="request_task_revision">
+            <input type="hidden" name="task_id" value="" data-task-review-task-id>
+
+            <label>
+                <span>Nova descricao para ajustes</span>
+                <textarea name="revision_description" rows="6" maxlength="8000" required data-task-review-description></textarea>
+            </label>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-mini btn-ghost" data-close-task-review-modal>Cancelar</button>
+                <button type="submit" class="btn btn-mini" data-task-review-submit>Salvar ajuste</button>
+            </div>
+        </form>
     </section>
 </div>
 

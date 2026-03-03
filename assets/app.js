@@ -735,6 +735,82 @@ window.addEventListener("DOMContentLoaded", () => {
     return parts.join("");
   };
 
+  const collectTaskDescriptionRevisions = (description = "", history = []) => {
+    const currentDescription = String(description || "").trim();
+    const revisions = [];
+    const seenDescriptions = new Set();
+
+    if (currentDescription) {
+      revisions.push({
+        kind: "current",
+        text: currentDescription,
+      });
+      seenDescriptions.add(currentDescription);
+    }
+
+    (Array.isArray(history) ? history : []).forEach((entry) => {
+      const eventType = String(entry?.event_type || "").trim();
+      if (eventType !== "revision_requested") return;
+
+      const previousDescription = String(entry?.payload?.previous_description || "").trim();
+      if (!previousDescription || seenDescriptions.has(previousDescription)) return;
+
+      seenDescriptions.add(previousDescription);
+      revisions.push({
+        kind: "previous",
+        text: previousDescription,
+        createdAt: String(entry?.created_at || "").trim(),
+        actorName: String(entry?.actor_name || "").trim(),
+      });
+    });
+
+    return revisions;
+  };
+
+  const renderTaskDetailDescriptionView = ({ description = "", history = [] } = {}) => {
+    if (!(taskDetailViewDescription instanceof HTMLElement)) return;
+
+    const currentDescription = String(description || "").trim();
+    if (currentDescription) {
+      taskDetailViewDescription.innerHTML = formatTaskDescriptionHtml(currentDescription);
+      taskDetailViewDescription.classList.remove("is-empty");
+    } else {
+      taskDetailViewDescription.textContent = "Sem descricao.";
+      taskDetailViewDescription.classList.add("is-empty");
+    }
+
+    if (!(taskDetailViewDescriptionVersions instanceof HTMLElement)) return;
+    taskDetailViewDescriptionVersions.innerHTML = "";
+
+    const revisions = collectTaskDescriptionRevisions(currentDescription, history);
+    const previousRevisions = revisions.filter((item) => item.kind === "previous");
+    if (!previousRevisions.length) {
+      taskDetailViewDescriptionVersions.hidden = true;
+      return;
+    }
+
+    previousRevisions.forEach((revision, index) => {
+      const details = document.createElement("details");
+      details.className = "task-detail-description-version";
+
+      const summary = document.createElement("summary");
+      const summaryDate = formatHistoryDateTime(revision.createdAt || "");
+      const summaryActor = revision.actorName ? ` · ${revision.actorName}` : "";
+      summary.textContent = summaryDate
+        ? `Descricao anterior ${index + 1} · ${summaryDate}${summaryActor}`
+        : `Descricao anterior ${index + 1}`;
+
+      const body = document.createElement("div");
+      body.className = "task-detail-description-version-body";
+      body.innerHTML = formatTaskDescriptionHtml(revision.text);
+
+      details.append(summary, body);
+      taskDetailViewDescriptionVersions.append(details);
+    });
+
+    taskDetailViewDescriptionVersions.hidden = false;
+  };
+
   const wrapSelectionWithBoldMarkdown = (textarea) => {
     if (!(textarea instanceof HTMLTextAreaElement)) return;
     const start = Number.isFinite(textarea.selectionStart) ? textarea.selectionStart : 0;
@@ -1339,6 +1415,8 @@ window.addEventListener("DOMContentLoaded", () => {
         return `Etapas: ${Number(payload.old_completed) || 0}/${Number(payload.old_total) || 0} ${transitionSymbol} ${
           Number(payload.new_completed) || 0
         }/${Number(payload.new_total) || 0}`;
+      case "revision_requested":
+        return "Solicitacao de ajuste na descricao";
       case "overdue_started":
         return `Atraso detectado (${Math.max(0, Number(payload.overdue_days) || 0)} dia(s))`;
       case "overdue_cleared":
@@ -2771,6 +2849,9 @@ window.addEventListener("DOMContentLoaded", () => {
   const taskDetailViewDue = document.querySelector("[data-task-detail-view-due]");
   const taskDetailViewAssignees = document.querySelector("[data-task-detail-view-assignees]");
   const taskDetailViewDescription = document.querySelector("[data-task-detail-view-description]");
+  const taskDetailViewDescriptionVersions = document.querySelector(
+    "[data-task-detail-view-description-versions]"
+  );
   const taskDetailViewSubtasksWrap = document.querySelector("[data-task-detail-view-subtasks-wrap]");
   const taskDetailViewSubtasks = document.querySelector("[data-task-detail-view-subtasks]");
   const taskDetailViewReferences = document.querySelector("[data-task-detail-view-references]");
@@ -2811,9 +2892,17 @@ window.addEventListener("DOMContentLoaded", () => {
   const taskDetailEditAssignees = document.querySelector("[data-task-detail-edit-assignees]");
   const taskDetailEditAssigneesMenu = document.querySelector("[data-task-detail-edit-assignees-menu]");
   const taskDetailEditButton = document.querySelector("[data-task-detail-edit]");
+  const taskDetailRequestRevisionButton = document.querySelector(
+    "[data-task-detail-request-revision]"
+  );
   const taskDetailSaveButton = document.querySelector("[data-task-detail-save]");
   const taskDetailDeleteButton = document.querySelector("[data-task-detail-delete]");
   const taskDetailCancelEditButton = document.querySelector("[data-task-detail-cancel-edit]");
+  const taskReviewModal = document.querySelector("[data-task-review-modal]");
+  const taskReviewForm = document.querySelector("[data-task-review-form]");
+  const taskReviewTaskIdInput = document.querySelector("[data-task-review-task-id]");
+  const taskReviewDescriptionInput = document.querySelector("[data-task-review-description]");
+  const taskReviewSubmitButton = document.querySelector("[data-task-review-submit]");
   const confirmModal = document.querySelector("[data-confirm-modal]");
   const confirmModalTitle = document.querySelector("#confirm-modal-title");
   const confirmModalMessage = document.querySelector("[data-confirm-modal-message]");
@@ -3670,6 +3759,19 @@ window.addEventListener("DOMContentLoaded", () => {
     scheduleTaskAutosave(taskDetailContext.form, 60);
   });
 
+  const syncTaskDetailRevisionButtonVisibility = ({ isEditing = false } = {}) => {
+    if (!(taskDetailRequestRevisionButton instanceof HTMLButtonElement)) return;
+
+    const statusValue = String(taskDetailContext?.statusSelect?.value || "").trim();
+    const canRequestRevision =
+      !isEditing &&
+      Boolean(taskDetailContext) &&
+      !Boolean(taskDetailContext?.readOnly) &&
+      statusValue === "review";
+
+    taskDetailRequestRevisionButton.hidden = !canRequestRevision;
+  };
+
   const setTaskDetailEditMode = (editing) => {
     if (!taskDetailModal) return;
     const isReadOnlyTask = Boolean(taskDetailContext?.readOnly);
@@ -3693,6 +3795,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if (taskDetailCancelEditButton instanceof HTMLButtonElement) {
       taskDetailCancelEditButton.hidden = !isEditing;
     }
+    syncTaskDetailRevisionButtonVisibility({ isEditing });
 
     if (isEditing) {
       window.setTimeout(() => {
@@ -3908,14 +4011,7 @@ window.addEventListener("DOMContentLoaded", () => {
         ? `Responsaveis: ${assigneeNames.join(", ")}`
         : "Sem responsavel";
     }
-    if (taskDetailViewDescription) {
-      if (description) {
-        taskDetailViewDescription.innerHTML = formatTaskDescriptionHtml(description);
-      } else {
-        taskDetailViewDescription.textContent = "Sem descricao.";
-      }
-      taskDetailViewDescription.classList.toggle("is-empty", !description);
-    }
+    renderTaskDetailDescriptionView({ description, history });
     renderTaskSubtasksViewList({
       subtasks,
       readOnly: Boolean(context.readOnly),
@@ -3975,6 +4071,9 @@ window.addEventListener("DOMContentLoaded", () => {
     renderTaskDetailSubtasksEditList();
     setTaskDetailEditImageItems(referenceImages);
     copyAssigneesToTaskDetailModal(rowAssigneePicker);
+    syncTaskDetailRevisionButtonVisibility({
+      isEditing: Boolean(taskDetailModal?.classList.contains("is-editing")),
+    });
   };
 
   const openTaskDetailModal = (taskItem) => {
@@ -3995,6 +4094,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   const closeTaskDetailModal = () => {
     if (!taskDetailModal) return;
+    closeTaskReviewModal();
     closeTaskImagePreview();
     taskDetailModal.hidden = true;
     taskDetailContext = null;
@@ -4099,6 +4199,102 @@ window.addEventListener("DOMContentLoaded", () => {
     return true;
   };
 
+  const closeTaskReviewModal = () => {
+    if (!(taskReviewModal instanceof HTMLElement)) return;
+    taskReviewModal.hidden = true;
+    if (taskReviewForm instanceof HTMLFormElement) {
+      taskReviewForm.reset();
+    }
+    if (taskReviewTaskIdInput instanceof HTMLInputElement) {
+      taskReviewTaskIdInput.value = "";
+    }
+    syncBodyModalLock();
+  };
+
+  const openTaskReviewModal = () => {
+    if (!(taskReviewModal instanceof HTMLElement)) return;
+    if (!(taskDetailContext?.form instanceof HTMLFormElement)) return;
+    if (Boolean(taskDetailContext.readOnly)) {
+      showClientFlash("error", "Voce nao possui acesso para solicitar ajuste nesta tarefa.");
+      return;
+    }
+
+    const statusValue = String(taskDetailContext.statusSelect?.value || "").trim();
+    if (statusValue !== "review") {
+      showClientFlash("error", "A solicitacao de ajuste so esta disponivel para tarefas em revisao.");
+      return;
+    }
+
+    const taskIdField = taskDetailContext.form.querySelector('input[name="task_id"]');
+    if (!(taskIdField instanceof HTMLInputElement) || !taskIdField.value) return;
+    if (taskReviewTaskIdInput instanceof HTMLInputElement) {
+      taskReviewTaskIdInput.value = taskIdField.value;
+    }
+    if (taskReviewDescriptionInput instanceof HTMLTextAreaElement) {
+      taskReviewDescriptionInput.value = "";
+    }
+
+    taskReviewModal.hidden = false;
+    syncBodyModalLock();
+    window.setTimeout(() => {
+      taskReviewDescriptionInput?.focus();
+    }, 20);
+  };
+
+  const submitTaskReviewRequest = async () => {
+    if (!(taskReviewForm instanceof HTMLFormElement)) return;
+    if (!(taskReviewDescriptionInput instanceof HTMLTextAreaElement)) return;
+    if (!(taskDetailContext?.form instanceof HTMLFormElement)) return;
+
+    const nextDescription = String(taskReviewDescriptionInput.value || "").trim();
+    if (!nextDescription) {
+      taskReviewDescriptionInput.reportValidity?.();
+      return;
+    }
+
+    if (taskReviewSubmitButton instanceof HTMLButtonElement) {
+      taskReviewSubmitButton.disabled = true;
+      taskReviewSubmitButton.classList.add("is-loading");
+      taskReviewSubmitButton.textContent = "Salvando";
+    }
+
+    try {
+      const data = await postFormJson(taskReviewForm);
+      const task = data.task || {};
+
+      if (typeof task.description === "string") {
+        taskDetailContext.descriptionField.value = task.description;
+      }
+      if (Array.isArray(task.history) && taskDetailContext.historyField instanceof HTMLInputElement) {
+        writeTaskHistoryField(taskDetailContext.historyField, task.history);
+      }
+      if (typeof task.updated_at_label === "string") {
+        refreshTaskUpdatedAtMeta(taskDetailContext.form, task.updated_at_label);
+      }
+      if (typeof task.status === "string" && taskDetailContext.statusSelect instanceof HTMLSelectElement) {
+        taskDetailContext.statusSelect.value = task.status;
+        syncSelectColor(taskDetailContext.statusSelect);
+      }
+
+      renderDashboardSummary(data.dashboard);
+      populateTaskDetailModalFromRow(taskDetailContext);
+      setTaskDetailEditMode(false);
+      closeTaskReviewModal();
+      showClientFlash("success", "Ajuste solicitado na tarefa.");
+    } catch (error) {
+      showClientFlash(
+        "error",
+        error instanceof Error ? error.message : "Nao foi possivel solicitar ajuste na tarefa."
+      );
+    } finally {
+      if (taskReviewSubmitButton instanceof HTMLButtonElement) {
+        taskReviewSubmitButton.disabled = false;
+        taskReviewSubmitButton.classList.remove("is-loading");
+        taskReviewSubmitButton.textContent = "Salvar ajuste";
+      }
+    }
+  };
+
   const saveTaskDetailModal = async () => {
     if (!taskDetailContext) return;
     if (!copyTaskDetailModalToRow(taskDetailContext)) return;
@@ -4152,6 +4348,7 @@ window.addEventListener("DOMContentLoaded", () => {
       dueEntryModal,
       dueEntryEditModal,
       taskDetailModal,
+      taskReviewModal,
       taskImagePreviewModal,
       confirmModal,
       ...groupPermissionModals,
@@ -5354,6 +5551,12 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    const openTaskReviewTrigger = target.closest("[data-task-detail-request-revision]");
+    if (openTaskReviewTrigger) {
+      openTaskReviewModal();
+      return;
+    }
+
     const cancelTaskDetailEditTrigger = target.closest("[data-task-detail-cancel-edit]");
     if (cancelTaskDetailEditTrigger) {
       if (taskDetailContext) {
@@ -5461,6 +5664,12 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    const closeTaskReviewTrigger = target.closest("[data-close-task-review-modal]");
+    if (closeTaskReviewTrigger) {
+      closeTaskReviewModal();
+      return;
+    }
+
     const closeConfirmTrigger = target.closest("[data-close-confirm-modal]");
     if (closeConfirmTrigger) {
       closeConfirmModal();
@@ -5544,6 +5753,10 @@ window.addEventListener("DOMContentLoaded", () => {
     if (dueEntryEditModal && !dueEntryEditModal.hidden) {
       closeDueEntryEditModal();
     }
+    if (taskReviewModal && !taskReviewModal.hidden) {
+      closeTaskReviewModal();
+      return;
+    }
     if (taskImagePreviewModal && !taskImagePreviewModal.hidden) {
       closeTaskImagePreview();
       return;
@@ -5583,6 +5796,13 @@ window.addEventListener("DOMContentLoaded", () => {
       }
 
       syncBodyModalLock();
+    });
+  }
+
+  if (taskReviewForm instanceof HTMLFormElement) {
+    taskReviewForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      void submitTaskReviewRequest();
     });
   }
 
