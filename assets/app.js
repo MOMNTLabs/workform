@@ -370,6 +370,16 @@ window.addEventListener("DOMContentLoaded", () => {
       });
   };
 
+  const closeOpenWorkspaceSidebarPickers = (targetNode = null) => {
+    document
+      .querySelectorAll("details.workspace-sidebar-picker[open]")
+      .forEach((details) => {
+        if (!(details instanceof HTMLDetailsElement)) return;
+        if (targetNode instanceof Node && details.contains(targetNode)) return;
+        details.open = false;
+      });
+  };
+
   const getInlineSelectWrap = (node) => {
     if (!(node instanceof Element)) return null;
     return node.closest("[data-inline-select-wrap], .row-inline-picker-wrap");
@@ -1948,6 +1958,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const target = event.target;
     if (!(target instanceof Node)) return;
     closeOpenDropdownDetails(target);
+    closeOpenWorkspaceSidebarPickers(target);
   });
 
   document.addEventListener("change", (event) => {
@@ -7605,6 +7616,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const target =
       event.target instanceof Element ? event.target : event.target?.parentElement;
     if (!(target instanceof Element)) return;
+    closeOpenWorkspaceSidebarPickers(target);
 
     if (
       fabWrap &&
