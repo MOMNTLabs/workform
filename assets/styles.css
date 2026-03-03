@@ -7177,7 +7177,7 @@ textarea:focus,
 .is-dashboard .app-shell {
     width: 100%;
     margin: 0;
-    padding: 0;
+    padding: 0 10px 10px;
 }
 
 .is-dashboard .dashboard {
