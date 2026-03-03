@@ -147,7 +147,7 @@ select optgroup {
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 10px;
-    padding: 6px 12px;
+    padding: 8px 20px;
     border-radius: 20px;
     background:
         radial-gradient(circle at 14% 0%, rgba(255, 132, 167, 0.16), transparent 42%),
@@ -636,7 +636,8 @@ select optgroup {
 }
 
 .dashboard-nav-stats {
-    width: min(100%, 940px);
+    width: fit-content;
+    max-width: 100%;
     min-width: 0;
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -645,6 +646,7 @@ select optgroup {
         rgba(3, 7, 18, 0.52);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     justify-self: center;
+    grid-template-columns: repeat(5, auto);
 }
 
 .stat-cell {
@@ -698,8 +700,8 @@ select optgroup {
 }
 
 .is-dashboard .dashboard-nav-stats {
-    justify-content: stretch;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    justify-content: flex-start;
+    grid-template-columns: repeat(5, auto);
 }
 
 .stat-cell:last-child {
@@ -1071,7 +1073,7 @@ textarea:focus {
 
 .dashboard-nav {
     grid-template-columns: auto 1fr auto;
-    padding: 6px 12px;
+    padding: 8px 20px;
 }
 
 .dashboard-nav .brand {
@@ -5929,6 +5931,7 @@ textarea:focus {
     }
 
     .dashboard-nav-stats {
+        width: 100%;
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
