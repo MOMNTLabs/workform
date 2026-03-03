@@ -441,6 +441,25 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    const inventoryInlineQuantityInput = target.closest("[data-inventory-inline-quantity-input]");
+    if (inventoryInlineQuantityInput instanceof HTMLInputElement) {
+      const quantityForm = inventoryInlineQuantityInput.closest(
+        "[data-inventory-inline-quantity-form]"
+      );
+      if (!(quantityForm instanceof HTMLFormElement)) return;
+
+      const nextQuantity = String(inventoryInlineQuantityInput.value || "").trim();
+      if (nextQuantity === "") {
+        inventoryInlineQuantityInput.value = inventoryInlineQuantityInput.defaultValue || "0";
+        return;
+      }
+
+      if (quantityForm.dataset.submitting === "1") return;
+      quantityForm.dataset.submitting = "1";
+      quantityForm.submit();
+      return;
+    }
+
     const select = target.closest(".status-select, .priority-select");
     if (select) {
       syncSelectColor(select);
@@ -6504,6 +6523,16 @@ window.addEventListener("DOMContentLoaded", () => {
       event.preventDefault();
       const renameForm = target.closest("[data-vault-entry-name-form]");
       void submitVaultEntryNameForm(renameForm);
+      return;
+    }
+
+    if (
+      event.key === "Enter" &&
+      target instanceof HTMLElement &&
+      target.matches("[data-inventory-inline-quantity-input]")
+    ) {
+      event.preventDefault();
+      target.blur();
       return;
     }
 

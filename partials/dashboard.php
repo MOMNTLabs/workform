@@ -1389,10 +1389,31 @@ $taskTitleTagOptions = array_values($taskTitleTagOptions);
                                         <div class="inventory-entry-main">
                                             <div class="inventory-entry-line">
                                                 <span class="inventory-entry-title"><?= e($inventoryLabel) ?></span>
-                                                <span class="inventory-entry-qty" title="Quantidade disponivel">
+                                                <form
+                                                    method="post"
+                                                    class="inventory-entry-qty inventory-entry-qty-form"
+                                                    data-inventory-inline-quantity-form
+                                                    title="Quantidade disponivel"
+                                                >
+                                                    <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+                                                    <input type="hidden" name="action" value="update_inventory_entry_quantity">
+                                                    <input type="hidden" name="entry_id" value="<?= e((string) $inventoryEntryId) ?>">
                                                     <span class="inventory-entry-inline-label">Qtd.</span>
-                                                    <strong><?= e($inventoryQuantityDisplay) ?> <?= e($inventoryUnitLabel) ?></strong>
-                                                </span>
+                                                    <label class="inventory-entry-qty-editor">
+                                                        <input
+                                                            type="number"
+                                                            name="quantity_value"
+                                                            min="0"
+                                                            step="0.01"
+                                                            value="<?= e($inventoryQuantityInput) ?>"
+                                                            class="inventory-entry-qty-input"
+                                                            data-inventory-inline-quantity-input
+                                                            aria-label="Quantidade de <?= e($inventoryLabel) ?>"
+                                                        >
+                                                        <span class="inventory-entry-qty-unit"><?= e($inventoryUnitLabel) ?></span>
+                                                    </label>
+                                                    <button type="submit" class="sr-only">Salvar quantidade</button>
+                                                </form>
                                                 <?php if ($inventoryMinQuantityValue !== null): ?>
                                                     <span class="inventory-entry-min" title="Estoque minimo recomendado">
                                                         <span class="inventory-entry-inline-label">Min.</span>
