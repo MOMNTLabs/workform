@@ -735,35 +735,92 @@ window.addEventListener("DOMContentLoaded", () => {
     return parts.join("");
   };
 
+  const buildActiveTaskRevisionStack = (history = []) => {
+    const stack = [];
+    const orderedEntries = Array.isArray(history) ? [...history].reverse() : [];
+
+    orderedEntries.forEach((entry) => {
+      const eventType = String(entry?.event_type || "").trim();
+      const payload = entry?.payload || {};
+
+      if (eventType === "revision_requested") {
+        const previousDescription = String(payload?.previous_description || "").trim();
+        const newDescription = String(payload?.new_description || "").trim();
+        if (!previousDescription || !newDescription || previousDescription === newDescription) {
+          return;
+        }
+
+        stack.push({
+          previousDescription,
+          newDescription,
+          createdAt: String(entry?.created_at || "").trim(),
+          actorName: String(entry?.actor_name || "").trim(),
+        });
+        return;
+      }
+
+      if (eventType !== "revision_removed") {
+        return;
+      }
+
+      const removedDescription = String(payload?.removed_description || "").trim();
+      const restoredDescription = String(payload?.restored_description || "").trim();
+      if (!removedDescription) {
+        return;
+      }
+
+      for (let index = stack.length - 1; index >= 0; index -= 1) {
+        const candidate = stack[index];
+        const matchesRemoved = candidate.newDescription === removedDescription;
+        const matchesRestored =
+          !restoredDescription || candidate.previousDescription === restoredDescription;
+        if (!matchesRemoved || !matchesRestored) {
+          continue;
+        }
+
+        stack.splice(index, 1);
+        break;
+      }
+    });
+
+    return stack;
+  };
+
   const collectTaskDescriptionRevisions = (description = "", history = []) => {
     const currentDescription = String(description || "").trim();
     const revisions = [];
-    const seenDescriptions = new Set();
 
     if (currentDescription) {
       revisions.push({
         kind: "current",
         text: currentDescription,
       });
-      seenDescriptions.add(currentDescription);
     }
 
-    (Array.isArray(history) ? history : []).forEach((entry) => {
-      const eventType = String(entry?.event_type || "").trim();
-      if (eventType !== "revision_requested") return;
+    const activeStack = buildActiveTaskRevisionStack(history);
+    if (!currentDescription || !activeStack.length) {
+      return revisions;
+    }
 
-      const previousDescription = String(entry?.payload?.previous_description || "").trim();
-      if (!previousDescription || seenDescriptions.has(previousDescription)) return;
+    let chainCurrentDescription = currentDescription;
+    const previousRevisions = [];
 
-      seenDescriptions.add(previousDescription);
-      revisions.push({
+    for (let index = activeStack.length - 1; index >= 0; index -= 1) {
+      const revision = activeStack[index];
+      if (revision.newDescription !== chainCurrentDescription) {
+        continue;
+      }
+
+      previousRevisions.push({
         kind: "previous",
-        text: previousDescription,
-        createdAt: String(entry?.created_at || "").trim(),
-        actorName: String(entry?.actor_name || "").trim(),
+        text: revision.previousDescription,
+        createdAt: revision.createdAt,
+        actorName: revision.actorName,
       });
-    });
+      chainCurrentDescription = revision.previousDescription;
+    }
 
+    revisions.push(...previousRevisions);
     return revisions;
   };
 
@@ -771,13 +828,11 @@ window.addEventListener("DOMContentLoaded", () => {
     const currentDescription = String(description || "").trim();
     if (!currentDescription) return false;
 
-    return (Array.isArray(history) ? history : []).some((entry) => {
-      if (String(entry?.event_type || "").trim() !== "revision_requested") return false;
-      const payload = entry?.payload || {};
-      const previousDescription = String(payload?.previous_description || "").trim();
-      const newDescription = String(payload?.new_description || "").trim();
-      return previousDescription !== "" && newDescription === currentDescription;
-    });
+    const activeStack = buildActiveTaskRevisionStack(history);
+    if (!activeStack.length) return false;
+
+    const latestActiveRevision = activeStack[activeStack.length - 1];
+    return String(latestActiveRevision?.newDescription || "").trim() === currentDescription;
   };
 
   const renderTaskDetailDescriptionView = ({ description = "", history = [] } = {}) => {
