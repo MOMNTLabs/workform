@@ -17,98 +17,12 @@ $taskTitleTagOptions = array_values($taskTitleTagOptions);
     data-workspace-id="<?= e((string) ($currentWorkspaceId ?? 0)) ?>"
 ><?= json_encode($taskTitleTagOptions, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 
-<header class="top-nav dashboard-nav">
-    <a href="index.php" class="brand" aria-label="WorkForm">
-        <img src="assets/WorkForm - Logo.svg?v=2" alt="WorkForm" class="brand-lockup" width="116" height="29">
-    </a>
-
-    <section class="stats-strip dashboard-stats dashboard-nav-stats" aria-label="Indicadores do workspace">
-        <div class="stat-cell">
-            <span>Tarefas</span>
-            <strong data-dashboard-stat-total><?= e((string) $stats['total']) ?></strong>
-        </div>
-        <div class="stat-cell">
-            <span>Concluidas</span>
-            <strong data-dashboard-stat-done><?= e((string) $stats['done']) ?> (<?= e((string) $completionRate) ?>%)</strong>
-        </div>
-        <div class="stat-cell">
-            <span>Para hoje</span>
-            <strong data-dashboard-stat-due-today><?= e((string) $stats['due_today']) ?></strong>
-        </div>
-        <div class="stat-cell">
-            <span>Urgentes</span>
-            <strong data-dashboard-stat-urgent><?= e((string) $stats['urgent']) ?></strong>
-        </div>
-        <div class="stat-cell">
-            <span>Minhas abertas</span>
-            <strong data-dashboard-stat-my-open><?= e((string) $myOpenTasks) ?></strong>
-        </div>
-    </section>
-
-    <div class="dashboard-nav-main">
-        <div class="user-chip">
-            <div class="avatar" aria-hidden="true"><?= e(strtoupper(substr((string) $currentUser['name'], 0, 1))) ?></div>
-            <div>
-                <strong><?= e((string) $currentUser['name']) ?></strong>
-                <span><?= e((string) $currentUser['email']) ?></span>
-            </div>
-        </div>
-
-        <div class="top-nav-actions">
-            <div class="header-notification-menu" data-header-notifications>
-                <button
-                    type="button"
-                    class="header-notification-button"
-                    data-header-notifications-toggle
-                    aria-label="Notificacoes"
-                    aria-haspopup="true"
-                    aria-expanded="false"
-                >
-                    <span class="header-notification-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" focusable="false">
-                            <path d="M7.5 9.5a4.5 4.5 0 1 1 9 0v2.2c0 1.2.4 2.4 1.1 3.4l.9 1.3H5.5l.9-1.3c.7-1 1.1-2.2 1.1-3.4V9.5Z"></path>
-                            <path d="M10 19a2 2 0 0 0 4 0"></path>
-                        </svg>
-                    </span>
-                    <span class="header-notification-count" data-header-notifications-count hidden>0</span>
-                </button>
-                <div
-                    class="header-notification-dropdown"
-                    data-header-notifications-dropdown
-                    role="menu"
-                    aria-label="Lista de notificacoes"
-                    hidden
-                >
-                    <div class="header-notification-dropdown-head">
-                        <strong>Notificacoes</strong>
-                    </div>
-                    <div class="header-notification-list" data-header-notifications-list>
-                        <p class="header-notification-empty">Sem notificacoes.</p>
-                    </div>
-                </div>
-            </div>
-            <a
-                href="account-settings.php"
-                class="icon-gear-button top-account-settings-button"
-                aria-label="Configuracoes da conta"
-            >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M10.3 2.6h3.4l.5 2a7.8 7.8 0 0 1 1.9.8l1.8-1 2.4 2.4-1 1.8c.3.6.6 1.2.8 1.9l2 .5v3.4l-2 .5a7.8 7.8 0 0 1-.8 1.9l1 1.8-2.4 2.4-1.8-1a7.8 7.8 0 0 1-1.9.8l-.5 2h-3.4l-.5-2a7.8 7.8 0 0 1-1.9-.8l-1.8 1-2.4-2.4 1-1.8a7.8 7.8 0 0 1-.8-1.9l-2-.5v-3.4l2-.5c.2-.7.5-1.3.8-1.9l-1-1.8 2.4-2.4 1.8 1c.6-.3 1.2-.6 1.9-.8l.5-2Z"></path>
-                    <circle cx="12" cy="12" r="3.2"></circle>
-                </svg>
-            </a>
-            <form method="post">
-                <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
-                <input type="hidden" name="action" value="logout">
-                <button type="submit" class="btn btn-pill btn-logout"><span>Sair</span></button>
-            </form>
-        </div>
-    </div>
-</header>
-
 <main class="dashboard dashboard-compact">
     <section class="workspace-layout tasklist-layout">
         <aside class="panel users-sidebar" id="team">
+            <a href="index.php" class="sidebar-brand" aria-label="WorkForm">
+                <img src="assets/WorkForm - Logo.svg?v=2" alt="WorkForm" class="sidebar-brand-lockup brand-lockup" width="116" height="29">
+            </a>
             <div class="users-sidebar-body">
                 <div class="panel-header workspace-sidebar-header">
                     <div class="workspace-sidebar-heading-row">
@@ -245,6 +159,91 @@ $taskTitleTagOptions = array_values($taskTitleTagOptions);
                 </nav>
             </div>
         </aside>
+
+        <header class="top-nav dashboard-nav dashboard-content-nav">
+            <section class="stats-strip dashboard-stats dashboard-nav-stats" aria-label="Indicadores do workspace">
+                <div class="stat-cell">
+                    <span>Tarefas</span>
+                    <strong data-dashboard-stat-total><?= e((string) $stats['total']) ?></strong>
+                </div>
+                <div class="stat-cell">
+                    <span>Concluidas</span>
+                    <strong data-dashboard-stat-done><?= e((string) $stats['done']) ?> (<?= e((string) $completionRate) ?>%)</strong>
+                </div>
+                <div class="stat-cell">
+                    <span>Para hoje</span>
+                    <strong data-dashboard-stat-due-today><?= e((string) $stats['due_today']) ?></strong>
+                </div>
+                <div class="stat-cell">
+                    <span>Urgentes</span>
+                    <strong data-dashboard-stat-urgent><?= e((string) $stats['urgent']) ?></strong>
+                </div>
+                <div class="stat-cell">
+                    <span>Minhas abertas</span>
+                    <strong data-dashboard-stat-my-open><?= e((string) $myOpenTasks) ?></strong>
+                </div>
+            </section>
+
+            <div class="dashboard-nav-main">
+                <div class="user-chip">
+                    <div class="avatar" aria-hidden="true"><?= e(strtoupper(substr((string) $currentUser['name'], 0, 1))) ?></div>
+                    <div>
+                        <strong><?= e((string) $currentUser['name']) ?></strong>
+                        <span><?= e((string) $currentUser['email']) ?></span>
+                    </div>
+                </div>
+
+                <div class="top-nav-actions">
+                    <div class="header-notification-menu" data-header-notifications>
+                        <button
+                            type="button"
+                            class="header-notification-button"
+                            data-header-notifications-toggle
+                            aria-label="Notificacoes"
+                            aria-haspopup="true"
+                            aria-expanded="false"
+                        >
+                            <span class="header-notification-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" focusable="false">
+                                    <path d="M7.5 9.5a4.5 4.5 0 1 1 9 0v2.2c0 1.2.4 2.4 1.1 3.4l.9 1.3H5.5l.9-1.3c.7-1 1.1-2.2 1.1-3.4V9.5Z"></path>
+                                    <path d="M10 19a2 2 0 0 0 4 0"></path>
+                                </svg>
+                            </span>
+                            <span class="header-notification-count" data-header-notifications-count hidden>0</span>
+                        </button>
+                        <div
+                            class="header-notification-dropdown"
+                            data-header-notifications-dropdown
+                            role="menu"
+                            aria-label="Lista de notificacoes"
+                            hidden
+                        >
+                            <div class="header-notification-dropdown-head">
+                                <strong>Notificacoes</strong>
+                            </div>
+                            <div class="header-notification-list" data-header-notifications-list>
+                                <p class="header-notification-empty">Sem notificacoes.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <a
+                        href="account-settings.php"
+                        class="icon-gear-button top-account-settings-button"
+                        aria-label="Configuracoes da conta"
+                    >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M10.3 2.6h3.4l.5 2a7.8 7.8 0 0 1 1.9.8l1.8-1 2.4 2.4-1 1.8c.3.6.6 1.2.8 1.9l2 .5v3.4l-2 .5a7.8 7.8 0 0 1-.8 1.9l1 1.8-2.4 2.4-1.8-1a7.8 7.8 0 0 1-1.9.8l-.5 2h-3.4l-.5-2a7.8 7.8 0 0 1-1.9-.8l-1.8 1-2.4-2.4 1-1.8a7.8 7.8 0 0 1-.8-1.9l-2-.5v-3.4l2-.5c.2-.7.5-1.3.8-1.9l-1-1.8 2.4-2.4 1.8 1c.6-.3 1.2-.6 1.9-.8l.5-2Z"></path>
+                            <circle cx="12" cy="12" r="3.2"></circle>
+                        </svg>
+                    </a>
+                    <form method="post">
+                        <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+                        <input type="hidden" name="action" value="logout">
+                        <button type="submit" class="btn btn-pill btn-logout"><span>Sair</span></button>
+                    </form>
+                </div>
+            </div>
+        </header>
 
         <section class="tasklist-wrap panel" id="tasks" data-dashboard-view-panel="tasks">
             <div class="panel-header board-header">

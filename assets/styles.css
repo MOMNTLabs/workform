@@ -7279,3 +7279,60 @@ textarea:focus,
     background: transparent !important;
 }
 
+/* Dashboard split layout: full-height sidebar + content header on right */
+.is-dashboard .tasklist-layout {
+    grid-template-columns: 300px minmax(0, 1fr);
+    align-items: stretch;
+}
+
+.is-dashboard .tasklist-layout > .users-sidebar {
+    grid-column: 1;
+    grid-row: 1 / -1;
+    min-height: 100dvh;
+}
+
+.is-dashboard .tasklist-layout > :not(.users-sidebar) {
+    grid-column: 2;
+}
+
+.dashboard-content-nav {
+    grid-template-columns: minmax(0, 1fr) auto;
+    border-left: 0;
+    border-right: 0;
+}
+
+.dashboard-content-nav .dashboard-nav-stats {
+    justify-self: start;
+    width: min(980px, 100%);
+}
+
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    min-height: 74px;
+    padding: 0 14px;
+    border-bottom: 1px solid rgba(141, 188, 233, 0.62);
+}
+
+.sidebar-brand-lockup {
+    width: clamp(90px, 8vw, 122px);
+    height: auto;
+    display: block;
+}
+
+@media (max-width: 1180px) {
+    .is-dashboard .tasklist-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .is-dashboard .tasklist-layout > .users-sidebar,
+    .is-dashboard .tasklist-layout > :not(.users-sidebar) {
+        grid-column: auto;
+        grid-row: auto;
+    }
+
+    .is-dashboard .tasklist-layout > .users-sidebar {
+        min-height: 0;
+    }
+}
+
