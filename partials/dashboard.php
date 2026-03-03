@@ -1413,18 +1413,18 @@ $taskTitleTagOptions = array_values($taskTitleTagOptions);
                                                             >
                                                             <button
                                                                 type="button"
-                                                                class="inventory-entry-qty-step inventory-entry-qty-step-up"
+                                                                class="inventory-entry-qty-step inventory-entry-qty-step-right"
                                                                 data-inventory-inline-quantity-step
                                                                 data-step="1"
                                                                 aria-label="Aumentar quantidade"
-                                                            >&#9652;</button>
+                                                            >&#9654;</button>
                                                             <button
                                                                 type="button"
-                                                                class="inventory-entry-qty-step inventory-entry-qty-step-down"
+                                                                class="inventory-entry-qty-step inventory-entry-qty-step-left"
                                                                 data-inventory-inline-quantity-step
                                                                 data-step="-1"
                                                                 aria-label="Diminuir quantidade"
-                                                            >&#9662;</button>
+                                                            >&#9664;</button>
                                                         </span>
                                                         <span class="inventory-entry-qty-unit"><?= e($inventoryUnitLabel) ?></span>
                                                     </label>

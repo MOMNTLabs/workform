@@ -2442,9 +2442,9 @@ textarea:focus {
 
 .inventory-entry-qty-step {
     position: absolute;
-    right: -5px;
-    width: 14px;
-    height: 14px;
+    top: 50%;
+    width: 16px;
+    height: 16px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2456,8 +2456,10 @@ textarea:focus {
     font-weight: 700;
     line-height: 1;
     padding: 0;
+    transform: translateY(-50%);
     cursor: pointer;
     transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+    z-index: 1;
 }
 
 .inventory-entry-qty-step:hover {
@@ -2471,15 +2473,15 @@ textarea:focus {
 }
 
 .inventory-entry-qty-step:active {
-    transform: scale(0.94);
+    transform: translateY(-50%) scale(0.94);
 }
 
-.inventory-entry-qty-step-up {
-    top: -4px;
+.inventory-entry-qty-step-left {
+    left: -6px;
 }
 
-.inventory-entry-qty-step-down {
-    bottom: -4px;
+.inventory-entry-qty-step-right {
+    right: -6px;
 }
 
 .inventory-entry-qty-unit {
