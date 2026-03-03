@@ -2171,6 +2171,7 @@
                 <button type="button" class="btn btn-mini btn-danger" data-task-detail-delete>Remover</button>
                 <button type="button" class="btn btn-mini btn-ghost" data-task-detail-edit>Editar</button>
                 <button type="button" class="btn btn-mini btn-ghost" data-task-detail-request-revision hidden>Solicitar ajuste</button>
+                <button type="button" class="btn btn-mini btn-ghost" data-task-detail-remove-revision hidden>Remover ajuste</button>
                 <button type="button" class="btn btn-mini" data-task-detail-save hidden>Salvar</button>
                 <button type="button" class="btn btn-mini btn-ghost" data-task-detail-cancel-edit hidden>Cancelar</button>
                 <button type="button" class="modal-close-button" data-close-task-detail-modal aria-label="Fechar modal">
@@ -2393,6 +2394,12 @@
         </form>
     </section>
 </div>
+
+<form method="post" data-task-remove-revision-form hidden>
+    <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+    <input type="hidden" name="action" value="remove_task_revision">
+    <input type="hidden" name="task_id" value="" data-task-remove-revision-task-id>
+</form>
 
 <div class="modal-backdrop task-image-preview-modal" data-task-image-preview-modal hidden>
     <div class="modal-scrim" data-close-task-image-preview></div>

@@ -1722,6 +1722,130 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash('success', 'Ajuste solicitado na tarefa.');
                 redirectTo('index.php#task-' . $taskId);
 
+            case 'remove_task_revision':
+                $authUser = requireAuth();
+                $workspaceId = activeWorkspaceId($authUser);
+                if ($workspaceId === null) {
+                    throw new RuntimeException('Workspace ativo nao encontrado.');
+                }
+
+                $taskId = (int) ($_POST['task_id'] ?? 0);
+                if ($taskId <= 0) {
+                    throw new RuntimeException('Tarefa invalida.');
+                }
+
+                $taskStmt = $pdo->prepare(
+                    'SELECT status, group_name, description
+                     FROM tasks
+                     WHERE id = :id
+                       AND workspace_id = :workspace_id
+                     LIMIT 1'
+                );
+                $taskStmt->execute([
+                    ':id' => $taskId,
+                    ':workspace_id' => $workspaceId,
+                ]);
+                $taskRow = $taskStmt->fetch();
+                if (!$taskRow) {
+                    throw new RuntimeException('Tarefa invalida.');
+                }
+
+                $taskGroupName = normalizeTaskGroupName((string) ($taskRow['group_name'] ?? 'Geral'));
+                if (!userCanAccessTaskGroup((int) $authUser['id'], $workspaceId, $taskGroupName)) {
+                    throw new RuntimeException('Voce nao possui acesso para atualizar esta tarefa.');
+                }
+
+                $taskStatus = normalizeTaskStatus((string) ($taskRow['status'] ?? 'todo'));
+                if ($taskStatus !== 'review') {
+                    throw new RuntimeException('A remocao de ajuste so pode ser feita em tarefas em revisao.');
+                }
+
+                $currentDescription = trim((string) ($taskRow['description'] ?? ''));
+                if ($currentDescription === '') {
+                    throw new RuntimeException('A tarefa nao possui uma solicitacao ativa para remover.');
+                }
+
+                $historyEntries = taskHistoryList($taskId, 250);
+                $activeRevision = null;
+                foreach ($historyEntries as $historyEntry) {
+                    if ((string) ($historyEntry['event_type'] ?? '') !== 'revision_requested') {
+                        continue;
+                    }
+
+                    $payload = is_array($historyEntry['payload'] ?? null)
+                        ? $historyEntry['payload']
+                        : [];
+                    $previousDescription = trim((string) ($payload['previous_description'] ?? ''));
+                    $newDescription = trim((string) ($payload['new_description'] ?? ''));
+                    if ($previousDescription === '' || $newDescription === '') {
+                        continue;
+                    }
+                    if ($newDescription !== $currentDescription) {
+                        continue;
+                    }
+
+                    $activeRevision = [
+                        'previous_description' => $previousDescription,
+                        'new_description' => $newDescription,
+                    ];
+                    break;
+                }
+
+                if ($activeRevision === null) {
+                    throw new RuntimeException('Nao ha solicitacao de ajuste ativa para remover.');
+                }
+
+                $restoredDescription = trim((string) ($activeRevision['previous_description'] ?? ''));
+                if ($restoredDescription === '') {
+                    throw new RuntimeException('Nao foi possivel restaurar a descricao anterior.');
+                }
+
+                $updatedAt = nowIso();
+                $updateStmt = $pdo->prepare(
+                    'UPDATE tasks
+                     SET description = :description,
+                         updated_at = :updated_at
+                     WHERE id = :id
+                       AND workspace_id = :workspace_id'
+                );
+                $updateStmt->execute([
+                    ':description' => $restoredDescription,
+                    ':updated_at' => $updatedAt,
+                    ':id' => $taskId,
+                    ':workspace_id' => $workspaceId,
+                ]);
+
+                logTaskHistory(
+                    $pdo,
+                    $taskId,
+                    'revision_removed',
+                    [
+                        'removed_description' => $currentDescription,
+                        'restored_description' => $restoredDescription,
+                    ],
+                    (int) $authUser['id'],
+                    $updatedAt
+                );
+
+                $taskHistory = taskHistoryList($taskId);
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'task' => [
+                            'id' => $taskId,
+                            'description' => $restoredDescription,
+                            'status' => $taskStatus,
+                            'history' => $taskHistory,
+                            'updated_at' => $updatedAt,
+                            'updated_at_label' => (new DateTimeImmutable($updatedAt))->format('d/m H:i'),
+                        ],
+                        'dashboard' => dashboardSummaryPayloadForUser((int) $authUser['id'], $workspaceId),
+                    ]);
+                }
+
+                flash('success', 'Solicitacao de ajuste removida.');
+                redirectTo('index.php#task-' . $taskId);
+
             case 'move_task':
                 $authUser = requireAuth();
                 $workspaceId = activeWorkspaceId($authUser);

@@ -767,6 +767,19 @@ window.addEventListener("DOMContentLoaded", () => {
     return revisions;
   };
 
+  const hasActiveTaskRevisionRequest = ({ description = "", history = [] } = {}) => {
+    const currentDescription = String(description || "").trim();
+    if (!currentDescription) return false;
+
+    return (Array.isArray(history) ? history : []).some((entry) => {
+      if (String(entry?.event_type || "").trim() !== "revision_requested") return false;
+      const payload = entry?.payload || {};
+      const previousDescription = String(payload?.previous_description || "").trim();
+      const newDescription = String(payload?.new_description || "").trim();
+      return previousDescription !== "" && newDescription === currentDescription;
+    });
+  };
+
   const renderTaskDetailDescriptionView = ({ description = "", history = [] } = {}) => {
     if (!(taskDetailViewDescription instanceof HTMLElement)) return;
 
@@ -1417,6 +1430,8 @@ window.addEventListener("DOMContentLoaded", () => {
         }/${Number(payload.new_total) || 0}`;
       case "revision_requested":
         return "Solicitacao de ajuste na descricao";
+      case "revision_removed":
+        return "Solicitacao de ajuste removida";
       case "overdue_started":
         return `Atraso detectado (${Math.max(0, Number(payload.overdue_days) || 0)} dia(s))`;
       case "overdue_cleared":
@@ -2895,6 +2910,9 @@ window.addEventListener("DOMContentLoaded", () => {
   const taskDetailRequestRevisionButton = document.querySelector(
     "[data-task-detail-request-revision]"
   );
+  const taskDetailRemoveRevisionButton = document.querySelector(
+    "[data-task-detail-remove-revision]"
+  );
   const taskDetailSaveButton = document.querySelector("[data-task-detail-save]");
   const taskDetailDeleteButton = document.querySelector("[data-task-detail-delete]");
   const taskDetailCancelEditButton = document.querySelector("[data-task-detail-cancel-edit]");
@@ -2903,6 +2921,10 @@ window.addEventListener("DOMContentLoaded", () => {
   const taskReviewTaskIdInput = document.querySelector("[data-task-review-task-id]");
   const taskReviewDescriptionInput = document.querySelector("[data-task-review-description]");
   const taskReviewSubmitButton = document.querySelector("[data-task-review-submit]");
+  const taskRemoveRevisionForm = document.querySelector("[data-task-remove-revision-form]");
+  const taskRemoveRevisionTaskIdInput = document.querySelector(
+    "[data-task-remove-revision-task-id]"
+  );
   const confirmModal = document.querySelector("[data-confirm-modal]");
   const confirmModalTitle = document.querySelector("#confirm-modal-title");
   const confirmModalMessage = document.querySelector("[data-confirm-modal-message]");
@@ -3759,17 +3781,31 @@ window.addEventListener("DOMContentLoaded", () => {
     scheduleTaskAutosave(taskDetailContext.form, 60);
   });
 
-  const syncTaskDetailRevisionButtonVisibility = ({ isEditing = false } = {}) => {
-    if (!(taskDetailRequestRevisionButton instanceof HTMLButtonElement)) return;
+  const syncTaskDetailRevisionActionButtons = ({ isEditing = false } = {}) => {
+    const hasRequestButton = taskDetailRequestRevisionButton instanceof HTMLButtonElement;
+    const hasRemoveButton = taskDetailRemoveRevisionButton instanceof HTMLButtonElement;
+    if (!hasRequestButton && !hasRemoveButton) return;
 
     const statusValue = String(taskDetailContext?.statusSelect?.value || "").trim();
-    const canRequestRevision =
+    const canUseRevisionActions =
       !isEditing &&
       Boolean(taskDetailContext) &&
       !Boolean(taskDetailContext?.readOnly) &&
       statusValue === "review";
 
-    taskDetailRequestRevisionButton.hidden = !canRequestRevision;
+    const currentDescription = String(taskDetailContext?.descriptionField?.value || "").trim();
+    const history = readTaskHistoryField(taskDetailContext?.historyField);
+    const hasActiveRevision = hasActiveTaskRevisionRequest({
+      description: currentDescription,
+      history,
+    });
+
+    if (hasRequestButton) {
+      taskDetailRequestRevisionButton.hidden = !canUseRevisionActions;
+    }
+    if (hasRemoveButton) {
+      taskDetailRemoveRevisionButton.hidden = !canUseRevisionActions || !hasActiveRevision;
+    }
   };
 
   const setTaskDetailEditMode = (editing) => {
@@ -3795,7 +3831,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if (taskDetailCancelEditButton instanceof HTMLButtonElement) {
       taskDetailCancelEditButton.hidden = !isEditing;
     }
-    syncTaskDetailRevisionButtonVisibility({ isEditing });
+    syncTaskDetailRevisionActionButtons({ isEditing });
 
     if (isEditing) {
       window.setTimeout(() => {
@@ -4071,7 +4107,7 @@ window.addEventListener("DOMContentLoaded", () => {
     renderTaskDetailSubtasksEditList();
     setTaskDetailEditImageItems(referenceImages);
     copyAssigneesToTaskDetailModal(rowAssigneePicker);
-    syncTaskDetailRevisionButtonVisibility({
+    syncTaskDetailRevisionActionButtons({
       isEditing: Boolean(taskDetailModal?.classList.contains("is-editing")),
     });
   };
@@ -4291,6 +4327,77 @@ window.addEventListener("DOMContentLoaded", () => {
         taskReviewSubmitButton.disabled = false;
         taskReviewSubmitButton.classList.remove("is-loading");
         taskReviewSubmitButton.textContent = "Salvar ajuste";
+      }
+    }
+  };
+
+  const submitTaskRevisionRemoval = async () => {
+    if (!(taskRemoveRevisionForm instanceof HTMLFormElement)) return;
+    if (!(taskRemoveRevisionTaskIdInput instanceof HTMLInputElement)) return;
+    if (!(taskDetailContext?.form instanceof HTMLFormElement)) return;
+    if (Boolean(taskDetailContext.readOnly)) {
+      showClientFlash("error", "Voce nao possui acesso para remover ajuste desta tarefa.");
+      return;
+    }
+
+    const taskIdField = taskDetailContext.form.querySelector('input[name="task_id"]');
+    const csrfField = taskDetailContext.form.querySelector('input[name="csrf_token"]');
+    if (!(taskIdField instanceof HTMLInputElement) || !(csrfField instanceof HTMLInputElement)) {
+      return;
+    }
+
+    taskRemoveRevisionTaskIdInput.value = taskIdField.value;
+    const removeCsrfField = taskRemoveRevisionForm.querySelector('input[name="csrf_token"]');
+    if (removeCsrfField instanceof HTMLInputElement) {
+      removeCsrfField.value = csrfField.value;
+    }
+
+    if (taskDetailContext.form.dataset.autosaveSubmitting === "1") {
+      const idle = await waitForFormAutosaveIdle(taskDetailContext.form);
+      if (!idle) {
+        showClientFlash("error", "Aguarde a tarefa terminar de salvar para remover o ajuste.");
+        return;
+      }
+    }
+
+    if (taskDetailRemoveRevisionButton instanceof HTMLButtonElement) {
+      taskDetailRemoveRevisionButton.disabled = true;
+      taskDetailRemoveRevisionButton.classList.add("is-loading");
+      taskDetailRemoveRevisionButton.textContent = "Removendo";
+    }
+
+    try {
+      const data = await postFormJson(taskRemoveRevisionForm);
+      const task = data.task || {};
+
+      if (typeof task.description === "string") {
+        taskDetailContext.descriptionField.value = task.description;
+      }
+      if (Array.isArray(task.history) && taskDetailContext.historyField instanceof HTMLInputElement) {
+        writeTaskHistoryField(taskDetailContext.historyField, task.history);
+      }
+      if (typeof task.updated_at_label === "string") {
+        refreshTaskUpdatedAtMeta(taskDetailContext.form, task.updated_at_label);
+      }
+      if (typeof task.status === "string" && taskDetailContext.statusSelect instanceof HTMLSelectElement) {
+        taskDetailContext.statusSelect.value = task.status;
+        syncSelectColor(taskDetailContext.statusSelect);
+      }
+
+      renderDashboardSummary(data.dashboard);
+      populateTaskDetailModalFromRow(taskDetailContext);
+      setTaskDetailEditMode(false);
+      showClientFlash("success", "Solicitacao de ajuste removida.");
+    } catch (error) {
+      showClientFlash(
+        "error",
+        error instanceof Error ? error.message : "Nao foi possivel remover a solicitacao de ajuste."
+      );
+    } finally {
+      if (taskDetailRemoveRevisionButton instanceof HTMLButtonElement) {
+        taskDetailRemoveRevisionButton.disabled = false;
+        taskDetailRemoveRevisionButton.classList.remove("is-loading");
+        taskDetailRemoveRevisionButton.textContent = "Remover ajuste";
       }
     }
   };
@@ -5554,6 +5661,20 @@ window.addEventListener("DOMContentLoaded", () => {
     const openTaskReviewTrigger = target.closest("[data-task-detail-request-revision]");
     if (openTaskReviewTrigger) {
       openTaskReviewModal();
+      return;
+    }
+
+    const removeTaskReviewTrigger = target.closest("[data-task-detail-remove-revision]");
+    if (removeTaskReviewTrigger) {
+      openConfirmModal({
+        title: "Remover ajuste",
+        message: "Remover a solicitacao de ajuste atual e restaurar a descricao anterior?",
+        confirmLabel: "Remover ajuste",
+        confirmVariant: "danger",
+        onConfirm: async () => {
+          await submitTaskRevisionRemoval();
+        },
+      });
       return;
     }
 
