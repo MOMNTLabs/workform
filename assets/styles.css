@@ -7322,15 +7322,19 @@ textarea:focus,
 .sidebar-brand {
     display: flex;
     align-items: center;
-    min-height: 74px;
-    padding: 0 14px;
+    justify-content: center;
+    width: 100%;
+    min-height: 86px;
+    padding: 10px 14px 12px;
     border-bottom: 1px solid rgba(141, 188, 233, 0.62);
+    margin-bottom: 12px;
 }
 
 .sidebar-brand-lockup {
     width: clamp(90px, 8vw, 122px);
     height: auto;
     display: block;
+    margin: 0 auto;
 }
 
 @media (max-width: 1180px) {
