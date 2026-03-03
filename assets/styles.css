@@ -6965,7 +6965,18 @@ textarea:focus,
 
 .task-list-item {
     border-color: rgba(130, 164, 200, 0.5);
-    background: #f2f7fd;
+    background: linear-gradient(98deg, #edf4fd 0%, #e3edf9 100%);
+}
+
+.task-list-item::before {
+    background:
+        linear-gradient(
+            90deg,
+            rgba(var(--task-status-rgb), 0.3) 0%,
+            rgba(var(--task-status-rgb), 0.17) 34%,
+            rgba(var(--task-status-rgb), 0.08) 56%,
+            rgba(var(--task-status-rgb), 0) 74%
+        );
 }
 
 .task-list-item.has-overdue-flag {
