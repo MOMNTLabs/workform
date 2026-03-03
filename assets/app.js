@@ -2605,8 +2605,16 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     const activeElement = document.activeElement;
-    if (activeElement instanceof HTMLElement && activeElement.closest("[data-task-groups-list]")) {
-      return true;
+    if (activeElement instanceof HTMLElement) {
+      const insideTaskList = activeElement.closest("[data-task-groups-list]");
+      const isEditingField =
+        activeElement instanceof HTMLInputElement ||
+        activeElement instanceof HTMLTextAreaElement ||
+        activeElement instanceof HTMLSelectElement ||
+        activeElement.getAttribute("contenteditable") === "true";
+      if (insideTaskList && isEditingField) {
+        return true;
+      }
     }
 
     if (document.querySelector('[data-task-autosave-form][data-autosave-submitting="1"]')) {
