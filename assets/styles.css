@@ -865,6 +865,17 @@ select optgroup {
     gap: 6px;
 }
 
+.workspace-sidebar-heading-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.workspace-sidebar-heading-row .workspace-sidebar-picker {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 .workspace-sidebar-picker {
     position: relative;
     z-index: 4;
@@ -1372,6 +1383,44 @@ textarea:focus {
 .sidebar-view-toggle-label {
     white-space: normal;
     line-height: 1.2;
+}
+
+.workspace-users-settings-button {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    min-height: 34px;
+    padding: 0;
+    border-radius: 10px;
+    justify-content: center;
+    gap: 0;
+    flex: 0 0 auto;
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(136, 205, 255, 0.24);
+}
+
+.workspace-users-settings-icon {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.workspace-users-settings-icon svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.workspace-users-settings-button.is-active {
+    border-color: rgba(120, 204, 255, 0.48);
+    background: linear-gradient(130deg, rgba(55, 119, 192, 0.36), rgba(30, 85, 146, 0.3));
+    color: rgba(233, 246, 255, 0.98);
 }
 
 .icon-gear-button {

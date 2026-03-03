@@ -79,41 +79,65 @@ $taskTitleTagOptions = array_values($taskTitleTagOptions);
         <aside class="panel users-sidebar" id="team">
             <div class="users-sidebar-body">
                 <div class="panel-header workspace-sidebar-header">
-                    <details class="workspace-sidebar-picker">
-                        <summary aria-label="Trocar workspace">
-                            <span class="workspace-sidebar-picker-title"><?= e((string) ($currentWorkspace['name'] ?? 'Workspace')) ?></span>
-                            <span class="workspace-sidebar-picker-caret" aria-hidden="true">&#9662;</span>
-                        </summary>
-                        <div class="workspace-sidebar-picker-menu">
-                            <div class="workspace-sidebar-picker-list">
-                                <?php foreach ($userWorkspaces as $workspaceOption): ?>
-                                    <?php
-                                    $workspaceOptionId = (int) ($workspaceOption['id'] ?? 0);
-                                    $workspaceOptionName = (string) ($workspaceOption['name'] ?? 'Workspace');
-                                    $isCurrentWorkspace = $currentWorkspaceId === $workspaceOptionId;
-                                    ?>
-                                    <?php if ($isCurrentWorkspace): ?>
-                                        <span class="workspace-sidebar-picker-current"><?= e($workspaceOptionName) ?></span>
-                                    <?php else: ?>
-                                        <form method="post" class="workspace-sidebar-picker-form">
-                                            <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
-                                            <input type="hidden" name="action" value="switch_workspace">
-                                            <input type="hidden" name="workspace_id" value="<?= e((string) $workspaceOptionId) ?>">
-                                            <button type="submit" class="workspace-sidebar-picker-option"><?= e($workspaceOptionName) ?></button>
-                                        </form>
-                                    <?php endif; ?>
-                                <?php endforeach; ?>
+                    <div class="workspace-sidebar-heading-row">
+                        <details class="workspace-sidebar-picker">
+                            <summary aria-label="Trocar workspace">
+                                <span class="workspace-sidebar-picker-title"><?= e((string) ($currentWorkspace['name'] ?? 'Workspace')) ?></span>
+                                <span class="workspace-sidebar-picker-caret" aria-hidden="true">&#9662;</span>
+                            </summary>
+                            <div class="workspace-sidebar-picker-menu">
+                                <div class="workspace-sidebar-picker-list">
+                                    <?php foreach ($userWorkspaces as $workspaceOption): ?>
+                                        <?php
+                                        $workspaceOptionId = (int) ($workspaceOption['id'] ?? 0);
+                                        $workspaceOptionName = (string) ($workspaceOption['name'] ?? 'Workspace');
+                                        $isCurrentWorkspace = $currentWorkspaceId === $workspaceOptionId;
+                                        ?>
+                                        <?php if ($isCurrentWorkspace): ?>
+                                            <span class="workspace-sidebar-picker-current"><?= e($workspaceOptionName) ?></span>
+                                        <?php else: ?>
+                                            <form method="post" class="workspace-sidebar-picker-form">
+                                                <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+                                                <input type="hidden" name="action" value="switch_workspace">
+                                                <input type="hidden" name="workspace_id" value="<?= e((string) $workspaceOptionId) ?>">
+                                                <button type="submit" class="workspace-sidebar-picker-option"><?= e($workspaceOptionName) ?></button>
+                                            </form>
+                                        <?php endif; ?>
+                                    <?php endforeach; ?>
+                                </div>
+                                <button
+                                    type="button"
+                                    class="workspace-sidebar-create-trigger"
+                                    data-open-workspace-create-modal
+                                >
+                                    <span aria-hidden="true">+</span>
+                                    <span>Criar workspace</span>
+                                </button>
                             </div>
+                        </details>
+                        <?php if (!empty($showUsersDashboardTab)): ?>
                             <button
                                 type="button"
-                                class="workspace-sidebar-create-trigger"
-                                data-open-workspace-create-modal
+                                class="sidebar-view-toggle workspace-users-settings-button"
+                                data-dashboard-view-toggle
+                                data-view="users"
+                                aria-pressed="false"
+                                aria-label="Configuracoes do workspace"
+                                title="Configuracoes do workspace"
                             >
-                                <span aria-hidden="true">+</span>
-                                <span>Criar workspace</span>
+                                <span class="workspace-users-settings-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" focusable="false">
+                                        <path d="M4 6h16"></path>
+                                        <path d="M4 12h16"></path>
+                                        <path d="M4 18h16"></path>
+                                        <circle cx="9" cy="6" r="2"></circle>
+                                        <circle cx="15" cy="12" r="2"></circle>
+                                        <circle cx="11" cy="18" r="2"></circle>
+                                    </svg>
+                                </span>
                             </button>
-                        </div>
-                    </details>
+                        <?php endif; ?>
+                    </div>
                     <p>Menu</p>
                 </div>
                 <nav class="sidebar-view-menu" aria-label="Menu do workspace">
@@ -186,25 +210,6 @@ $taskTitleTagOptions = array_values($taskTitleTagOptions);
                         </span>
                         <span class="sidebar-view-toggle-label">Estoque</span>
                     </button>
-                    <?php if (!empty($showUsersDashboardTab)): ?>
-                        <button
-                            type="button"
-                            class="sidebar-view-toggle"
-                            data-dashboard-view-toggle
-                            data-view="users"
-                            aria-pressed="false"
-                        >
-                            <span class="sidebar-view-toggle-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" focusable="false">
-                                    <path d="M16.5 19a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path>
-                                    <path d="M7.5 15a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path>
-                                    <path d="M2.5 19c0-2.2 2-4 5-4"></path>
-                                    <path d="M12 19c0-2.2 2-4 4.5-4"></path>
-                                </svg>
-                            </span>
-                            <span class="sidebar-view-toggle-label">Usuarios</span>
-                        </button>
-                    <?php endif; ?>
                 </nav>
             </div>
         </aside>
