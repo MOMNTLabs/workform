@@ -5073,7 +5073,7 @@ function taskHistoryList(int $taskId, int $limit = 80): array
     return $rows;
 }
 
-function taskHistoryByTaskIds(array $taskIds, int $limitPerTask = 80): array
+function taskHistoryByTaskIds(array $taskIds, int $limitPerTask = 30): array
 {
     $ids = array_values(array_unique(array_map('intval', $taskIds)));
     $ids = array_values(array_filter($ids, static fn (int $id) => $id > 0));
@@ -5082,7 +5082,7 @@ function taskHistoryByTaskIds(array $taskIds, int $limitPerTask = 80): array
     }
 
     $limitPerTask = max(1, min($limitPerTask, 300));
-    $placeholders = implode(', ', array_fill(0, count($ids), '?'));
+    $grouped = [];
     $sql = dbDriverName(db()) === 'pgsql'
         ? 'SELECT
                h.id,
@@ -5093,8 +5093,9 @@ function taskHistoryByTaskIds(array $taskIds, int $limitPerTask = 80): array
                u.name AS actor_name
            FROM task_history h
            LEFT JOIN users u ON u.id = h.actor_user_id
-           WHERE h.task_id IN (' . $placeholders . ')
-           ORDER BY h.task_id ASC, h.created_at DESC, h.id DESC'
+           WHERE h.task_id = :task_id
+           ORDER BY h.created_at DESC, h.id DESC
+           LIMIT ' . $limitPerTask
         : 'SELECT
                h.id,
                h.task_id,
@@ -5104,28 +5105,24 @@ function taskHistoryByTaskIds(array $taskIds, int $limitPerTask = 80): array
                u.name AS actor_name
            FROM task_history h
            LEFT JOIN users u ON u.id = h.actor_user_id
-           WHERE h.task_id IN (' . $placeholders . ')
-           ORDER BY h.task_id ASC, h.created_at DESC, h.id DESC';
-
+           WHERE h.task_id = :task_id
+           ORDER BY h.created_at DESC, h.id DESC
+           LIMIT ' . $limitPerTask;
     $stmt = db()->prepare($sql);
-    $stmt->execute($ids);
-    $rows = $stmt->fetchAll();
 
-    $grouped = [];
-    foreach ($rows as $row) {
-        $taskId = (int) ($row['task_id'] ?? 0);
-        if ($taskId <= 0) {
+    foreach ($ids as $taskId) {
+        $stmt->execute([':task_id' => $taskId]);
+        $rows = $stmt->fetchAll();
+        if (!$rows) {
             continue;
         }
-        if (!isset($grouped[$taskId])) {
-            $grouped[$taskId] = [];
+
+        $grouped[$taskId] = [];
+        foreach ($rows as $row) {
+            $row['payload'] = decodeTaskHistoryPayload($row['payload_json'] ?? null);
+            unset($row['payload_json']);
+            $grouped[$taskId][] = $row;
         }
-        if (count($grouped[$taskId]) >= $limitPerTask) {
-            continue;
-        }
-        $row['payload'] = decodeTaskHistoryPayload($row['payload_json'] ?? null);
-        unset($row['payload_json']);
-        $grouped[$taskId][] = $row;
     }
 
     return $grouped;
@@ -6570,7 +6567,10 @@ function allTasks(?int $workspaceId = null): array
     $stmt->execute([':workspace_id' => $workspaceId]);
     $tasks = $stmt->fetchAll();
     $usersById = usersMapById($workspaceId);
-    $historyByTaskId = taskHistoryByTaskIds(array_map(static fn ($task) => (int) ($task['id'] ?? 0), $tasks));
+    $historyByTaskId = taskHistoryByTaskIds(
+        array_map(static fn ($task) => (int) ($task['id'] ?? 0), $tasks),
+        24
+    );
 
     foreach ($tasks as &$task) {
         $task['title'] = normalizeTaskTitle((string) ($task['title'] ?? ''));

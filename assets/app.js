@@ -1486,6 +1486,41 @@ window.addEventListener("DOMContentLoaded", () => {
     field.value = JSON.stringify(Array.isArray(history) ? history : []);
   };
 
+  const ensureTaskHiddenField = (
+    form,
+    { name = "", dataSelector = "", dataAttrName = "", withName = true } = {}
+  ) => {
+    if (!(form instanceof HTMLFormElement) || !dataSelector || !dataAttrName) {
+      return null;
+    }
+
+    let field = form.querySelector(dataSelector);
+    if (!(field instanceof HTMLInputElement)) {
+      field = document.createElement("input");
+      field.type = "hidden";
+      field.setAttribute(dataAttrName, "");
+      form.append(field);
+    }
+
+    if (withName && name) {
+      field.name = name;
+    }
+
+    return field;
+  };
+
+  const readTaskRevisionStateField = (field) => {
+    if (!(field instanceof HTMLInputElement)) return null;
+    const raw = String(field.value || "").trim();
+    if (raw === "") return null;
+    return raw === "1";
+  };
+
+  const writeTaskRevisionStateField = (field, hasActiveRevision) => {
+    if (!(field instanceof HTMLInputElement)) return;
+    field.value = hasActiveRevision ? "1" : "0";
+  };
+
   const parseTaskSubtaskList = (value, maxItems = 40) => {
     let source = [];
     if (Array.isArray(value)) {
@@ -1785,15 +1820,25 @@ window.addEventListener("DOMContentLoaded", () => {
     if (!(form instanceof HTMLFormElement)) return;
     const statusStepper = form.querySelector("[data-status-stepper]");
     const historyField = form.querySelector("[data-task-history-json]");
+    const revisionStateField = form.querySelector("[data-task-has-active-revision]");
     const descriptionField = form.querySelector('textarea[name="description"]');
     if (!(statusStepper instanceof HTMLElement)) {
       return;
     }
 
-    const hasRevision = hasActiveTaskRevisionRequest({
+    const history = readTaskHistoryField(historyField);
+    let hasRevision = hasActiveTaskRevisionRequest({
       description: descriptionField instanceof HTMLTextAreaElement ? descriptionField.value || "" : "",
-      history: readTaskHistoryField(historyField),
+      history,
     });
+    if (!history.length) {
+      const fallbackRevisionState = readTaskRevisionStateField(revisionStateField);
+      if (fallbackRevisionState !== null) {
+        hasRevision = fallbackRevisionState;
+      }
+    }
+
+    writeTaskRevisionStateField(revisionStateField, hasRevision);
     const currentBadge = statusStepper.querySelector("[data-task-revision-badge]");
 
     if (hasRevision && !(currentBadge instanceof HTMLElement)) {
@@ -2255,6 +2300,39 @@ window.addEventListener("DOMContentLoaded", () => {
       const message =
         (data && (data.error || data.message)) ||
         "Nao foi possivel concluir a operacao.";
+      throw new Error(message);
+    }
+
+    return data;
+  };
+
+  const postActionJson = async (action, payload = {}) => {
+    const formData = new FormData();
+    formData.append("action", String(action || "").trim());
+    Object.entries(payload || {}).forEach(([key, value]) => {
+      if (!key || value === undefined || value === null) return;
+      formData.append(key, String(value));
+    });
+
+    const response = await fetch(window.location.pathname, {
+      method: "POST",
+      body: formData,
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        Accept: "application/json",
+      },
+      credentials: "same-origin",
+    });
+
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (_error) {
+      data = null;
+    }
+
+    if (!response.ok || !data || data.ok !== true) {
+      const message = (data && (data.error || data.message)) || "Nao foi possivel concluir a operacao.";
       throw new Error(message);
     }
 
@@ -3068,9 +3146,15 @@ window.addEventListener("DOMContentLoaded", () => {
         }
       }
       if (typeof task.reference_images_json === "string") {
-        const imagesField = form.querySelector("[data-task-reference-images-json]");
+        const imagesField = ensureTaskHiddenField(form, {
+          name: "reference_images_json",
+          withName: false,
+          dataSelector: "[data-task-reference-images-json]",
+          dataAttrName: "data-task-reference-images-json",
+        });
         if (imagesField instanceof HTMLInputElement) {
           imagesField.value = task.reference_images_json;
+          imagesField.removeAttribute("name");
         }
       }
       if (typeof task.subtasks_json === "string") {
@@ -3136,9 +3220,26 @@ window.addEventListener("DOMContentLoaded", () => {
         }
       }
       if (Array.isArray(task.history)) {
-        const historyField = form.querySelector("[data-task-history-json]");
+        const historyField = ensureTaskHiddenField(form, {
+          withName: false,
+          dataSelector: "[data-task-history-json]",
+          dataAttrName: "data-task-history-json",
+        });
         if (historyField instanceof HTMLInputElement) {
           writeTaskHistoryField(historyField, task.history);
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(task, "has_active_revision")) {
+        const revisionStateField = ensureTaskHiddenField(form, {
+          withName: false,
+          dataSelector: "[data-task-has-active-revision]",
+          dataAttrName: "data-task-has-active-revision",
+        });
+        if (revisionStateField instanceof HTMLInputElement) {
+          writeTaskRevisionStateField(
+            revisionStateField,
+            Number.parseInt(String(task.has_active_revision || "0"), 10) === 1
+          );
         }
       }
       syncTaskRevisionBadge(form);
@@ -3151,6 +3252,7 @@ window.addEventListener("DOMContentLoaded", () => {
       renderDashboardSummary(data.dashboard);
       if (taskDetailContext && taskDetailContext.form === form && taskDetailModal && !taskDetailModal.hidden) {
         populateTaskDetailModalFromRow(taskDetailContext);
+        void hydrateTaskDetailPayloadFromServer(taskDetailContext, { force: true }).catch(() => {});
       }
       delete form.dataset.autosaveError;
       success = true;
@@ -3158,6 +3260,12 @@ window.addEventListener("DOMContentLoaded", () => {
       form.dataset.autosaveError = "1";
       showClientFlash("error", error instanceof Error ? error.message : "Falha ao salvar tarefa.");
     } finally {
+      if (success) {
+        const referenceImagesField = form.querySelector("[data-task-reference-images-json]");
+        if (referenceImagesField instanceof HTMLInputElement) {
+          referenceImagesField.removeAttribute("name");
+        }
+      }
       form.classList.remove("is-saving");
       delete form.dataset.autosaveSubmitting;
       if (form.dataset.autosavePending === "1") {
@@ -5366,10 +5474,16 @@ window.addEventListener("DOMContentLoaded", () => {
 
     const currentDescription = String(taskDetailContext?.descriptionField?.value || "").trim();
     const history = readTaskHistoryField(taskDetailContext?.historyField);
-    const hasActiveRevision = hasActiveTaskRevisionRequest({
+    let hasActiveRevision = hasActiveTaskRevisionRequest({
       description: currentDescription,
       history,
     });
+    if (!history.length) {
+      const fallbackRevisionState = readTaskRevisionStateField(taskDetailContext?.revisionStateField);
+      if (fallbackRevisionState !== null) {
+        hasActiveRevision = fallbackRevisionState;
+      }
+    }
 
     if (hasRequestButton) {
       taskDetailRequestRevisionButton.hidden = !canRequestRevision;
@@ -5450,6 +5564,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const overdueSinceDateField = form.querySelector("[data-task-overdue-since-date]");
     const overdueDaysField = form.querySelector("[data-task-overdue-days]");
     const historyField = form.querySelector("[data-task-history-json]");
+    const revisionStateField = form.querySelector("[data-task-has-active-revision]");
     const metaRow = form.querySelector(".task-line-meta");
 
     if (
@@ -5484,9 +5599,114 @@ window.addEventListener("DOMContentLoaded", () => {
         overdueSinceDateField instanceof HTMLInputElement ? overdueSinceDateField : null,
       overdueDaysField: overdueDaysField instanceof HTMLInputElement ? overdueDaysField : null,
       historyField: historyField instanceof HTMLInputElement ? historyField : null,
+      revisionStateField: revisionStateField instanceof HTMLInputElement ? revisionStateField : null,
       metaRow,
       readOnly,
     };
+  };
+
+  const hydrateTaskDetailPayloadFromServer = async (context = taskDetailContext, { force = false } = {}) => {
+    if (!context || !(context.form instanceof HTMLFormElement)) return false;
+    const isHydrated = context.form.dataset.taskDetailHydrated === "1";
+    if (isHydrated && !force) {
+      return true;
+    }
+    if (context.form.dataset.taskDetailHydrating === "1") {
+      return false;
+    }
+
+    const taskIdField = context.form.querySelector('input[name="task_id"]');
+    const csrfField = context.form.querySelector('input[name="csrf_token"]');
+    if (!(taskIdField instanceof HTMLInputElement) || !(csrfField instanceof HTMLInputElement)) {
+      return false;
+    }
+
+    context.form.dataset.taskDetailHydrating = "1";
+    try {
+      const data = await postActionJson("load_task_detail", {
+        csrf_token: csrfField.value || "",
+        task_id: taskIdField.value || "",
+      });
+      const task = data?.task || {};
+
+      const linksField = ensureTaskHiddenField(context.form, {
+        name: "reference_links_json",
+        withName: true,
+        dataSelector: "[data-task-reference-links-json]",
+        dataAttrName: "data-task-reference-links-json",
+      });
+      if (linksField instanceof HTMLInputElement) {
+        if (typeof task.reference_links_json === "string") {
+          linksField.value = task.reference_links_json;
+        }
+        context.referenceLinksField = linksField;
+      }
+
+      const imagesField = ensureTaskHiddenField(context.form, {
+        name: "reference_images_json",
+        withName: false,
+        dataSelector: "[data-task-reference-images-json]",
+        dataAttrName: "data-task-reference-images-json",
+      });
+      if (imagesField instanceof HTMLInputElement) {
+        if (typeof task.reference_images_json === "string") {
+          imagesField.value = task.reference_images_json;
+        }
+        imagesField.removeAttribute("name");
+        context.referenceImagesField = imagesField;
+      }
+
+      const subtasksField = ensureTaskHiddenField(context.form, {
+        name: "subtasks_json",
+        withName: true,
+        dataSelector: "[data-task-subtasks-json]",
+        dataAttrName: "data-task-subtasks-json",
+      });
+      if (subtasksField instanceof HTMLInputElement) {
+        if (typeof task.subtasks_json === "string") {
+          subtasksField.value = task.subtasks_json;
+        }
+        context.subtasksField = subtasksField;
+      }
+
+      const historyField = ensureTaskHiddenField(context.form, {
+        withName: false,
+        dataSelector: "[data-task-history-json]",
+        dataAttrName: "data-task-history-json",
+      });
+      if (historyField instanceof HTMLInputElement) {
+        if (Array.isArray(task.history)) {
+          writeTaskHistoryField(historyField, task.history);
+        }
+        context.historyField = historyField;
+      }
+
+      const revisionStateField = ensureTaskHiddenField(context.form, {
+        withName: false,
+        dataSelector: "[data-task-has-active-revision]",
+        dataAttrName: "data-task-has-active-revision",
+      });
+      if (revisionStateField instanceof HTMLInputElement) {
+        if (Object.prototype.hasOwnProperty.call(task, "has_active_revision")) {
+          writeTaskRevisionStateField(
+            revisionStateField,
+            Number.parseInt(String(task.has_active_revision || "0"), 10) === 1
+          );
+        }
+        context.revisionStateField = revisionStateField;
+      }
+
+      context.form.dataset.taskDetailHydrated = "1";
+      if (taskDetailContext === context && taskDetailModal instanceof HTMLElement && !taskDetailModal.hidden) {
+        populateTaskDetailModalFromRow(context);
+      }
+      return true;
+    } catch (error) {
+      context.form.dataset.taskDetailHydrated = "0";
+      throw error;
+    } finally {
+      delete context.form.dataset.taskDetailHydrating;
+    }
   };
 
   const copySelectOptions = (sourceSelect, targetSelect) => {
@@ -5590,6 +5810,7 @@ window.addEventListener("DOMContentLoaded", () => {
       overdueSinceDateField,
       overdueDaysField,
       historyField,
+      revisionStateField,
       metaRow,
     } = context;
 
@@ -5614,6 +5835,16 @@ window.addEventListener("DOMContentLoaded", () => {
         ? Math.max(0, Number.parseInt(overdueDaysField.value || "0", 10) || 0)
         : 0;
     const history = readTaskHistoryField(historyField);
+    let hasActiveRevision = hasActiveTaskRevisionRequest({
+      description,
+      history,
+    });
+    if (!history.length) {
+      const fallbackRevisionState = readTaskRevisionStateField(revisionStateField);
+      if (fallbackRevisionState !== null) {
+        hasActiveRevision = fallbackRevisionState;
+      }
+    }
     const metaSpans = metaRow ? Array.from(metaRow.querySelectorAll("span")) : [];
     const createdByText = metaSpans[0]?.textContent?.trim() || "";
     const updatedAtText = metaRow?.querySelector("[data-task-updated-at]")?.textContent?.trim() || "";
@@ -5691,6 +5922,7 @@ window.addEventListener("DOMContentLoaded", () => {
     renderTaskDetailSubtasksEditList();
     setTaskDetailEditImageItems(referenceImages);
     copyAssigneesToTaskDetailModal(rowAssigneePicker);
+    writeTaskRevisionStateField(revisionStateField, hasActiveRevision);
     syncTaskDetailRevisionActionButtons({
       isEditing: Boolean(taskDetailModal?.classList.contains("is-editing")),
     });
@@ -5706,6 +5938,7 @@ window.addEventListener("DOMContentLoaded", () => {
     setTaskDetailEditMode(false);
     taskDetailModal.hidden = false;
     syncBodyModalLock();
+    void hydrateTaskDetailPayloadFromServer(bindings).catch(() => {});
     window.setTimeout(() => {
       const closeButton = taskDetailModal.querySelector(".modal-close-button[data-close-task-detail-modal]");
       if (closeButton instanceof HTMLElement) closeButton.focus();
@@ -5779,8 +6012,17 @@ window.addEventListener("DOMContentLoaded", () => {
         parseReferenceUrlLines
       );
     }
+    if (!(context.referenceImagesField instanceof HTMLInputElement)) {
+      context.referenceImagesField = ensureTaskHiddenField(context.form, {
+        name: "reference_images_json",
+        withName: false,
+        dataSelector: "[data-task-reference-images-json]",
+        dataAttrName: "data-task-reference-images-json",
+      });
+    }
     if (context.referenceImagesField instanceof HTMLInputElement) {
       const referenceImages = parseReferenceImageItems(taskDetailEditImageItems);
+      context.referenceImagesField.name = "reference_images_json";
       writeJsonUrlListField(context.referenceImagesField, referenceImages, parseReferenceImageItems);
     }
     if (context.subtasksField instanceof HTMLInputElement) {
@@ -5900,8 +6142,30 @@ window.addEventListener("DOMContentLoaded", () => {
       if (typeof task.description === "string") {
         taskDetailContext.descriptionField.value = task.description;
       }
-      if (Array.isArray(task.history) && taskDetailContext.historyField instanceof HTMLInputElement) {
-        writeTaskHistoryField(taskDetailContext.historyField, task.history);
+      if (Array.isArray(task.history)) {
+        const historyField = ensureTaskHiddenField(taskDetailContext.form, {
+          withName: false,
+          dataSelector: "[data-task-history-json]",
+          dataAttrName: "data-task-history-json",
+        });
+        if (historyField instanceof HTMLInputElement) {
+          writeTaskHistoryField(historyField, task.history);
+          taskDetailContext.historyField = historyField;
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(task, "has_active_revision")) {
+        const revisionStateField = ensureTaskHiddenField(taskDetailContext.form, {
+          withName: false,
+          dataSelector: "[data-task-has-active-revision]",
+          dataAttrName: "data-task-has-active-revision",
+        });
+        if (revisionStateField instanceof HTMLInputElement) {
+          writeTaskRevisionStateField(
+            revisionStateField,
+            Number.parseInt(String(task.has_active_revision || "0"), 10) === 1
+          );
+          taskDetailContext.revisionStateField = revisionStateField;
+        }
       }
       if (typeof task.updated_at_label === "string") {
         refreshTaskUpdatedAtMeta(taskDetailContext.form, task.updated_at_label);
@@ -5971,14 +6235,34 @@ window.addEventListener("DOMContentLoaded", () => {
         const task = data.task || {};
 
         const descriptionField = form.querySelector('textarea[name="description"]');
-        const historyField = form.querySelector("[data-task-history-json]");
+        const historyField = ensureTaskHiddenField(form, {
+          withName: false,
+          dataSelector: "[data-task-history-json]",
+          dataAttrName: "data-task-history-json",
+        });
         const statusField = form.querySelector('select[name="status"]');
+        const revisionStateField = ensureTaskHiddenField(form, {
+          withName: false,
+          dataSelector: "[data-task-has-active-revision]",
+          dataAttrName: "data-task-has-active-revision",
+        });
 
         if (typeof task.description === "string" && descriptionField instanceof HTMLTextAreaElement) {
           descriptionField.value = task.description;
         }
         if (Array.isArray(task.history) && historyField instanceof HTMLInputElement) {
           writeTaskHistoryField(historyField, task.history);
+        }
+        if (Object.prototype.hasOwnProperty.call(task, "has_active_revision")) {
+          writeTaskRevisionStateField(
+            revisionStateField,
+            Number.parseInt(String(task.has_active_revision || "0"), 10) === 1
+          );
+        }
+        if (taskDetailContext && taskDetailContext.form === form) {
+          taskDetailContext.historyField = historyField instanceof HTMLInputElement ? historyField : null;
+          taskDetailContext.revisionStateField =
+            revisionStateField instanceof HTMLInputElement ? revisionStateField : null;
         }
         if (typeof task.updated_at_label === "string") {
           refreshTaskUpdatedAtMeta(form, task.updated_at_label);
@@ -6068,14 +6352,34 @@ window.addEventListener("DOMContentLoaded", () => {
       const task = data.task || {};
 
       const descriptionField = form.querySelector('textarea[name="description"]');
-      const historyField = form.querySelector("[data-task-history-json]");
+      const historyField = ensureTaskHiddenField(form, {
+        withName: false,
+        dataSelector: "[data-task-history-json]",
+        dataAttrName: "data-task-history-json",
+      });
       const statusField = form.querySelector('select[name="status"]');
+      const revisionStateField = ensureTaskHiddenField(form, {
+        withName: false,
+        dataSelector: "[data-task-has-active-revision]",
+        dataAttrName: "data-task-has-active-revision",
+      });
 
       if (typeof task.description === "string" && descriptionField instanceof HTMLTextAreaElement) {
         descriptionField.value = task.description;
       }
       if (Array.isArray(task.history) && historyField instanceof HTMLInputElement) {
         writeTaskHistoryField(historyField, task.history);
+      }
+      if (Object.prototype.hasOwnProperty.call(task, "has_active_revision")) {
+        writeTaskRevisionStateField(
+          revisionStateField,
+          Number.parseInt(String(task.has_active_revision || "0"), 10) === 1
+        );
+      }
+      if (taskDetailContext && taskDetailContext.form === form) {
+        taskDetailContext.historyField = historyField instanceof HTMLInputElement ? historyField : null;
+        taskDetailContext.revisionStateField =
+          revisionStateField instanceof HTMLInputElement ? revisionStateField : null;
       }
       if (typeof task.updated_at_label === "string") {
         refreshTaskUpdatedAtMeta(form, task.updated_at_label);
@@ -6113,6 +6417,13 @@ window.addEventListener("DOMContentLoaded", () => {
   const saveTaskDetailModal = async () => {
     if (!taskDetailContext) return;
     if (taskDetailSaveInFlight) return;
+    if (taskDetailContext.form.dataset.taskDetailHydrated !== "1") {
+      try {
+        await hydrateTaskDetailPayloadFromServer(taskDetailContext);
+      } catch (_error) {
+        // continua com os dados locais ja exibidos
+      }
+    }
     if (!copyTaskDetailModalToRow(taskDetailContext)) return;
     taskDetailSaveInFlight = true;
     try {
@@ -7551,8 +7862,14 @@ window.addEventListener("DOMContentLoaded", () => {
     const openTaskDetailEditTrigger = target.closest("[data-task-detail-edit]");
     if (openTaskDetailEditTrigger) {
       if (taskDetailContext) {
-        populateTaskDetailModalFromRow(taskDetailContext);
-        setTaskDetailEditMode(true);
+        const currentContext = taskDetailContext;
+        void hydrateTaskDetailPayloadFromServer(currentContext)
+          .catch(() => {})
+          .finally(() => {
+            if (taskDetailContext !== currentContext) return;
+            populateTaskDetailModalFromRow(currentContext);
+            setTaskDetailEditMode(true);
+          });
       }
       return;
     }

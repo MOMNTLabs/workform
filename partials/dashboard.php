@@ -536,13 +536,12 @@ $taskTitleTagOptions = array_values($taskTitleTagOptions);
                                             <input type="hidden" name="task_id" value="<?= e((string) $taskId) ?>">
                                             <input type="hidden" name="autosave" value="1">
                                             <input type="hidden" name="reference_links_json" value="<?= e(encodeReferenceUrlList($task['reference_links'] ?? [])) ?>" data-task-reference-links-json>
-                                            <input type="hidden" name="reference_images_json" value="<?= e(encodeReferenceImageList($task['reference_images'] ?? [])) ?>" data-task-reference-images-json>
                                             <input type="hidden" name="subtasks_json" value="<?= e(encodeTaskSubtasks($taskSubtasks)) ?>" data-task-subtasks-json>
                                             <input type="hidden" name="title_tag" value="<?= e($taskTitleTag) ?>" data-task-title-tag>
                                             <input type="hidden" name="overdue_flag" value="<?= $isOverdueMarked ? '1' : '0' ?>" data-task-overdue-flag>
                                             <input type="hidden" name="overdue_since_date" value="<?= e((string) ($task['overdue_since_date'] ?? '')) ?>" data-task-overdue-since-date>
                                             <input type="hidden" value="<?= e((string) (($task['overdue_days'] ?? 0))) ?>" data-task-overdue-days>
-                                            <input type="hidden" value="<?= e((string) json_encode($task['history'] ?? [], JSON_UNESCAPED_UNICODE)) ?>" data-task-history-json>
+                                            <input type="hidden" name="has_active_revision" value="<?= $hasActiveRevisionRequest ? '1' : '0' ?>" data-task-has-active-revision>
 
                                             <fieldset class="task-row-fieldset" <?= $taskGroupCanAccess ? '' : 'disabled' ?>>
                                             <div class="task-line-row">

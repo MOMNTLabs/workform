@@ -4,6 +4,18 @@ declare(strict_types=1);
 require __DIR__ . '/bootstrap.php';
 
 $pdo = db();
+if (
+    PHP_SAPI !== 'cli' &&
+    extension_loaded('zlib') &&
+    !headers_sent() &&
+    !ini_get('zlib.output_compression')
+) {
+    $acceptEncoding = strtolower((string) ($_SERVER['HTTP_ACCEPT_ENCODING'] ?? ''));
+    if (str_contains($acceptEncoding, 'gzip')) {
+        header('Vary: Accept-Encoding');
+        ob_start('ob_gzhandler');
+    }
+}
 
 function requestExpectsJson(): bool
 {
@@ -1589,6 +1601,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $subtasks = $subtasksPosted
                     ? decodeTaskSubtasks((string) ($_POST['subtasks_json'] ?? '[]'))
                     : null;
+                $submittedHasActiveRevision = ((int) ($_POST['has_active_revision'] ?? 0)) === 1;
                 $overdueFlagPosted = array_key_exists('overdue_flag', $_POST);
                 $overdueFlag = $overdueFlagPosted
                     ? (((int) ($_POST['overdue_flag'] ?? 0)) === 1 ? 1 : 0)
@@ -1715,7 +1728,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new RuntimeException('Tarefa invalida.');
                 }
                 $existingTaskStmt = $pdo->prepare(
-                    'SELECT title, title_tag, status, priority, due_date, overdue_flag, overdue_since_date, assignee_ids_json, group_name, reference_links_json, reference_images_json, subtasks_json
+                    'SELECT title, title_tag, description, status, priority, due_date, overdue_flag, overdue_since_date, assignee_ids_json, group_name, reference_links_json, reference_images_json, subtasks_json
                      FROM tasks
                      WHERE id = :id
                        AND workspace_id = :workspace_id
@@ -1814,6 +1827,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $existingPriority = normalizeTaskPriority((string) ($existingTaskRow['priority'] ?? 'medium'));
                 $existingTitle = normalizeTaskTitle((string) ($existingTaskRow['title'] ?? ''));
                 $existingTitleTag = normalizeTaskTitleTag((string) ($existingTaskRow['title_tag'] ?? ''));
+                $existingDescription = trim((string) ($existingTaskRow['description'] ?? ''));
                 $existingDueDate = dueDateForStorage((string) ($existingTaskRow['due_date'] ?? ''));
                 $existingGroup = normalizeTaskGroupName((string) ($existingTaskRow['group_name'] ?? 'Geral'));
                 $existingOverdueFlag = ((int) ($existingTaskRow['overdue_flag'] ?? 0)) === 1 ? 1 : 0;
@@ -1950,27 +1964,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
-                $taskHistory = taskHistoryList($taskId);
+                $includeHistory = !empty($_POST['include_history']);
+                $shouldResolveHistory = $includeHistory || $description !== $existingDescription;
+                $taskHistory = [];
+                if ($shouldResolveHistory) {
+                    $taskHistory = taskHistoryList($taskId, 40);
+                }
+                $hasActiveRevision = $shouldResolveHistory
+                    ? taskHasActiveRevisionRequest($description, $taskHistory)
+                    : $submittedHasActiveRevision;
                 if ($isAutosave && requestExpectsJson()) {
+                    $taskPayload = [
+                        'id' => $taskId,
+                        'group_name' => $groupName,
+                        'title_tag' => $titleTag,
+                        'due_date' => $dueDate,
+                        'status' => $status,
+                        'priority' => $priority,
+                        'overdue_flag' => $overdueFlag,
+                        'overdue_since_date' => $overdueSinceDate,
+                        'overdue_days' => $overdueDays,
+                        'subtasks_json' => encodeTaskSubtasks($subtasks ?? []),
+                        'reference_links_json' => encodeReferenceUrlList($referenceLinks ?? []),
+                        'has_active_revision' => $hasActiveRevision ? 1 : 0,
+                        'updated_at' => $updatedAt,
+                        'updated_at_label' => (new DateTimeImmutable($updatedAt))->format('d/m H:i'),
+                    ];
+                    if ($referenceImagesPosted) {
+                        $taskPayload['reference_images_json'] = encodeReferenceImageList($referenceImages ?? []);
+                    }
+                    if ($includeHistory) {
+                        $taskPayload['history'] = $taskHistory;
+                    }
+
                     respondJson([
                         'ok' => true,
-                        'task' => [
-                            'id' => $taskId,
-                            'group_name' => $groupName,
-                            'title_tag' => $titleTag,
-                            'due_date' => $dueDate,
-                            'status' => $status,
-                            'priority' => $priority,
-                            'overdue_flag' => $overdueFlag,
-                            'overdue_since_date' => $overdueSinceDate,
-                            'overdue_days' => $overdueDays,
-                            'subtasks_json' => encodeTaskSubtasks($subtasks ?? []),
-                            'reference_links_json' => encodeReferenceUrlList($referenceLinks ?? []),
-                            'reference_images_json' => encodeReferenceImageList($referenceImages ?? []),
-                            'history' => $taskHistory,
-                            'updated_at' => $updatedAt,
-                            'updated_at_label' => (new DateTimeImmutable($updatedAt))->format('d/m H:i'),
-                        ],
+                        'task' => $taskPayload,
                         'dashboard' => dashboardSummaryPayloadForUser((int) $authUser['id'], $workspaceId),
                     ]);
                 }
@@ -2057,7 +2086,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $updatedAt
                 );
 
-                $taskHistory = taskHistoryList($taskId);
+                $taskHistory = taskHistoryList($taskId, 40);
+                $hasActiveRevision = taskHasActiveRevisionRequest($newDescription, $taskHistory);
                 if (requestExpectsJson()) {
                     respondJson([
                         'ok' => true,
@@ -2066,6 +2096,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'description' => $newDescription,
                             'status' => $taskStatus,
                             'history' => $taskHistory,
+                            'has_active_revision' => $hasActiveRevision ? 1 : 0,
                             'updated_at' => $updatedAt,
                             'updated_at_label' => (new DateTimeImmutable($updatedAt))->format('d/m H:i'),
                         ],
@@ -2178,7 +2209,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $updatedAt
                 );
 
-                $taskHistory = taskHistoryList($taskId);
+                $taskHistory = taskHistoryList($taskId, 40);
+                $hasActiveRevision = taskHasActiveRevisionRequest($restoredDescription, $taskHistory);
                 if (requestExpectsJson()) {
                     respondJson([
                         'ok' => true,
@@ -2187,6 +2219,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'description' => $restoredDescription,
                             'status' => $taskStatus,
                             'history' => $taskHistory,
+                            'has_active_revision' => $hasActiveRevision ? 1 : 0,
                             'updated_at' => $updatedAt,
                             'updated_at_label' => (new DateTimeImmutable($updatedAt))->format('d/m H:i'),
                         ],
@@ -2290,6 +2323,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ]);
                 }
                 flash('success', 'Status atualizado.');
+                redirectTo('index.php#task-' . $taskId);
+
+            case 'load_task_detail':
+                $authUser = requireAuth();
+                $workspaceId = activeWorkspaceId($authUser);
+                if ($workspaceId === null) {
+                    throw new RuntimeException('Workspace ativo nao encontrado.');
+                }
+
+                $taskId = (int) ($_POST['task_id'] ?? 0);
+                if ($taskId <= 0) {
+                    throw new RuntimeException('Tarefa invalida.');
+                }
+
+                $taskStmt = $pdo->prepare(
+                    'SELECT id, group_name, description, reference_links_json, reference_images_json, subtasks_json
+                     FROM tasks
+                     WHERE id = :id
+                       AND workspace_id = :workspace_id
+                     LIMIT 1'
+                );
+                $taskStmt->execute([
+                    ':id' => $taskId,
+                    ':workspace_id' => $workspaceId,
+                ]);
+                $taskRow = $taskStmt->fetch();
+                if (!$taskRow) {
+                    throw new RuntimeException('Tarefa invalida.');
+                }
+
+                $taskGroupName = normalizeTaskGroupName((string) ($taskRow['group_name'] ?? 'Geral'));
+                if (!userCanAccessTaskGroup((int) $authUser['id'], $workspaceId, $taskGroupName)) {
+                    throw new RuntimeException('Voce nao possui acesso a esta tarefa.');
+                }
+
+                $taskHistory = taskHistoryList($taskId, 40);
+                $taskDescription = trim((string) ($taskRow['description'] ?? ''));
+                $hasActiveRevision = taskHasActiveRevisionRequest($taskDescription, $taskHistory);
+
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'task' => [
+                            'id' => $taskId,
+                            'reference_links_json' => encodeReferenceUrlList(
+                                decodeReferenceUrlList($taskRow['reference_links_json'] ?? null)
+                            ),
+                            'reference_images_json' => encodeReferenceImageList(
+                                decodeReferenceImageList($taskRow['reference_images_json'] ?? null)
+                            ),
+                            'subtasks_json' => encodeTaskSubtasks(
+                                decodeTaskSubtasks($taskRow['subtasks_json'] ?? null)
+                            ),
+                            'history' => $taskHistory,
+                            'has_active_revision' => $hasActiveRevision ? 1 : 0,
+                        ],
+                    ]);
+                }
                 redirectTo('index.php#task-' . $taskId);
 
             case 'delete_task':
@@ -2536,7 +2627,7 @@ $defaultTaskGroupName = $taskGroups[0] ?? 'Geral';
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assets/styles.css?v=87">
-    <script src="assets/app.js?v=62" defer></script>
+    <script src="assets/app.js?v=63" defer></script>
 </head>
 <body
     class="<?= $currentUser ? 'is-dashboard' : 'is-auth' ?>"
