@@ -4363,7 +4363,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if (taskDetailRemoveRevisionButton instanceof HTMLButtonElement) {
       taskDetailRemoveRevisionButton.disabled = true;
       taskDetailRemoveRevisionButton.classList.add("is-loading");
-      taskDetailRemoveRevisionButton.textContent = "Removendo";
+      taskDetailRemoveRevisionButton.setAttribute("aria-busy", "true");
     }
 
     try {
@@ -4397,7 +4397,7 @@ window.addEventListener("DOMContentLoaded", () => {
       if (taskDetailRemoveRevisionButton instanceof HTMLButtonElement) {
         taskDetailRemoveRevisionButton.disabled = false;
         taskDetailRemoveRevisionButton.classList.remove("is-loading");
-        taskDetailRemoveRevisionButton.textContent = "Remover ajuste";
+        taskDetailRemoveRevisionButton.removeAttribute("aria-busy");
       }
     }
   };

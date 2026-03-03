@@ -2171,7 +2171,6 @@
                 <button type="button" class="btn btn-mini btn-danger" data-task-detail-delete>Remover</button>
                 <button type="button" class="btn btn-mini btn-ghost" data-task-detail-edit>Editar</button>
                 <button type="button" class="btn btn-mini btn-ghost" data-task-detail-request-revision hidden>Solicitar ajuste</button>
-                <button type="button" class="btn btn-mini btn-ghost" data-task-detail-remove-revision hidden>Remover ajuste</button>
                 <button type="button" class="btn btn-mini" data-task-detail-save hidden>Salvar</button>
                 <button type="button" class="btn btn-mini btn-ghost" data-task-detail-cancel-edit hidden>Cancelar</button>
                 <button type="button" class="modal-close-button" data-close-task-detail-modal aria-label="Fechar modal">
@@ -2195,7 +2194,19 @@
                         </div>
 
                         <div class="task-detail-view-block">
-                            <div class="task-detail-view-label">Descricao</div>
+                            <div class="task-detail-view-label-row">
+                                <div class="task-detail-view-label">Descricao</div>
+                                <button
+                                    type="button"
+                                    class="task-detail-description-remove"
+                                    data-task-detail-remove-revision
+                                    hidden
+                                    aria-label="Remover ultima solicitacao de ajuste"
+                                    title="Remover ultima solicitacao de ajuste"
+                                >
+                                    <span aria-hidden="true">&#10005;</span>
+                                </button>
+                            </div>
                             <div class="task-detail-view-description" data-task-detail-view-description></div>
                             <div class="task-detail-description-versions" data-task-detail-view-description-versions hidden></div>
                         </div>

@@ -4388,6 +4388,41 @@ textarea:focus {
     color: rgba(255, 255, 255, 0.58);
 }
 
+.task-detail-view-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.task-detail-description-remove {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(227, 238, 255, 0.78);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease, opacity 140ms ease;
+}
+
+.task-detail-description-remove:hover,
+.task-detail-description-remove:focus-visible {
+    border-color: rgba(255, 160, 160, 0.42);
+    background: rgba(255, 105, 105, 0.12);
+    color: #ffd6d6;
+    outline: none;
+}
+
+.task-detail-description-remove[disabled] {
+    opacity: 0.58;
+    cursor: not-allowed;
+}
+
 .task-detail-view-description {
     min-height: 72px;
     color: rgba(255, 255, 255, 0.92);
