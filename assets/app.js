@@ -170,6 +170,35 @@ window.addEventListener("DOMContentLoaded", () => {
     return String(parsed);
   };
 
+  const normalizeInventoryEntryFields = ({
+    quantityField = null,
+    minQuantityField = null,
+  } = {}) => {
+    if (quantityField instanceof HTMLInputElement) {
+      const normalizedQuantity = normalizeInventoryIntegerInput(quantityField.value);
+      if (normalizedQuantity === null) {
+        showClientFlash("error", "Use apenas numeros inteiros na quantidade.");
+        quantityField.focus();
+        return false;
+      }
+      quantityField.value = normalizedQuantity;
+    }
+
+    if (minQuantityField instanceof HTMLInputElement) {
+      const normalizedMinQuantity = normalizeInventoryIntegerInput(minQuantityField.value, {
+        allowEmpty: true,
+      });
+      if (normalizedMinQuantity === null) {
+        showClientFlash("error", "Use apenas numeros inteiros no estoque minimo.");
+        minQuantityField.focus();
+        return false;
+      }
+      minQuantityField.value = normalizedMinQuantity;
+    }
+
+    return true;
+  };
+
   const uppercaseRequiredInputSelector = [
     ".task-title-input",
     "[data-create-task-title-input]",
@@ -502,10 +531,10 @@ window.addEventListener("DOMContentLoaded", () => {
         return;
       }
       inventoryInlineQuantityInput.value = normalizedQuantity;
-
-      if (quantityForm.dataset.submitting === "1") return;
-      quantityForm.dataset.submitting = "1";
-      quantityForm.submit();
+      void submitInventoryActionForm(quantityForm, {
+        showSuccess: false,
+        fallbackError: "Falha ao atualizar quantidade.",
+      }).catch(() => {});
       return;
     }
 
@@ -2257,6 +2286,112 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     return data;
+  };
+
+  const syncSelectOptionsFromSource = (targetSelect, sourceSelect) => {
+    if (!(targetSelect instanceof HTMLSelectElement)) return;
+    if (!(sourceSelect instanceof HTMLSelectElement)) return;
+
+    const previousValue = String(targetSelect.value || "").trim();
+    targetSelect.innerHTML = "";
+    Array.from(sourceSelect.options).forEach((option) => {
+      if (!(option instanceof HTMLOptionElement)) return;
+      targetSelect.append(option.cloneNode(true));
+    });
+
+    targetSelect.disabled = sourceSelect.disabled;
+    if (previousValue && Array.from(targetSelect.options).some((option) => option.value === previousValue)) {
+      targetSelect.value = previousValue;
+    }
+  };
+
+  const refreshInventorySectionFromServer = async () => {
+    const url = `${window.location.pathname}${window.location.search}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        Accept: "text/html",
+      },
+      credentials: "same-origin",
+    });
+
+    if (!response.ok) {
+      throw new Error("Nao foi possivel atualizar o estoque.");
+    }
+
+    const html = await response.text();
+    const parser = new DOMParser();
+    const nextDoc = parser.parseFromString(html, "text/html");
+
+    const currentGroupsList = document.querySelector("#inventory .inventory-groups-list");
+    const nextGroupsList = nextDoc.querySelector("#inventory .inventory-groups-list");
+    if (currentGroupsList instanceof HTMLElement && nextGroupsList instanceof HTMLElement) {
+      currentGroupsList.replaceWith(nextGroupsList);
+    }
+
+    const currentTotal = document.querySelector("[data-inventory-total-count]");
+    const nextTotal = nextDoc.querySelector("[data-inventory-total-count]");
+    if (currentTotal instanceof HTMLElement) {
+      if (nextTotal instanceof HTMLElement) {
+        currentTotal.textContent = nextTotal.textContent || currentTotal.textContent;
+      } else {
+        const nextEntriesCount = document.querySelectorAll("#inventory [data-inventory-entry]").length;
+        currentTotal.textContent = `${nextEntriesCount} item(ns)`;
+      }
+    }
+
+    syncSelectOptionsFromSource(
+      inventoryEntryGroupField,
+      nextDoc.querySelector("[data-inventory-entry-group]")
+    );
+    syncSelectOptionsFromSource(
+      inventoryEntryEditGroupField,
+      nextDoc.querySelector("[data-inventory-entry-edit-group]")
+    );
+
+    document.querySelectorAll("#inventory [data-inventory-group]").forEach((section) => {
+      setInventoryGroupCollapsed(section, resolveInitialGroupCollapsedState("inventory", section), {
+        persist: false,
+      });
+    });
+  };
+
+  const submitInventoryActionForm = async (
+    form,
+    {
+      onSuccess = null,
+      successMessage = "",
+      showSuccess = true,
+      fallbackError = "Falha ao atualizar estoque.",
+    } = {}
+  ) => {
+    if (!(form instanceof HTMLFormElement)) return false;
+    if (form.dataset.submitting === "1") return false;
+
+    form.dataset.submitting = "1";
+    try {
+      const data = await postFormJson(form);
+      if (typeof onSuccess === "function") {
+        onSuccess(data);
+      }
+
+      await refreshInventorySectionFromServer();
+
+      if (showSuccess) {
+        const message = String(data?.message || "").trim() || successMessage;
+        if (message) {
+          showClientFlash("success", message);
+        }
+      }
+
+      return true;
+    } catch (error) {
+      showClientFlash("error", error instanceof Error ? error.message : fallbackError);
+      throw error;
+    } finally {
+      delete form.dataset.submitting;
+    }
   };
 
   const autosaveTimers = new WeakMap();
@@ -6299,7 +6434,10 @@ window.addEventListener("DOMContentLoaded", () => {
           confirmLabel: "Excluir",
           confirmVariant: "danger",
           onConfirm: async () => {
-            deleteForm.submit();
+            await submitInventoryActionForm(deleteForm, {
+              successMessage: "Item de estoque removido.",
+              fallbackError: "Falha ao remover item de estoque.",
+            });
           },
         });
       }
@@ -6956,30 +7094,30 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   if (inventoryEntryForm instanceof HTMLFormElement) {
-    inventoryEntryForm.addEventListener("submit", () => {
+    inventoryEntryForm.addEventListener("submit", (event) => {
+      event.preventDefault();
       if (inventoryEntryLabelField instanceof HTMLInputElement) {
         applyFirstLetterUppercaseToInput(inventoryEntryLabelField);
       }
-      if (inventoryEntryQuantityField instanceof HTMLInputElement) {
-        const normalizedQuantity = normalizeInventoryIntegerInput(inventoryEntryQuantityField.value);
-        if (normalizedQuantity !== null) {
-          inventoryEntryQuantityField.value = normalizedQuantity;
-        }
-      }
-      if (inventoryEntryMinQuantityField instanceof HTMLInputElement) {
-        const normalizedMinQuantity = normalizeInventoryIntegerInput(
-          inventoryEntryMinQuantityField.value,
-          { allowEmpty: true }
-        );
-        if (normalizedMinQuantity !== null) {
-          inventoryEntryMinQuantityField.value = normalizedMinQuantity;
-        }
+      const normalized = normalizeInventoryEntryFields({
+        quantityField: inventoryEntryQuantityField,
+        minQuantityField: inventoryEntryMinQuantityField,
+      });
+      if (!normalized) {
+        return;
       }
       if (inventoryEntryUnitField instanceof HTMLInputElement) {
         const normalizedUnit = String(inventoryEntryUnitField.value || "").trim().toLowerCase();
         inventoryEntryUnitField.value = normalizedUnit || "un";
       }
-      syncBodyModalLock();
+
+      void submitInventoryActionForm(inventoryEntryForm, {
+        onSuccess: () => {
+          closeInventoryEntryModal();
+        },
+        successMessage: "Item de estoque criado.",
+        fallbackError: "Falha ao criar item de estoque.",
+      }).catch(() => {});
     });
   }
 
@@ -7008,30 +7146,30 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   if (inventoryEntryEditForm instanceof HTMLFormElement) {
-    inventoryEntryEditForm.addEventListener("submit", () => {
+    inventoryEntryEditForm.addEventListener("submit", (event) => {
+      event.preventDefault();
       if (inventoryEntryEditLabelField instanceof HTMLInputElement) {
         applyFirstLetterUppercaseToInput(inventoryEntryEditLabelField);
       }
-      if (inventoryEntryEditQuantityField instanceof HTMLInputElement) {
-        const normalizedQuantity = normalizeInventoryIntegerInput(inventoryEntryEditQuantityField.value);
-        if (normalizedQuantity !== null) {
-          inventoryEntryEditQuantityField.value = normalizedQuantity;
-        }
-      }
-      if (inventoryEntryEditMinQuantityField instanceof HTMLInputElement) {
-        const normalizedMinQuantity = normalizeInventoryIntegerInput(
-          inventoryEntryEditMinQuantityField.value,
-          { allowEmpty: true }
-        );
-        if (normalizedMinQuantity !== null) {
-          inventoryEntryEditMinQuantityField.value = normalizedMinQuantity;
-        }
+      const normalized = normalizeInventoryEntryFields({
+        quantityField: inventoryEntryEditQuantityField,
+        minQuantityField: inventoryEntryEditMinQuantityField,
+      });
+      if (!normalized) {
+        return;
       }
       if (inventoryEntryEditUnitField instanceof HTMLInputElement) {
         const normalizedUnit = String(inventoryEntryEditUnitField.value || "").trim().toLowerCase();
         inventoryEntryEditUnitField.value = normalizedUnit || "un";
       }
-      syncBodyModalLock();
+
+      void submitInventoryActionForm(inventoryEntryEditForm, {
+        onSuccess: () => {
+          closeInventoryEntryEditModal();
+        },
+        successMessage: "Item de estoque atualizado.",
+        fallbackError: "Falha ao atualizar item de estoque.",
+      }).catch(() => {});
     });
   }
 

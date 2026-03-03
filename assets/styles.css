@@ -2494,11 +2494,11 @@ textarea:focus {
     align-items: center;
     padding: 4px 10px;
     border-radius: 999px;
-    border: 1px solid rgba(255, 134, 134, 0.46);
-    background: rgba(88, 24, 24, 0.52);
-    color: rgba(255, 210, 210, 0.98);
-    font-size: 0.76rem;
-    font-weight: 600;
+    border: 1px solid rgba(236, 190, 130, 0.28);
+    background: rgba(72, 54, 31, 0.34);
+    color: rgba(237, 215, 184, 0.86);
+    font-size: 0.74rem;
+    font-weight: 500;
     letter-spacing: 0.01em;
     white-space: nowrap;
 }

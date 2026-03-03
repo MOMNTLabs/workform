@@ -1100,7 +1100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $groupNameInput = normalizeInventoryGroupName((string) ($_POST['group_name'] ?? ''));
                 $groupName = findInventoryGroupByName($groupNameInput, $workspaceId) ?? $groupNameInput;
 
-                createWorkspaceInventoryEntry(
+                $createdEntryId = createWorkspaceInventoryEntry(
                     $pdo,
                     $workspaceId,
                     (string) ($_POST['label'] ?? ''),
@@ -1111,6 +1111,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     (string) ($_POST['notes'] ?? ''),
                     (int) $authUser['id']
                 );
+
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'entry_id' => $createdEntryId,
+                        'message' => 'Item de estoque criado.',
+                    ]);
+                }
 
                 flash('success', 'Item de estoque criado.');
                 redirectTo('index.php#inventory');
@@ -1153,6 +1161,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     (string) ($_POST['notes'] ?? '')
                 );
 
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'entry_id' => $entryId,
+                        'message' => 'Item de estoque atualizado.',
+                    ]);
+                }
+
                 flash('success', 'Item de estoque atualizado.');
                 redirectTo('index.php#inventory');
 
@@ -1170,6 +1186,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $entryId,
                     $_POST['quantity_value'] ?? null
                 );
+
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'entry_id' => $entryId,
+                        'message' => 'Quantidade atualizada.',
+                    ]);
+                }
 
                 flash('success', 'Quantidade atualizada.');
                 redirectTo('index.php#inventory');
@@ -1199,6 +1223,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 deleteWorkspaceInventoryEntry($pdo, $workspaceId, $entryId);
+
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'entry_id' => $entryId,
+                        'message' => 'Item de estoque removido.',
+                    ]);
+                }
+
                 flash('success', 'Item de estoque removido.');
                 redirectTo('index.php#inventory');
 
@@ -2443,8 +2476,8 @@ $defaultTaskGroupName = $taskGroups[0] ?? 'Geral';
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/styles.css?v=74">
-    <script src="assets/app.js?v=49" defer></script>
+    <link rel="stylesheet" href="assets/styles.css?v=75">
+    <script src="assets/app.js?v=50" defer></script>
 </head>
 <body
     class="<?= $currentUser ? 'is-dashboard' : 'is-auth' ?>"

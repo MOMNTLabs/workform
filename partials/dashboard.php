@@ -1284,7 +1284,7 @@ $taskTitleTagOptions = array_values($taskTitleTagOptions);
                         </span>
                         <span class="vault-summary-button-label">Novo item</span>
                     </button>
-                    <span><?= e((string) count($inventoryEntries)) ?> item(ns)</span>
+                    <span data-inventory-total-count><?= e((string) count($inventoryEntries)) ?> item(ns)</span>
                 </div>
             </div>
 
@@ -1364,9 +1364,6 @@ $taskTitleTagOptions = array_values($taskTitleTagOptions);
                                     $inventoryQuantityDisplay = (string) ($inventoryEntry['quantity_display'] ?? inventoryQuantityLabel($inventoryQuantityValue));
                                     $inventoryQuantityInput = (string) ($inventoryEntry['quantity_value_input'] ?? inventoryQuantityInputValue($inventoryQuantityValue));
                                     $inventoryMinQuantityValue = normalizeInventoryQuantityValue($inventoryEntry['min_quantity_value'] ?? null);
-                                    $inventoryMinQuantityDisplay = $inventoryMinQuantityValue !== null
-                                        ? (string) ($inventoryEntry['min_quantity_display'] ?? inventoryQuantityLabel($inventoryMinQuantityValue))
-                                        : '';
                                     $inventoryMinQuantityInput = $inventoryMinQuantityValue !== null
                                         ? (string) ($inventoryEntry['min_quantity_value_input'] ?? inventoryQuantityInputValue($inventoryMinQuantityValue))
                                         : '';
@@ -1430,12 +1427,6 @@ $taskTitleTagOptions = array_values($taskTitleTagOptions);
                                                     </label>
                                                     <button type="submit" class="sr-only">Salvar quantidade</button>
                                                 </form>
-                                                <?php if ($inventoryMinQuantityValue !== null): ?>
-                                                    <span class="inventory-entry-min" title="Estoque minimo recomendado">
-                                                        <span class="inventory-entry-inline-label">Min.</span>
-                                                        <strong><?= e($inventoryMinQuantityDisplay) ?> <?= e($inventoryUnitLabel) ?></strong>
-                                                    </span>
-                                                <?php endif; ?>
                                                 <?php if ($inventoryLowStock): ?>
                                                     <span class="inventory-entry-alert" title="Quantidade atual abaixo do estoque minimo">Baixo estoque</span>
                                                 <?php endif; ?>
