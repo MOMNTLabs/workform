@@ -1238,6 +1238,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $usersById = usersMapById($workspaceId);
                 $taskId = (int) ($_POST['task_id'] ?? 0);
                 $title = normalizeTaskTitle((string) ($_POST['title'] ?? ''));
+                $titleTag = normalizeTaskTitleTag((string) ($_POST['title_tag'] ?? ''));
                 $description = trim((string) ($_POST['description'] ?? ''));
                 $referenceLinksPosted = array_key_exists('reference_links_json', $_POST);
                 $referenceImagesPosted = array_key_exists('reference_images_json', $_POST);
@@ -1312,13 +1313,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $subtasks ??= [];
                     $status = applyTaskSubtasksCompletionStatus($status, $subtasks);
                     $stmt = $pdo->prepare(
-                        'INSERT INTO tasks (workspace_id, title, description, status, priority, due_date, overdue_flag, overdue_since_date, created_by, assigned_to, assignee_ids_json, reference_links_json, reference_images_json, subtasks_json, group_name, created_at, updated_at)
-                         VALUES (:workspace_id, :t, :d, :s, :p, :dd, :of, :osd, :cb, :at, :aj, :rl, :ri, :sj, :g, :c, :u)'
+                        'INSERT INTO tasks (workspace_id, title, title_tag, description, status, priority, due_date, overdue_flag, overdue_since_date, created_by, assigned_to, assignee_ids_json, reference_links_json, reference_images_json, subtasks_json, group_name, created_at, updated_at)
+                         VALUES (:workspace_id, :t, :tt, :d, :s, :p, :dd, :of, :osd, :cb, :at, :aj, :rl, :ri, :sj, :g, :c, :u)'
                     );
                     $now = nowIso();
                     $stmt->execute([
                         ':workspace_id' => $workspaceId,
                         ':t' => $title,
+                        ':tt' => $titleTag,
                         ':d' => $description,
                         ':s' => $status,
                         ':p' => $priority,
@@ -1343,6 +1345,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'created',
                             [
                                 'title' => $title,
+                                'title_tag' => $titleTag,
                                 'status' => $status,
                                 'priority' => $priority,
                                 'due_date' => $dueDate,
@@ -1375,7 +1378,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new RuntimeException('Tarefa invalida.');
                 }
                 $existingTaskStmt = $pdo->prepare(
-                    'SELECT title, status, priority, due_date, overdue_flag, overdue_since_date, assignee_ids_json, group_name, reference_links_json, reference_images_json, subtasks_json
+                    'SELECT title, title_tag, status, priority, due_date, overdue_flag, overdue_since_date, assignee_ids_json, group_name, reference_links_json, reference_images_json, subtasks_json
                      FROM tasks
                      WHERE id = :id
                        AND workspace_id = :workspace_id
@@ -1432,6 +1435,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $pdo->prepare(
                     'UPDATE tasks
                      SET title = :t,
+                         title_tag = :tt,
                          description = :d,
                          status = :s,
                          priority = :p,
@@ -1451,6 +1455,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $updatedAt = nowIso();
                 $stmt->execute([
                     ':t' => $title,
+                    ':tt' => $titleTag,
                     ':d' => $description,
                     ':s' => $status,
                     ':p' => $priority,
@@ -1471,6 +1476,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $existingStatus = normalizeTaskStatus((string) ($existingTaskRow['status'] ?? 'todo'));
                 $existingPriority = normalizeTaskPriority((string) ($existingTaskRow['priority'] ?? 'medium'));
                 $existingTitle = normalizeTaskTitle((string) ($existingTaskRow['title'] ?? ''));
+                $existingTitleTag = normalizeTaskTitleTag((string) ($existingTaskRow['title_tag'] ?? ''));
                 $existingDueDate = dueDateForStorage((string) ($existingTaskRow['due_date'] ?? ''));
                 $existingGroup = normalizeTaskGroupName((string) ($existingTaskRow['group_name'] ?? 'Geral'));
                 $existingOverdueFlag = ((int) ($existingTaskRow['overdue_flag'] ?? 0)) === 1 ? 1 : 0;
@@ -1486,6 +1492,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $taskId,
                         'title_changed',
                         ['old' => $existingTitle, 'new' => $title],
+                        $actorUserId,
+                        $updatedAt
+                    );
+                }
+                if ($existingTitleTag !== $titleTag) {
+                    logTaskHistory(
+                        $pdo,
+                        $taskId,
+                        'title_tag_changed',
+                        ['old' => $existingTitleTag, 'new' => $titleTag],
                         $actorUserId,
                         $updatedAt
                     );
@@ -1604,6 +1620,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'task' => [
                             'id' => $taskId,
                             'group_name' => $groupName,
+                            'title_tag' => $titleTag,
                             'due_date' => $dueDate,
                             'status' => $status,
                             'priority' => $priority,

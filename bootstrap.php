@@ -176,6 +176,7 @@ function migrateSqlite(PDO $pdo): void
         'CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
+            title_tag TEXT NOT NULL DEFAULT \'\',
             description TEXT NOT NULL DEFAULT \'\',
             status TEXT NOT NULL,
             priority TEXT NOT NULL,
@@ -247,6 +248,7 @@ function migratePostgres(PDO $pdo): void
         'CREATE TABLE IF NOT EXISTS tasks (
             id BIGSERIAL PRIMARY KEY,
             title TEXT NOT NULL,
+            title_tag TEXT NOT NULL DEFAULT \'\',
             description TEXT NOT NULL DEFAULT \'\',
             status VARCHAR(32) NOT NULL,
             priority VARCHAR(32) NOT NULL,
@@ -609,12 +611,16 @@ function ensureTaskExtendedSchema(PDO $pdo): void
         $pdo->exec("ALTER TABLE tasks ADD COLUMN subtasks_json TEXT NOT NULL DEFAULT '[]'");
         $needsBackfill = true;
     }
+    if (!tableHasColumn($pdo, 'tasks', 'title_tag')) {
+        $pdo->exec("ALTER TABLE tasks ADD COLUMN title_tag TEXT NOT NULL DEFAULT ''");
+        $needsBackfill = true;
+    }
 
     if (!$needsBackfill && appMetaGet($pdo, $backfillMetaKey) === '1') {
         return;
     }
 
-    $stmt = $pdo->query('SELECT id, assigned_to, group_name, assignee_ids_json, reference_links_json, reference_images_json, subtasks_json FROM tasks');
+    $stmt = $pdo->query('SELECT id, assigned_to, group_name, assignee_ids_json, reference_links_json, reference_images_json, subtasks_json, title_tag FROM tasks');
     $rows = $stmt ? $stmt->fetchAll() : [];
     if (!$rows) {
         appMetaSet($pdo, $backfillMetaKey, '1');
@@ -627,7 +633,8 @@ function ensureTaskExtendedSchema(PDO $pdo): void
              assignee_ids_json = :assignee_ids_json,
              reference_links_json = :reference_links_json,
              reference_images_json = :reference_images_json,
-             subtasks_json = :subtasks_json
+             subtasks_json = :subtasks_json,
+             title_tag = :title_tag
          WHERE id = :id'
     );
 
@@ -640,6 +647,7 @@ function ensureTaskExtendedSchema(PDO $pdo): void
         $referenceLinks = decodeReferenceUrlList($row['reference_links_json'] ?? null);
         $referenceImages = decodeReferenceImageList($row['reference_images_json'] ?? null);
         $subtasks = decodeTaskSubtasks($row['subtasks_json'] ?? null);
+        $titleTag = normalizeTaskTitleTag((string) ($row['title_tag'] ?? ''));
 
         $update->execute([
             ':group_name' => $groupName,
@@ -647,6 +655,7 @@ function ensureTaskExtendedSchema(PDO $pdo): void
             ':reference_links_json' => encodeReferenceUrlList($referenceLinks),
             ':reference_images_json' => encodeReferenceImageList($referenceImages),
             ':subtasks_json' => encodeTaskSubtasks($subtasks),
+            ':title_tag' => $titleTag,
             ':id' => (int) $row['id'],
         ]);
     }
@@ -3802,6 +3811,15 @@ function taskPriorities(): array
     ];
 }
 
+function taskTitleTagPresets(): array
+{
+    return [
+        'Novo recurso',
+        'Nova aba',
+        'Corrigir',
+    ];
+}
+
 function normalizeTaskStatus(string $value): string
 {
     return array_key_exists($value, taskStatuses()) ? $value : 'todo';
@@ -3839,6 +3857,20 @@ function normalizeTaskTitle(string $value): string
     $value = trim($value);
     if ($value === '') {
         return '';
+    }
+
+    return uppercaseFirstCharacter($value);
+}
+
+function normalizeTaskTitleTag(string $value): string
+{
+    $value = trim($value);
+    if ($value === '') {
+        return '';
+    }
+
+    if (mb_strlen($value) > 40) {
+        $value = mb_substr($value, 0, 40);
     }
 
     return uppercaseFirstCharacter($value);
@@ -5348,6 +5380,7 @@ function allTasks(?int $workspaceId = null): array
 
     foreach ($tasks as &$task) {
         $task['title'] = normalizeTaskTitle((string) ($task['title'] ?? ''));
+        $task['title_tag'] = normalizeTaskTitleTag((string) ($task['title_tag'] ?? ''));
         $task['status'] = normalizeTaskStatus((string) ($task['status'] ?? 'todo'));
         $task['priority'] = normalizeTaskPriority((string) ($task['priority'] ?? 'medium'));
         $task['due_date'] = dueDateForStorage((string) ($task['due_date'] ?? ''));

@@ -1,3 +1,5 @@
+<?php $taskTitleTagPresetOptions = taskTitleTagPresets(); ?>
+
 <header class="top-nav dashboard-nav">
     <a href="index.php" class="brand" aria-label="WorkForm">
         <img src="assets/WorkForm - Logo (Negativa).svg?v=1" alt="WorkForm" class="brand-lockup" width="116" height="29">
@@ -442,6 +444,7 @@
                                     $taskSubtasksProgress = taskSubtasksProgress($taskSubtasks);
                                     $taskSubtasksTotal = (int) ($taskSubtasksProgress['total'] ?? 0);
                                     $taskSubtasksCompleted = (int) ($taskSubtasksProgress['completed'] ?? 0);
+                                    $taskTitleTag = normalizeTaskTitleTag((string) ($task['title_tag'] ?? ''));
                                     ?>
                                     <article
                                         class="task-list-item task-status-<?= e($statusKey) ?><?= $isOverdueMarked ? ' has-overdue-flag' : '' ?>"
@@ -459,6 +462,7 @@
                                             <input type="hidden" name="reference_links_json" value="<?= e(encodeReferenceUrlList($task['reference_links'] ?? [])) ?>" data-task-reference-links-json>
                                             <input type="hidden" name="reference_images_json" value="<?= e(encodeReferenceImageList($task['reference_images'] ?? [])) ?>" data-task-reference-images-json>
                                             <input type="hidden" name="subtasks_json" value="<?= e(encodeTaskSubtasks($taskSubtasks)) ?>" data-task-subtasks-json>
+                                            <input type="hidden" name="title_tag" value="<?= e($taskTitleTag) ?>" data-task-title-tag>
                                             <input type="hidden" name="overdue_flag" value="<?= $isOverdueMarked ? '1' : '0' ?>" data-task-overdue-flag>
                                             <input type="hidden" name="overdue_since_date" value="<?= e((string) ($task['overdue_since_date'] ?? '')) ?>" data-task-overdue-since-date>
                                             <input type="hidden" value="<?= e((string) (($task['overdue_days'] ?? 0))) ?>" data-task-overdue-days>
@@ -467,6 +471,7 @@
                                             <fieldset class="task-row-fieldset" <?= $taskGroupCanAccess ? '' : 'disabled' ?>>
                                             <div class="task-line-row">
                                                 <div class="task-line-title">
+                                                    <span class="task-title-tag-badge" data-task-title-tag-badge<?= $taskTitleTag === '' ? ' hidden' : '' ?>><?= e($taskTitleTag) ?></span>
                                                     <input
                                                         type="text"
                                                         name="title"
@@ -1348,6 +1353,23 @@
 
             <label>
                 <span>Titulo</span>
+                <div class="task-title-tag-editor">
+                    <select data-create-task-title-tag-select>
+                        <option value="">Sem tag</option>
+                        <?php foreach ($taskTitleTagPresetOptions as $tagOption): ?>
+                            <option value="<?= e((string) $tagOption) ?>"><?= e((string) $tagOption) ?></option>
+                        <?php endforeach; ?>
+                        <option value="__custom__">Nova tag...</option>
+                    </select>
+                    <input
+                        type="text"
+                        maxlength="40"
+                        placeholder="Nova tag"
+                        data-create-task-title-tag-custom
+                        hidden
+                    >
+                    <input type="hidden" name="title_tag" value="" data-create-task-title-tag-input>
+                </div>
                 <input type="text" name="title" maxlength="140" required data-create-task-title-input>
             </label>
 
@@ -2185,6 +2207,7 @@
                     <div class="task-detail-view-main">
                         <div class="task-detail-view-block">
                             <div class="task-detail-view-tags">
+                                <span class="task-detail-view-tag task-title-tag-badge task-detail-title-tag" data-task-detail-view-title-tag hidden></span>
                                 <span class="task-detail-view-tag" data-task-detail-view-status></span>
                                 <span class="task-detail-view-tag" data-task-detail-view-priority></span>
                                 <span class="task-detail-view-tag" data-task-detail-view-group></span>
@@ -2247,6 +2270,22 @@
                 <div class="form-stack modal-form">
                     <label>
                         <span>Titulo</span>
+                        <div class="task-title-tag-editor">
+                            <select data-task-detail-edit-title-tag-select>
+                                <option value="">Sem tag</option>
+                                <?php foreach ($taskTitleTagPresetOptions as $tagOption): ?>
+                                    <option value="<?= e((string) $tagOption) ?>"><?= e((string) $tagOption) ?></option>
+                                <?php endforeach; ?>
+                                <option value="__custom__">Nova tag...</option>
+                            </select>
+                            <input
+                                type="text"
+                                maxlength="40"
+                                placeholder="Nova tag"
+                                data-task-detail-edit-title-tag-custom
+                                hidden
+                            >
+                        </div>
                         <input type="text" maxlength="140" required data-task-detail-edit-title>
                     </label>
 

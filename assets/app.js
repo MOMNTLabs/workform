@@ -155,7 +155,9 @@ window.addEventListener("DOMContentLoaded", () => {
   const uppercaseRequiredInputSelector = [
     ".task-title-input",
     "[data-create-task-title-input]",
+    "[data-create-task-title-tag-custom]",
     "[data-task-detail-edit-title]",
+    "[data-task-detail-edit-title-tag-custom]",
     "[data-group-name-input]",
     "[data-create-group-name-input]",
     "[data-vault-entry-label-input]",
@@ -733,6 +735,131 @@ window.addEventListener("DOMContentLoaded", () => {
 
     flushList();
     return parts.join("");
+  };
+
+  const TASK_TITLE_TAG_CUSTOM_VALUE = "__custom__";
+
+  const normalizeTaskTitleTagValue = (value) => {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    const limited = raw.slice(0, 40);
+    return forceFirstLetterUppercase(limited).trim();
+  };
+
+  const ensureTaskTitleTagOption = (selectEl, tagValue) => {
+    if (!(selectEl instanceof HTMLSelectElement)) return;
+    const normalizedTag = normalizeTaskTitleTagValue(tagValue);
+    if (!normalizedTag) return;
+    const hasOption = Array.from(selectEl.options).some(
+      (option) => normalizeTaskTitleTagValue(option.value) === normalizedTag
+    );
+    if (hasOption) return;
+
+    const option = document.createElement("option");
+    option.value = normalizedTag;
+    option.textContent = normalizedTag;
+
+    const customOption = Array.from(selectEl.options).find(
+      (entry) => entry.value === TASK_TITLE_TAG_CUSTOM_VALUE
+    );
+    if (customOption) {
+      customOption.insertAdjacentElement("beforebegin", option);
+    } else {
+      selectEl.append(option);
+    }
+  };
+
+  const syncTaskTitleTagEditorControls = ({
+    selectEl = null,
+    customInputEl = null,
+    currentTag = "",
+  } = {}) => {
+    if (!(selectEl instanceof HTMLSelectElement) || !(customInputEl instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const normalizedCurrentTag = normalizeTaskTitleTagValue(currentTag);
+    if (normalizedCurrentTag) {
+      ensureTaskTitleTagOption(selectEl, normalizedCurrentTag);
+    }
+
+    if (!normalizedCurrentTag) {
+      selectEl.value = "";
+      customInputEl.hidden = true;
+      customInputEl.value = "";
+      return;
+    }
+
+    const hasOption = Array.from(selectEl.options).some(
+      (option) => normalizeTaskTitleTagValue(option.value) === normalizedCurrentTag
+    );
+    if (hasOption) {
+      selectEl.value = normalizedCurrentTag;
+      customInputEl.hidden = true;
+      customInputEl.value = "";
+      return;
+    }
+
+    selectEl.value = TASK_TITLE_TAG_CUSTOM_VALUE;
+    customInputEl.hidden = false;
+    customInputEl.value = normalizedCurrentTag;
+  };
+
+  const resolveTaskTitleTagFromEditor = ({
+    selectEl = null,
+    customInputEl = null,
+  } = {}) => {
+    if (!(selectEl instanceof HTMLSelectElement)) {
+      return "";
+    }
+
+    const selectedValue = String(selectEl.value || "").trim();
+    if (!selectedValue) {
+      return "";
+    }
+
+    if (selectedValue === TASK_TITLE_TAG_CUSTOM_VALUE) {
+      if (!(customInputEl instanceof HTMLInputElement)) {
+        return "";
+      }
+
+      return normalizeTaskTitleTagValue(customInputEl.value || "");
+    }
+
+    return normalizeTaskTitleTagValue(selectedValue);
+  };
+
+  const syncTaskTitleTagBadge = (taskItem, titleTag) => {
+    if (!(taskItem instanceof HTMLElement)) return;
+    const normalizedTag = normalizeTaskTitleTagValue(titleTag);
+    const field = taskItem.querySelector("[data-task-title-tag]");
+    if (field instanceof HTMLInputElement) {
+      field.value = normalizedTag;
+    }
+
+    const badge = taskItem.querySelector("[data-task-title-tag-badge]");
+    if (!(badge instanceof HTMLElement)) return;
+    if (!normalizedTag) {
+      badge.hidden = true;
+      badge.textContent = "";
+      return;
+    }
+
+    badge.hidden = false;
+    badge.textContent = normalizedTag;
+  };
+
+  const syncTaskDetailViewTitleTag = (titleTag) => {
+    if (!(taskDetailViewTitleTag instanceof HTMLElement)) return;
+    const normalizedTag = normalizeTaskTitleTagValue(titleTag);
+    if (!normalizedTag) {
+      taskDetailViewTitleTag.hidden = true;
+      taskDetailViewTitleTag.textContent = "";
+      return;
+    }
+
+    taskDetailViewTitleTag.hidden = false;
+    taskDetailViewTitleTag.textContent = normalizedTag;
   };
 
   const buildActiveTaskRevisionStack = (history = []) => {
@@ -1463,6 +1590,8 @@ window.addEventListener("DOMContentLoaded", () => {
         return "Tarefa criada";
       case "title_changed":
         return "Titulo atualizado";
+      case "title_tag_changed":
+        return `Tag do titulo: ${payload.old || "Sem tag"} ${transitionSymbol} ${payload.new || "Sem tag"}`;
       case "status_changed":
         return `Status: ${payload.old_label || payload.old || "-"} ${transitionSymbol} ${
           payload.new_label || payload.new || "-"
@@ -2079,6 +2208,16 @@ window.addEventListener("DOMContentLoaded", () => {
           if (taskItem instanceof HTMLElement) {
             renderTaskRowSubtasksProgress(taskItem, subtasks);
           }
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(task, "title_tag")) {
+        const titleTagField = form.querySelector("[data-task-title-tag]");
+        const normalizedTag = normalizeTaskTitleTagValue(task.title_tag || "");
+        if (titleTagField instanceof HTMLInputElement) {
+          titleTagField.value = normalizedTag;
+        }
+        if (taskItem instanceof HTMLElement) {
+          syncTaskTitleTagBadge(taskItem, normalizedTag);
         }
       }
       if (Object.prototype.hasOwnProperty.call(task, "due_date")) {
@@ -2843,6 +2982,9 @@ window.addEventListener("DOMContentLoaded", () => {
   const createTaskModal = document.querySelector("[data-create-modal]");
   const createTaskGroupInput = document.querySelector("[data-create-task-group-input]");
   const createTaskTitleInput = document.querySelector("[data-create-task-title-input]");
+  const createTaskTitleTagSelect = document.querySelector("[data-create-task-title-tag-select]");
+  const createTaskTitleTagCustom = document.querySelector("[data-create-task-title-tag-custom]");
+  const createTaskTitleTagInput = document.querySelector("[data-create-task-title-tag-input]");
   const createTaskForm = document.querySelector("[data-create-task-form]");
   const createTaskLinksField = document.querySelector("[data-create-task-links]");
   const createTaskImagesField = document.querySelector("[data-create-task-images]");
@@ -2915,6 +3057,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const taskDetailViewTitle = document.querySelector("[data-task-detail-view-title]");
   const taskDetailViewStatus = document.querySelector("[data-task-detail-view-status]");
   const taskDetailViewPriority = document.querySelector("[data-task-detail-view-priority]");
+  const taskDetailViewTitleTag = document.querySelector("[data-task-detail-view-title-tag]");
   const taskDetailViewGroup = document.querySelector("[data-task-detail-view-group]");
   const taskDetailViewDue = document.querySelector("[data-task-detail-view-due]");
   const taskDetailViewAssignees = document.querySelector("[data-task-detail-view-assignees]");
@@ -2935,6 +3078,12 @@ window.addEventListener("DOMContentLoaded", () => {
   const taskDetailViewCreatedBy = document.querySelector("[data-task-detail-view-created-by]");
   const taskDetailViewUpdatedAt = document.querySelector("[data-task-detail-view-updated-at]");
   const taskDetailEditTitle = document.querySelector("[data-task-detail-edit-title]");
+  const taskDetailEditTitleTagSelect = document.querySelector(
+    "[data-task-detail-edit-title-tag-select]"
+  );
+  const taskDetailEditTitleTagCustom = document.querySelector(
+    "[data-task-detail-edit-title-tag-custom]"
+  );
   const taskDetailEditStatus = document.querySelector("[data-task-detail-edit-status]");
   const taskDetailEditPriority = document.querySelector("[data-task-detail-edit-priority]");
   const taskDetailEditGroup = document.querySelector("[data-task-detail-edit-group]");
@@ -3920,6 +4069,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const rowAssigneePicker = form.querySelector(".row-assignee-picker");
     const groupSelect = form.querySelector('[name="group_name"]');
     const descriptionField = form.querySelector('textarea[name="description"]');
+    const titleTagField = form.querySelector("[data-task-title-tag]");
     const referenceLinksField = form.querySelector('[data-task-reference-links-json]');
     const referenceImagesField = form.querySelector('[data-task-reference-images-json]');
     const subtasksField = form.querySelector("[data-task-subtasks-json]");
@@ -3952,6 +4102,7 @@ window.addEventListener("DOMContentLoaded", () => {
       rowAssigneePicker,
       groupSelect,
       descriptionField,
+      titleTagField: titleTagField instanceof HTMLInputElement ? titleTagField : null,
       referenceLinksField: referenceLinksField instanceof HTMLInputElement ? referenceLinksField : null,
       referenceImagesField: referenceImagesField instanceof HTMLInputElement ? referenceImagesField : null,
       subtasksField: subtasksField instanceof HTMLInputElement ? subtasksField : null,
@@ -4058,6 +4209,7 @@ window.addEventListener("DOMContentLoaded", () => {
       rowAssigneePicker,
       groupSelect,
       descriptionField,
+      titleTagField,
       referenceLinksField,
       referenceImagesField,
       subtasksField,
@@ -4074,6 +4226,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const groupLabel =
       groupSelect.options[groupSelect.selectedIndex]?.textContent?.trim() || groupSelect.value || "Geral";
     const dueMeta = dueDateMeta(dueDateInput.value || "");
+    const titleTag = normalizeTaskTitleTagValue(titleTagField?.value || "");
     const assigneeNames = getCheckedAssigneeNames(rowAssigneePicker);
     const description = (descriptionField.value || "").trim();
     const referenceLinks = readJsonUrlListField(referenceLinksField, parseReferenceUrlLines);
@@ -4093,6 +4246,8 @@ window.addEventListener("DOMContentLoaded", () => {
     const updatedAtText = metaRow?.querySelector("[data-task-updated-at]")?.textContent?.trim() || "";
 
     if (taskDetailTitle) taskDetailTitle.textContent = titleValue;
+    syncTaskTitleTagBadge(context.taskItem, titleTag);
+    syncTaskDetailViewTitleTag(titleTag);
     syncTaskDetailViewStatusTag(statusSelect.value || "todo", statusLabel);
     syncTaskDetailViewPriorityTag(prioritySelect.value || "medium");
     if (taskDetailViewGroup) taskDetailViewGroup.textContent = groupLabel;
@@ -4124,6 +4279,11 @@ window.addEventListener("DOMContentLoaded", () => {
     if (taskDetailEditTitle instanceof HTMLInputElement) {
       taskDetailEditTitle.value = titleInput.value || "";
     }
+    syncTaskTitleTagEditorControls({
+      selectEl: taskDetailEditTitleTagSelect,
+      customInputEl: taskDetailEditTitleTagCustom,
+      currentTag: titleTag,
+    });
     if (taskDetailEditStatus instanceof HTMLSelectElement) {
       taskDetailEditStatus.value = statusSelect.value || "todo";
       syncSelectColor(taskDetailEditStatus);
@@ -4221,9 +4381,28 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     applyFirstLetterUppercaseToInput(taskDetailEditTitle);
+    if (taskDetailEditTitleTagCustom instanceof HTMLInputElement) {
+      applyFirstLetterUppercaseToInput(taskDetailEditTitleTagCustom);
+    }
     syncTaskDetailDescriptionTextareaFromEditor();
 
+    const nextTitleTag = resolveTaskTitleTagFromEditor({
+      selectEl: taskDetailEditTitleTagSelect,
+      customInputEl: taskDetailEditTitleTagCustom,
+    });
+    if (
+      taskDetailEditTitleTagSelect instanceof HTMLSelectElement &&
+      taskDetailEditTitleTagSelect.value === TASK_TITLE_TAG_CUSTOM_VALUE &&
+      taskDetailEditTitleTagCustom instanceof HTMLInputElement
+    ) {
+      taskDetailEditTitleTagCustom.value = nextTitleTag;
+    }
+
     context.titleInput.value = taskDetailEditTitle.value;
+    if (context.titleTagField instanceof HTMLInputElement) {
+      context.titleTagField.value = nextTitleTag;
+    }
+    syncTaskTitleTagBadge(context.taskItem, nextTitleTag);
     context.statusSelect.value = taskDetailEditStatus.value;
     context.prioritySelect.value = taskDetailEditPriority.value;
     context.dueDateInput.value = taskDetailEditDueDate.value;
@@ -4914,6 +5093,13 @@ window.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll("[data-vault-password-cell]").forEach((cell) => {
     syncVaultPasswordCell(cell, false);
   });
+  document.querySelectorAll("[data-task-item]").forEach((taskItem) => {
+    if (!(taskItem instanceof HTMLElement)) return;
+    const titleTagField = taskItem.querySelector("[data-task-title-tag]");
+    const titleTagValue =
+      titleTagField instanceof HTMLInputElement ? titleTagField.value || "" : "";
+    syncTaskTitleTagBadge(taskItem, titleTagValue);
+  });
 
   const openCreateModal = (groupName) => {
     if (!createTaskModal) return;
@@ -4936,6 +5122,14 @@ window.addEventListener("DOMContentLoaded", () => {
       createTaskForm
         .querySelectorAll(".status-select, .priority-select")
         .forEach(syncSelectColor);
+    }
+    syncTaskTitleTagEditorControls({
+      selectEl: createTaskTitleTagSelect,
+      customInputEl: createTaskTitleTagCustom,
+      currentTag: "",
+    });
+    if (createTaskTitleTagInput instanceof HTMLInputElement) {
+      createTaskTitleTagInput.value = "";
     }
     if (createTaskGroupInput) {
       const nextGroup = (groupName || "").trim() || getDefaultGroupName();
@@ -5948,10 +6142,55 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  if (createTaskTitleTagSelect instanceof HTMLSelectElement) {
+    createTaskTitleTagSelect.addEventListener("change", () => {
+      const isCustom = createTaskTitleTagSelect.value === TASK_TITLE_TAG_CUSTOM_VALUE;
+      if (createTaskTitleTagCustom instanceof HTMLInputElement) {
+        createTaskTitleTagCustom.hidden = !isCustom;
+        if (!isCustom) {
+          createTaskTitleTagCustom.value = "";
+        } else {
+          createTaskTitleTagCustom.focus();
+        }
+      }
+    });
+  }
+
+  if (taskDetailEditTitleTagSelect instanceof HTMLSelectElement) {
+    taskDetailEditTitleTagSelect.addEventListener("change", () => {
+      const isCustom = taskDetailEditTitleTagSelect.value === TASK_TITLE_TAG_CUSTOM_VALUE;
+      if (taskDetailEditTitleTagCustom instanceof HTMLInputElement) {
+        taskDetailEditTitleTagCustom.hidden = !isCustom;
+        if (!isCustom) {
+          taskDetailEditTitleTagCustom.value = "";
+        } else {
+          taskDetailEditTitleTagCustom.focus();
+        }
+      }
+    });
+  }
+
   if (createTaskForm) {
     createTaskForm.addEventListener("submit", () => {
       if (createTaskTitleInput instanceof HTMLInputElement) {
         applyFirstLetterUppercaseToInput(createTaskTitleInput);
+      }
+      if (createTaskTitleTagCustom instanceof HTMLInputElement) {
+        applyFirstLetterUppercaseToInput(createTaskTitleTagCustom);
+      }
+      const createTitleTag = resolveTaskTitleTagFromEditor({
+        selectEl: createTaskTitleTagSelect,
+        customInputEl: createTaskTitleTagCustom,
+      });
+      if (createTaskTitleTagInput instanceof HTMLInputElement) {
+        createTaskTitleTagInput.value = createTitleTag;
+      }
+      if (
+        createTaskTitleTagSelect instanceof HTMLSelectElement &&
+        createTaskTitleTagSelect.value === TASK_TITLE_TAG_CUSTOM_VALUE &&
+        createTaskTitleTagCustom instanceof HTMLInputElement
+      ) {
+        createTaskTitleTagCustom.value = createTitleTag;
       }
 
       if (createTaskLinksField instanceof HTMLTextAreaElement) {

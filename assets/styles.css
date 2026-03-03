@@ -2954,6 +2954,28 @@ textarea:focus {
     gap: 8px;
 }
 
+.task-title-tag-badge {
+    flex: 0 0 auto;
+    min-height: 24px;
+    border-radius: 999px;
+    border: 1px solid rgba(120, 204, 255, 0.38);
+    background:
+        linear-gradient(135deg, rgba(120, 204, 255, 0.2), rgba(215, 157, 255, 0.18)),
+        rgba(24, 34, 58, 0.84);
+    color: rgba(223, 241, 255, 0.95);
+    padding: 4px 9px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.task-line-title .task-title-tag-badge {
+    max-width: 170px;
+}
+
 .task-title-input {
     width: 100%;
     flex: 1 1 auto;
@@ -4328,6 +4350,15 @@ textarea:focus {
     justify-content: center;
 }
 
+.task-detail-view-tags .task-title-tag-badge {
+    max-width: 220px;
+    border-color: rgba(120, 204, 255, 0.38);
+    background:
+        linear-gradient(135deg, rgba(120, 204, 255, 0.2), rgba(215, 157, 255, 0.18)),
+        rgba(24, 34, 58, 0.84);
+    color: rgba(223, 241, 255, 0.95);
+}
+
 .task-detail-view-tag.status-todo {
     color: #d4e9ff;
     border-color: rgba(120, 190, 255, 0.2);
@@ -4646,6 +4677,37 @@ textarea:focus {
     grid-template-columns: minmax(220px, 1fr) minmax(188px, 220px) minmax(110px, 126px);
     gap: 10px;
     align-items: end;
+}
+
+.task-title-tag-editor {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(130px, 170px);
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.task-title-tag-editor > select,
+.task-title-tag-editor > input {
+    min-height: 34px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text);
+    font: inherit;
+    padding: 6px 10px;
+}
+
+.task-title-tag-editor > select {
+    cursor: pointer;
+}
+
+.task-title-tag-editor > select option {
+    background: #1a2132;
+    color: #e8eefc;
+}
+
+.task-title-tag-editor > input::placeholder {
+    color: rgba(188, 202, 224, 0.62);
 }
 
 .task-detail-inline-field {
@@ -5340,6 +5402,10 @@ textarea:focus {
     }
 
     .task-line-row {
+        grid-template-columns: 1fr;
+    }
+
+    .task-title-tag-editor {
         grid-template-columns: 1fr;
     }
 
