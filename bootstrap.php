@@ -5131,6 +5131,330 @@ function taskHistoryByTaskIds(array $taskIds, int $limitPerTask = 80): array
     return $grouped;
 }
 
+function taskHasActiveRevisionRequest(?string $description, array $history): bool
+{
+    $currentDescription = trim((string) $description);
+    if ($currentDescription === '') {
+        return false;
+    }
+
+    $stack = [];
+    $orderedEntries = array_reverse($history);
+    foreach ($orderedEntries as $entry) {
+        if (!is_array($entry)) {
+            continue;
+        }
+
+        $eventType = trim((string) ($entry['event_type'] ?? ''));
+        $payload = is_array($entry['payload'] ?? null) ? $entry['payload'] : [];
+
+        if ($eventType === 'revision_requested') {
+            $previousDescription = trim((string) ($payload['previous_description'] ?? ''));
+            $newDescription = trim((string) ($payload['new_description'] ?? ''));
+            if ($previousDescription === '' || $newDescription === '' || $previousDescription === $newDescription) {
+                continue;
+            }
+
+            $stack[] = [
+                'previous_description' => $previousDescription,
+                'new_description' => $newDescription,
+            ];
+            continue;
+        }
+
+        if ($eventType !== 'revision_removed') {
+            continue;
+        }
+
+        $removedDescription = trim((string) ($payload['removed_description'] ?? ''));
+        $restoredDescription = trim((string) ($payload['restored_description'] ?? ''));
+        if ($removedDescription === '') {
+            continue;
+        }
+
+        for ($index = count($stack) - 1; $index >= 0; $index--) {
+            $candidate = $stack[$index];
+            $matchesRemoved = (string) ($candidate['new_description'] ?? '') === $removedDescription;
+            $matchesRestored = $restoredDescription === ''
+                || (string) ($candidate['previous_description'] ?? '') === $restoredDescription;
+            if (!$matchesRemoved || !$matchesRestored) {
+                continue;
+            }
+
+            array_splice($stack, $index, 1);
+            break;
+        }
+    }
+
+    if (!$stack) {
+        return false;
+    }
+
+    $latestActiveRevision = $stack[count($stack) - 1];
+    return trim((string) ($latestActiveRevision['new_description'] ?? '')) === $currentDescription;
+}
+
+function taskNotificationEventTypes(): array
+{
+    return [
+        'created',
+        'title_changed',
+        'title_tag_changed',
+        'status_changed',
+        'priority_changed',
+        'due_date_changed',
+        'group_changed',
+        'assignees_changed',
+        'subtasks_changed',
+        'revision_requested',
+        'revision_removed',
+        'overdue_started',
+        'overdue_cleared',
+    ];
+}
+
+function taskNotificationMessageFromHistory(array $historyEntry, int $viewerUserId): array
+{
+    $eventType = trim((string) ($historyEntry['event_type'] ?? ''));
+    $payload = is_array($historyEntry['payload'] ?? null) ? $historyEntry['payload'] : [];
+    $taskTitle = normalizeTaskTitle((string) ($historyEntry['task_title'] ?? ''));
+    if ($taskTitle === '') {
+        $taskTitle = 'Tarefa';
+    }
+
+    $actorName = normalizeUserDisplayName((string) ($historyEntry['actor_name'] ?? ''));
+    $actorPrefix = $actorName !== '' ? $actorName . ' ' : 'Alguem ';
+
+    switch ($eventType) {
+        case 'created':
+            return [
+                'title' => 'Nova tarefa atribuida',
+                'message' => $actorPrefix . 'criou a tarefa "' . $taskTitle . '".',
+            ];
+
+        case 'assignees_changed':
+            $oldAssigneeIds = normalizeAssigneeIds(
+                is_array($payload['old'] ?? null) ? $payload['old'] : []
+            );
+            $newAssigneeIds = normalizeAssigneeIds(
+                is_array($payload['new'] ?? null) ? $payload['new'] : []
+            );
+            $wasAssigned = in_array($viewerUserId, $oldAssigneeIds, true);
+            $isAssigned = in_array($viewerUserId, $newAssigneeIds, true);
+            if (!$wasAssigned && $isAssigned) {
+                return [
+                    'title' => 'Voce foi atribuido',
+                    'message' => $actorPrefix . 'atribuiu voce a "' . $taskTitle . '".',
+                ];
+            }
+
+            return [
+                'title' => 'Responsaveis atualizados',
+                'message' => $actorPrefix . 'atualizou responsaveis em "' . $taskTitle . '".',
+            ];
+
+        case 'revision_requested':
+            return [
+                'title' => 'Solicitacao de revisao',
+                'message' => $actorPrefix . 'solicitou ajuste em "' . $taskTitle . '".',
+            ];
+
+        case 'revision_removed':
+            return [
+                'title' => 'Solicitacao de revisao removida',
+                'message' => $actorPrefix . 'removeu o ajuste de "' . $taskTitle . '".',
+            ];
+
+        case 'overdue_started':
+            return [
+                'title' => 'Tarefa em atraso',
+                'message' => '"' . $taskTitle . '" entrou em atraso.',
+            ];
+
+        case 'overdue_cleared':
+            return [
+                'title' => 'Atraso removido',
+                'message' => $actorPrefix . 'removeu o atraso de "' . $taskTitle . '".',
+            ];
+
+        case 'status_changed':
+            return [
+                'title' => 'Status atualizado',
+                'message' => $actorPrefix . 'alterou o status de "' . $taskTitle . '".',
+            ];
+
+        case 'priority_changed':
+            return [
+                'title' => 'Prioridade atualizada',
+                'message' => $actorPrefix . 'alterou a prioridade de "' . $taskTitle . '".',
+            ];
+
+        case 'due_date_changed':
+            return [
+                'title' => 'Prazo atualizado',
+                'message' => $actorPrefix . 'alterou o prazo de "' . $taskTitle . '".',
+            ];
+
+        default:
+            return [
+                'title' => 'Tarefa atualizada',
+                'message' => $actorPrefix . 'alterou "' . $taskTitle . '".',
+            ];
+    }
+}
+
+function taskIdsAssignedToUser(int $workspaceId, int $userId): array
+{
+    if ($workspaceId <= 0 || $userId <= 0) {
+        return [];
+    }
+
+    $stmt = db()->prepare(
+        'SELECT id, assigned_to, assignee_ids_json
+         FROM tasks
+         WHERE workspace_id = :workspace_id'
+    );
+    $stmt->execute([':workspace_id' => $workspaceId]);
+    $rows = $stmt->fetchAll();
+
+    $taskIds = [];
+    foreach ($rows as $row) {
+        $taskId = (int) ($row['id'] ?? 0);
+        if ($taskId <= 0) {
+            continue;
+        }
+
+        $assigneeIds = decodeAssigneeIds(
+            $row['assignee_ids_json'] ?? null,
+            isset($row['assigned_to']) ? (int) $row['assigned_to'] : null
+        );
+
+        if (!in_array($userId, $assigneeIds, true)) {
+            continue;
+        }
+
+        $taskIds[$taskId] = $taskId;
+    }
+
+    return array_values($taskIds);
+}
+
+function latestTaskHistoryIdForWorkspace(int $workspaceId): int
+{
+    if ($workspaceId <= 0) {
+        return 0;
+    }
+
+    $stmt = db()->prepare(
+        'SELECT MAX(h.id)
+         FROM task_history h
+         INNER JOIN tasks t ON t.id = h.task_id
+         WHERE t.workspace_id = :workspace_id'
+    );
+    $stmt->execute([':workspace_id' => $workspaceId]);
+    return (int) $stmt->fetchColumn();
+}
+
+function taskNotificationsForUser(
+    int $workspaceId,
+    int $userId,
+    int $sinceHistoryId = 0,
+    int $limit = 40
+): array {
+    if ($workspaceId <= 0 || $userId <= 0) {
+        return [];
+    }
+
+    $taskIds = taskIdsAssignedToUser($workspaceId, $userId);
+    if (!$taskIds) {
+        return [];
+    }
+
+    $sinceHistoryId = max(0, $sinceHistoryId);
+    $limit = max(1, min($limit, 100));
+    $eventTypes = taskNotificationEventTypes();
+
+    $taskPlaceholders = [];
+    $eventPlaceholders = [];
+    $params = [
+        ':workspace_id' => $workspaceId,
+        ':since_history_id' => $sinceHistoryId,
+        ':viewer_user_id' => $userId,
+    ];
+
+    foreach (array_values($taskIds) as $index => $taskId) {
+        $param = ':task_' . $index;
+        $taskPlaceholders[] = $param;
+        $params[$param] = (int) $taskId;
+    }
+
+    foreach (array_values($eventTypes) as $index => $eventType) {
+        $param = ':event_' . $index;
+        $eventPlaceholders[] = $param;
+        $params[$param] = $eventType;
+    }
+
+    if (!$taskPlaceholders || !$eventPlaceholders) {
+        return [];
+    }
+
+    $sql = 'SELECT
+                h.id AS history_id,
+                h.task_id,
+                h.event_type,
+                h.payload_json,
+                h.created_at,
+                h.actor_user_id,
+                actor.name AS actor_name,
+                t.title AS task_title
+            FROM task_history h
+            INNER JOIN tasks t ON t.id = h.task_id
+            LEFT JOIN users actor ON actor.id = h.actor_user_id
+            WHERE t.workspace_id = :workspace_id
+              AND h.id > :since_history_id
+              AND h.task_id IN (' . implode(', ', $taskPlaceholders) . ')
+              AND h.event_type IN (' . implode(', ', $eventPlaceholders) . ')
+              AND (h.actor_user_id IS NULL OR h.actor_user_id <> :viewer_user_id)
+            ORDER BY h.id ASC
+            LIMIT ' . $limit;
+
+    $stmt = db()->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll();
+
+    $notifications = [];
+    foreach ($rows as $row) {
+        $payload = decodeTaskHistoryPayload($row['payload_json'] ?? null);
+        $entry = [
+            'history_id' => (int) ($row['history_id'] ?? 0),
+            'task_id' => (int) ($row['task_id'] ?? 0),
+            'event_type' => trim((string) ($row['event_type'] ?? '')),
+            'payload' => $payload,
+            'created_at' => (string) ($row['created_at'] ?? ''),
+            'actor_name' => (string) ($row['actor_name'] ?? ''),
+            'task_title' => normalizeTaskTitle((string) ($row['task_title'] ?? '')),
+        ];
+
+        if ($entry['history_id'] <= 0 || $entry['task_id'] <= 0 || $entry['event_type'] === '') {
+            continue;
+        }
+
+        $messageParts = taskNotificationMessageFromHistory($entry, $userId);
+        $notifications[] = [
+            'history_id' => $entry['history_id'],
+            'task_id' => $entry['task_id'],
+            'event_type' => $entry['event_type'],
+            'title' => (string) ($messageParts['title'] ?? 'Notificacao'),
+            'message' => (string) ($messageParts['message'] ?? ''),
+            'created_at' => $entry['created_at'],
+            'actor_name' => $entry['actor_name'],
+            'task_title' => $entry['task_title'],
+        ];
+    }
+
+    return $notifications;
+}
+
 function applyOverdueTaskPolicy(?int $workspaceId = null): int
 {
     $pdo = db();

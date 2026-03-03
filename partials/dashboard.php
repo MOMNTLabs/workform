@@ -484,6 +484,10 @@ $taskTitleTagOptions = array_values($taskTitleTagOptions);
                                     $taskSubtasksTotal = (int) ($taskSubtasksProgress['total'] ?? 0);
                                     $taskSubtasksCompleted = (int) ($taskSubtasksProgress['completed'] ?? 0);
                                     $taskTitleTag = normalizeTaskTitleTag((string) ($task['title_tag'] ?? ''));
+                                    $hasActiveRevisionRequest = taskHasActiveRevisionRequest(
+                                        (string) ($task['description'] ?? ''),
+                                        is_array($task['history'] ?? null) ? $task['history'] : []
+                                    );
                                     ?>
                                     <article
                                         class="task-list-item task-status-<?= e($statusKey) ?><?= $isOverdueMarked ? ' has-overdue-flag' : '' ?>"
@@ -644,6 +648,13 @@ $taskTitleTagOptions = array_values($taskTitleTagOptions);
 
                                                 <div class="tag-field due-tag-field">
                                                     <span class="sr-only">Prazo</span>
+                                                    <?php if ($hasActiveRevisionRequest): ?>
+                                                        <span
+                                                            class="task-revision-badge"
+                                                            data-task-revision-badge
+                                                            title="Solicitacao de revisao pendente"
+                                                        >Revisao</span>
+                                                    <?php endif; ?>
                                                     <?php if ($isOverdueMarked): ?>
                                                         <button
                                                             type="button"

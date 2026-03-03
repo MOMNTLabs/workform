@@ -26,6 +26,10 @@ function respondJson(array $payload, int $status = 200): void
 
 function dashboardSummaryPayloadForUser(int $userId, ?int $workspaceId = null): array
 {
+    if ($workspaceId !== null && $workspaceId > 0) {
+        applyOverdueTaskPolicy($workspaceId);
+    }
+
     $allTasks = allTasks($workspaceId);
     if ($workspaceId !== null && $workspaceId > 0) {
         $allTasks = array_values(array_filter(
@@ -116,6 +120,60 @@ function submittedGroupPermissionsByUserId(array $workspaceRolesByUserId): array
     }
 
     return $permissionsByUserId;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $getAction = trim((string) ($_GET['action'] ?? ''));
+
+    if ($getAction === 'task_notifications_feed') {
+        try {
+            $authUser = currentUser();
+            if (!$authUser) {
+                respondJson([
+                    'ok' => false,
+                    'error' => 'Sessao expirada. Faca login novamente.',
+                ], 401);
+            }
+
+            $workspaceId = activeWorkspaceId($authUser);
+            if ($workspaceId === null) {
+                throw new RuntimeException('Workspace ativo nao encontrado.');
+            }
+
+            applyOverdueTaskPolicy($workspaceId);
+
+            $initialize = ((int) ($_GET['initialize'] ?? 0)) === 1;
+            $sinceHistoryId = max(0, (int) ($_GET['since_id'] ?? 0));
+            $limit = max(1, min(60, (int) ($_GET['limit'] ?? 24)));
+            $latestHistoryId = latestTaskHistoryIdForWorkspace($workspaceId);
+
+            if ($initialize) {
+                respondJson([
+                    'ok' => true,
+                    'latest_history_id' => $latestHistoryId,
+                    'notifications' => [],
+                ]);
+            }
+
+            $notifications = taskNotificationsForUser(
+                $workspaceId,
+                (int) ($authUser['id'] ?? 0),
+                $sinceHistoryId,
+                $limit
+            );
+
+            respondJson([
+                'ok' => true,
+                'latest_history_id' => $latestHistoryId,
+                'notifications' => $notifications,
+            ]);
+        } catch (Throwable $e) {
+            respondJson([
+                'ok' => false,
+                'error' => $e->getMessage(),
+            ], 422);
+        }
+    }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -2302,6 +2360,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $currentUser = currentUser();
 $currentWorkspaceId = $currentUser ? activeWorkspaceId($currentUser) : null;
 $currentWorkspace = ($currentUser && $currentWorkspaceId !== null) ? activeWorkspace($currentUser) : null;
+if ($currentUser && $currentWorkspaceId !== null) {
+    applyOverdueTaskPolicy($currentWorkspaceId);
+}
 $userWorkspaces = $currentUser ? workspacesForUser((int) $currentUser['id']) : [];
 $flashes = getFlashes();
 $statusOptions = taskStatuses();
@@ -2476,13 +2537,14 @@ $defaultTaskGroupName = $taskGroups[0] ?? 'Geral';
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/styles.css?v=76">
-    <script src="assets/app.js?v=50" defer></script>
+    <link rel="stylesheet" href="assets/styles.css?v=77">
+    <script src="assets/app.js?v=51" defer></script>
 </head>
 <body
     class="<?= $currentUser ? 'is-dashboard' : 'is-auth' ?>"
     data-default-group-name="<?= e((string) $defaultTaskGroupName) ?>"
     data-workspace-id="<?= e((string) ($currentWorkspaceId ?? '')) ?>"
+    data-user-id="<?= e((string) ($currentUser['id'] ?? '')) ?>"
 >
     <div class="bg-layer bg-layer-one" aria-hidden="true"></div>
     <div class="bg-layer bg-layer-two" aria-hidden="true"></div>

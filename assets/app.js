@@ -1850,6 +1850,40 @@ window.addEventListener("DOMContentLoaded", () => {
     return badge;
   };
 
+  const createTaskRevisionBadge = () => {
+    const badge = document.createElement("span");
+    badge.className = "task-revision-badge";
+    badge.dataset.taskRevisionBadge = "";
+    badge.textContent = "Revisao";
+    badge.title = "Solicitacao de revisao pendente";
+    return badge;
+  };
+
+  const syncTaskRevisionBadge = (form) => {
+    if (!(form instanceof HTMLFormElement)) return;
+    const dueTagField = form.querySelector(".due-tag-field");
+    const historyField = form.querySelector("[data-task-history-json]");
+    const descriptionField = form.querySelector('textarea[name="description"]');
+    if (!(dueTagField instanceof HTMLElement)) {
+      return;
+    }
+
+    const hasRevision = hasActiveTaskRevisionRequest({
+      description: descriptionField instanceof HTMLTextAreaElement ? descriptionField.value || "" : "",
+      history: readTaskHistoryField(historyField),
+    });
+    const currentBadge = dueTagField.querySelector("[data-task-revision-badge]");
+
+    if (hasRevision && !(currentBadge instanceof HTMLElement)) {
+      dueTagField.prepend(createTaskRevisionBadge());
+      return;
+    }
+
+    if (!hasRevision && currentBadge instanceof HTMLElement) {
+      currentBadge.remove();
+    }
+  };
+
   const syncTaskOverdueBadge = (form) => {
     if (!(form instanceof HTMLFormElement)) return;
     const flagField = form.querySelector("[data-task-overdue-flag]");
@@ -2288,6 +2322,193 @@ window.addEventListener("DOMContentLoaded", () => {
     return data;
   };
 
+  const notificationWorkspaceId = Number.parseInt(
+    String(document.body?.dataset?.workspaceId || "").trim() || "0",
+    10
+  );
+  const notificationUserId = Number.parseInt(
+    String(document.body?.dataset?.userId || "").trim() || "0",
+    10
+  );
+
+  const taskNotificationState = {
+    isPolling: false,
+    intervalId: null,
+    lastHistoryId: 0,
+  };
+
+  const taskNotificationStorageKey = () =>
+    `wf_task_notification_last_history:${notificationUserId}:${notificationWorkspaceId}`;
+
+  const readStoredTaskNotificationHistoryId = () => {
+    if (!window.localStorage) return 0;
+    try {
+      const raw = String(window.localStorage.getItem(taskNotificationStorageKey()) || "").trim();
+      const parsed = Number.parseInt(raw || "0", 10);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    } catch (error) {
+      return 0;
+    }
+  };
+
+  const storeTaskNotificationHistoryId = (historyId) => {
+    if (!window.localStorage) return;
+    const nextValue = Number.parseInt(String(historyId || "0"), 10);
+    if (!Number.isFinite(nextValue) || nextValue < 0) return;
+
+    try {
+      window.localStorage.setItem(taskNotificationStorageKey(), String(nextValue));
+    } catch (error) {
+      // noop
+    }
+  };
+
+  const maybeEnableBrowserNotifications = () => {
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== "default") return;
+
+    const requestPermission = () => {
+      document.removeEventListener("click", requestPermission);
+      document.removeEventListener("keydown", requestPermission);
+      Notification.requestPermission().catch(() => {});
+    };
+
+    document.addEventListener("click", requestPermission, { once: true });
+    document.addEventListener("keydown", requestPermission, { once: true });
+  };
+
+  const fetchTaskNotificationsFeed = async ({ initialize = false, sinceHistoryId = 0 } = {}) => {
+    const params = new URLSearchParams();
+    params.set("action", "task_notifications_feed");
+    params.set("since_id", String(Math.max(0, Number.parseInt(String(sinceHistoryId || "0"), 10) || 0)));
+    params.set("limit", "24");
+    if (initialize) {
+      params.set("initialize", "1");
+    }
+
+    const url = `${window.location.pathname}?${params.toString()}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        Accept: "application/json",
+      },
+      credentials: "same-origin",
+    });
+
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (error) {
+      data = null;
+    }
+
+    if (!response.ok || !data || data.ok !== true) {
+      throw new Error(
+        (data && (data.error || data.message)) || "Nao foi possivel carregar notificacoes."
+      );
+    }
+
+    return data;
+  };
+
+  const showTaskBrowserNotification = (notification) => {
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+
+    const title = String(notification?.title || "Notificacao");
+    const body = String(notification?.message || "").trim();
+    if (!body) return;
+
+    try {
+      new Notification(title, {
+        body,
+        tag: `wf-task-${String(notification?.history_id || "")}`,
+      });
+    } catch (error) {
+      // noop
+    }
+  };
+
+  const publishTaskNotifications = (notifications = []) => {
+    if (!Array.isArray(notifications) || notifications.length === 0) {
+      return;
+    }
+
+    const shouldUseBrowserNotifications =
+      typeof document !== "undefined" &&
+      document.visibilityState !== "visible" &&
+      "Notification" in window &&
+      Notification.permission === "granted";
+
+    notifications.forEach((item) => {
+      const message = String(item?.message || "").trim();
+      if (!message) return;
+
+      if (shouldUseBrowserNotifications) {
+        showTaskBrowserNotification(item);
+      } else {
+        showClientFlash("success", message);
+      }
+    });
+  };
+
+  const pollTaskNotifications = async ({ initialize = false } = {}) => {
+    if (taskNotificationState.isPolling) return;
+
+    taskNotificationState.isPolling = true;
+    try {
+      const data = await fetchTaskNotificationsFeed({
+        initialize,
+        sinceHistoryId: taskNotificationState.lastHistoryId,
+      });
+
+      const notifications = Array.isArray(data.notifications) ? data.notifications : [];
+      const latestHistoryId = Number.parseInt(String(data.latest_history_id || "0"), 10) || 0;
+
+      let maxHistoryId = Math.max(taskNotificationState.lastHistoryId, latestHistoryId);
+      notifications.forEach((item) => {
+        const historyId = Number.parseInt(String(item?.history_id || "0"), 10) || 0;
+        if (historyId > maxHistoryId) {
+          maxHistoryId = historyId;
+        }
+      });
+
+      taskNotificationState.lastHistoryId = Math.max(0, maxHistoryId);
+      storeTaskNotificationHistoryId(taskNotificationState.lastHistoryId);
+
+      if (!initialize) {
+        publishTaskNotifications(notifications);
+      }
+    } catch (error) {
+      // Keep silent to avoid noisy flashes in background polling.
+    } finally {
+      taskNotificationState.isPolling = false;
+    }
+  };
+
+  const startTaskNotificationsPolling = () => {
+    if (!(notificationWorkspaceId > 0) || !(notificationUserId > 0)) {
+      return;
+    }
+
+    maybeEnableBrowserNotifications();
+    taskNotificationState.lastHistoryId = readStoredTaskNotificationHistoryId();
+    if (taskNotificationState.lastHistoryId <= 0) {
+      void pollTaskNotifications({ initialize: true });
+    } else {
+      void pollTaskNotifications();
+    }
+
+    if (taskNotificationState.intervalId !== null) {
+      window.clearInterval(taskNotificationState.intervalId);
+    }
+
+    taskNotificationState.intervalId = window.setInterval(() => {
+      void pollTaskNotifications();
+    }, 20000);
+  };
+
   const syncSelectOptionsFromSource = (targetSelect, sourceSelect) => {
     if (!(targetSelect instanceof HTMLSelectElement)) return;
     if (!(sourceSelect instanceof HTMLSelectElement)) return;
@@ -2488,6 +2709,7 @@ window.addEventListener("DOMContentLoaded", () => {
           writeTaskHistoryField(historyField, task.history);
         }
       }
+      syncTaskRevisionBadge(form);
 
       if (taskItem instanceof HTMLElement && typeof task.group_name === "string") {
         moveTaskItemToGroupDom(taskItem, task.group_name);
@@ -2611,6 +2833,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   document.querySelectorAll("[data-task-autosave-form]").forEach((form) => {
     syncTaskOverdueBadge(form);
+    syncTaskRevisionBadge(form);
     syncTaskRowSubtasksFromField(form);
     form.addEventListener("submit", (event) => {
       event.preventDefault();
@@ -4982,6 +5205,7 @@ window.addEventListener("DOMContentLoaded", () => {
         taskDetailContext.statusSelect.value = task.status;
         syncSelectColor(taskDetailContext.statusSelect);
       }
+      syncTaskRevisionBadge(taskDetailContext.form);
 
       renderDashboardSummary(data.dashboard);
       populateTaskDetailModalFromRow(taskDetailContext);
@@ -5054,6 +5278,7 @@ window.addEventListener("DOMContentLoaded", () => {
         taskDetailContext.statusSelect.value = task.status;
         syncSelectColor(taskDetailContext.statusSelect);
       }
+      syncTaskRevisionBadge(taskDetailContext.form);
 
       renderDashboardSummary(data.dashboard);
       populateTaskDetailModalFromRow(taskDetailContext);
@@ -7180,4 +7405,6 @@ window.addEventListener("DOMContentLoaded", () => {
       void submitVaultEntryNameForm(form);
     });
   });
+
+  startTaskNotificationsPolling();
 });
