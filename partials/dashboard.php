@@ -472,6 +472,15 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                 </div>
                                 <div class="task-group-head-actions">
                                     <span class="task-group-collapse" data-group-toggle-indicator aria-hidden="true"><span>&#9662;</span></span>
+                                    <button
+                                        type="button"
+                                        class="group-done-toggle-button"
+                                        data-toggle-group-done
+                                        data-label-hide="Ocultar concluidas"
+                                        data-label-show="Exibir concluidas"
+                                        aria-pressed="false"
+                                        aria-label="Ocultar concluidas do grupo <?= e((string) $groupName) ?>"
+                                    >Ocultar concluidas</button>
                                     <?php if (!empty($canManageWorkspace)): ?>
                                         <button
                                             type="button"

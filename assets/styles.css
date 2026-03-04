@@ -3320,7 +3320,8 @@ textarea:focus {
     background: rgba(44, 199, 255, 0.07);
 }
 
-.group-permissions-button {
+.group-permissions-button,
+.group-done-toggle-button {
     min-height: 26px;
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -3336,11 +3337,19 @@ textarea:focus {
 }
 
 .group-permissions-button:hover,
-.group-permissions-button:focus-visible {
+.group-permissions-button:focus-visible,
+.group-done-toggle-button:hover,
+.group-done-toggle-button:focus-visible {
     color: var(--text);
     border-color: rgba(44, 199, 255, 0.24);
     background: rgba(44, 199, 255, 0.07);
     outline: none;
+}
+
+.group-done-toggle-button.is-active {
+    border-color: rgba(103, 163, 233, 0.72);
+    background: rgba(103, 163, 233, 0.14);
+    color: var(--text);
 }
 
 .task-group-readonly-tag {
@@ -4430,6 +4439,20 @@ textarea:focus {
     align-items: center;
     justify-content: center;
     padding: 6px 12px;
+}
+
+.task-group-hidden-done-row {
+    min-height: 44px;
+    border-radius: 10px;
+    border: 1px dashed rgba(134, 173, 209, 0.52);
+    background: rgba(236, 245, 255, 0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 12px;
+    color: #58779a;
+    font-size: 0.76rem;
+    text-align: center;
 }
 
 .task-list-rows.is-drop-target {
@@ -6895,6 +6918,7 @@ textarea:focus,
 .vault-icon-button,
 .group-add-button,
 .group-permissions-button,
+.group-done-toggle-button,
 .task-fab-action,
 .task-fab-main,
 .create-task-title-tag-trigger,
@@ -6917,6 +6941,8 @@ textarea:focus,
 .group-add-button:focus-visible,
 .group-permissions-button:hover,
 .group-permissions-button:focus-visible,
+.group-done-toggle-button:hover,
+.group-done-toggle-button:focus-visible,
 .task-fab-action:hover,
 .task-fab-action:focus-visible,
 .task-fab-main:hover,
@@ -7154,6 +7180,7 @@ textarea:focus,
 }
 
 .group-permissions-button,
+.group-done-toggle-button,
 .group-add-button,
 .icon-gear-button,
 .header-notification-button,
@@ -7174,6 +7201,8 @@ textarea:focus,
 
 .group-permissions-button:hover,
 .group-permissions-button:focus-visible,
+.group-done-toggle-button:hover,
+.group-done-toggle-button:focus-visible,
 .group-add-button:hover,
 .group-add-button:focus-visible,
 .icon-gear-button:hover,
@@ -7589,6 +7618,7 @@ textarea:focus,
 }
 
 .group-permissions-button,
+.group-done-toggle-button,
 .group-add-button,
 .icon-gear-button,
 .header-notification-button,
@@ -7601,6 +7631,8 @@ textarea:focus,
 
 .group-permissions-button:hover,
 .group-permissions-button:focus-visible,
+.group-done-toggle-button:hover,
+.group-done-toggle-button:focus-visible,
 .group-add-button:hover,
 .group-add-button:focus-visible,
 .icon-gear-button:hover,

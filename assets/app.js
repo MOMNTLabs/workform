@@ -246,7 +246,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if (!(dropzone instanceof HTMLElement)) return;
 
     const taskItems = Array.from(dropzone.children).filter(
-      (child) => child instanceof HTMLElement && child.matches("[data-task-item]")
+      (child) => child instanceof HTMLElement && child.matches("[data-task-item]") && !child.hidden
     );
 
     if (taskItems.length < 2) return;
@@ -2095,26 +2095,107 @@ window.addEventListener("DOMContentLoaded", () => {
     return row;
   };
 
+  const createTaskGroupDoneHiddenRow = () => {
+    const row = document.createElement("div");
+    row.className = "task-group-hidden-done-row";
+    row.dataset.taskGroupHiddenDoneRow = "";
+    row.textContent = "Tarefas concluidas ocultas.";
+    return row;
+  };
+
+  const syncTaskGroupDoneToggleButton = (groupSection) => {
+    if (!(groupSection instanceof HTMLElement)) return;
+    const toggleButton = groupSection.querySelector("[data-toggle-group-done]");
+    if (!(toggleButton instanceof HTMLButtonElement)) return;
+
+    const hideLabel = (toggleButton.dataset.labelHide || "").trim() || "Ocultar concluidas";
+    const showLabel = (toggleButton.dataset.labelShow || "").trim() || "Exibir concluidas";
+    const isDoneHidden = groupSection.classList.contains("is-done-hidden");
+    const nextLabel = isDoneHidden ? showLabel : hideLabel;
+    const groupName = (groupSection.dataset.groupName || "Geral").trim() || "Geral";
+
+    toggleButton.textContent = nextLabel;
+    toggleButton.classList.toggle("is-active", isDoneHidden);
+    toggleButton.setAttribute("aria-pressed", isDoneHidden ? "true" : "false");
+    toggleButton.setAttribute("aria-label", `${nextLabel} do grupo ${groupName}`);
+  };
+
+  const syncTaskGroupDoneVisibility = (groupSection) => {
+    if (!(groupSection instanceof HTMLElement)) {
+      return { totalTaskCount: 0, visibleTaskCount: 0, hiddenDoneCount: 0 };
+    }
+
+    const dropzone = groupSection.querySelector("[data-task-dropzone]");
+    if (!(dropzone instanceof HTMLElement)) {
+      return { totalTaskCount: 0, visibleTaskCount: 0, hiddenDoneCount: 0 };
+    }
+
+    const hideDone = groupSection.classList.contains("is-done-hidden");
+    let totalTaskCount = 0;
+    let visibleTaskCount = 0;
+    let hiddenDoneCount = 0;
+
+    dropzone.querySelectorAll("[data-task-item]").forEach((taskItem) => {
+      if (!(taskItem instanceof HTMLElement)) return;
+      totalTaskCount += 1;
+
+      const statusValue = getTaskItemStatusValue(taskItem);
+      const isDoneTask =
+        statusValue === "done" || taskItem.classList.contains("task-status-done");
+      const shouldHide = hideDone && isDoneTask;
+
+      taskItem.hidden = shouldHide;
+      if (shouldHide) {
+        hiddenDoneCount += 1;
+      } else {
+        visibleTaskCount += 1;
+      }
+    });
+
+    return { totalTaskCount, visibleTaskCount, hiddenDoneCount };
+  };
+
   const refreshTaskGroupSection = (groupSection) => {
     if (!(groupSection instanceof HTMLElement)) return;
     const dropzone = groupSection.querySelector("[data-task-dropzone]");
     if (!(dropzone instanceof HTMLElement)) return;
 
-    const taskCount = dropzone.querySelectorAll("[data-task-item]").length;
+    sortGroupTaskItemsByStatus(dropzone);
+
+    const { totalTaskCount, visibleTaskCount, hiddenDoneCount } =
+      syncTaskGroupDoneVisibility(groupSection);
+
     const countEl = groupSection.querySelector(".task-group-count");
-    if (countEl) countEl.textContent = String(taskCount);
+    if (countEl) countEl.textContent = String(totalTaskCount);
 
     const emptyRow = dropzone.querySelector(".task-group-empty-row");
+    const doneHiddenRow = dropzone.querySelector("[data-task-group-hidden-done-row]");
     const groupName = (groupSection.dataset.groupName || "Geral").trim() || "Geral";
 
-    if (taskCount === 0) {
+    if (totalTaskCount === 0) {
       if (!emptyRow) dropzone.append(createEmptyGroupRow(groupName));
     } else if (emptyRow) {
       emptyRow.remove();
     }
 
-    sortGroupTaskItemsByStatus(dropzone);
+    if (hiddenDoneCount > 0 && visibleTaskCount === 0 && totalTaskCount > 0) {
+      const hiddenLabel =
+        hiddenDoneCount === 1
+          ? "1 tarefa concluida oculta."
+          : `${hiddenDoneCount} tarefas concluidas ocultas.`;
+      if (doneHiddenRow instanceof HTMLElement) {
+        doneHiddenRow.textContent = hiddenLabel;
+      } else {
+        const row = createTaskGroupDoneHiddenRow();
+        row.textContent = hiddenLabel;
+        dropzone.append(row);
+      }
+    } else if (doneHiddenRow instanceof HTMLElement) {
+      doneHiddenRow.remove();
+    }
+
     syncGroupStatusDividers(dropzone);
+    syncTaskGroupDoneToggleButton(groupSection);
   };
 
   const collapseStorageWorkspaceId = (() => {
@@ -2184,6 +2265,89 @@ window.addEventListener("DOMContentLoaded", () => {
     writeStoredGroupCollapsedMap(scope, map);
   };
 
+  const getTaskGroupDoneHiddenStorageKey = () =>
+    `wf_group_done_hidden:${collapseStorageWorkspaceId}:tasks`;
+
+  const readStoredTaskGroupDoneHiddenMap = () => {
+    if (!window.localStorage) return {};
+
+    try {
+      const raw = window.localStorage.getItem(getTaskGroupDoneHiddenStorageKey());
+      const decoded = raw ? JSON.parse(raw) : {};
+      if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) {
+        return {};
+      }
+
+      const map = {};
+      Object.entries(decoded).forEach(([key, value]) => {
+        const normalizedKey = normalizeGroupCollapseStorageName(key);
+        if (!normalizedKey) return;
+        map[normalizedKey] = Boolean(value);
+      });
+      return map;
+    } catch (error) {
+      return {};
+    }
+  };
+
+  const writeStoredTaskGroupDoneHiddenMap = (map) => {
+    if (!window.localStorage) return;
+
+    try {
+      window.localStorage.setItem(getTaskGroupDoneHiddenStorageKey(), JSON.stringify(map));
+    } catch (error) {
+      // noop
+    }
+  };
+
+  const getStoredTaskGroupDoneHiddenState = (groupName) => {
+    const normalizedGroupName = normalizeGroupCollapseStorageName(groupName);
+    if (!normalizedGroupName) return null;
+    const map = readStoredTaskGroupDoneHiddenMap();
+    if (!Object.prototype.hasOwnProperty.call(map, normalizedGroupName)) {
+      return null;
+    }
+    return Boolean(map[normalizedGroupName]);
+  };
+
+  const setStoredTaskGroupDoneHiddenState = (groupName, hidden) => {
+    const normalizedGroupName = normalizeGroupCollapseStorageName(groupName);
+    if (!normalizedGroupName) return;
+
+    const map = readStoredTaskGroupDoneHiddenMap();
+    if (hidden) {
+      map[normalizedGroupName] = true;
+    } else {
+      delete map[normalizedGroupName];
+    }
+    writeStoredTaskGroupDoneHiddenMap(map);
+  };
+
+  const replaceStoredTaskGroupDoneHiddenStateName = (oldName, nextName) => {
+    const previous = normalizeGroupCollapseStorageName(oldName);
+    const current = normalizeGroupCollapseStorageName(nextName);
+    if (!previous || !current || previous === current) return;
+
+    const map = readStoredTaskGroupDoneHiddenMap();
+    if (!Object.prototype.hasOwnProperty.call(map, previous)) return;
+
+    const shouldHide = Boolean(map[previous]);
+    delete map[previous];
+    if (shouldHide) {
+      map[current] = true;
+    }
+    writeStoredTaskGroupDoneHiddenMap(map);
+  };
+
+  const clearStoredTaskGroupDoneHiddenState = (groupName) => {
+    const normalizedGroupName = normalizeGroupCollapseStorageName(groupName);
+    if (!normalizedGroupName) return;
+    const map = readStoredTaskGroupDoneHiddenMap();
+    if (!Object.prototype.hasOwnProperty.call(map, normalizedGroupName)) return;
+    delete map[normalizedGroupName];
+    writeStoredTaskGroupDoneHiddenMap(map);
+  };
+
   const resolveInitialGroupCollapsedState = (scope, groupSection) => {
     if (!(groupSection instanceof HTMLElement)) return false;
     const storedState = getStoredGroupCollapsedState(scope, groupSection.dataset.groupName || "");
@@ -2191,6 +2355,15 @@ window.addEventListener("DOMContentLoaded", () => {
       return storedState;
     }
     return groupSection.classList.contains("is-collapsed");
+  };
+
+  const resolveInitialTaskGroupDoneHiddenState = (groupSection) => {
+    if (!(groupSection instanceof HTMLElement)) return false;
+    const storedState = getStoredTaskGroupDoneHiddenState(groupSection.dataset.groupName || "");
+    if (storedState !== null) {
+      return storedState;
+    }
+    return groupSection.classList.contains("is-done-hidden");
   };
 
   const setTaskGroupCollapsed = (groupSection, collapsed, options = {}) => {
@@ -2205,6 +2378,24 @@ window.addEventListener("DOMContentLoaded", () => {
     }
     if (shouldPersist) {
       setStoredGroupCollapsedState("tasks", groupSection.dataset.groupName || "", shouldCollapse);
+    }
+  };
+
+  const setTaskGroupDoneHidden = (groupSection, hideDone, options = {}) => {
+    if (!(groupSection instanceof HTMLElement)) return;
+    const shouldHideDone = Boolean(hideDone);
+    const shouldPersist = options.persist !== false;
+    const shouldRefresh = options.refresh !== false;
+
+    groupSection.classList.toggle("is-done-hidden", shouldHideDone);
+    if (shouldPersist) {
+      setStoredTaskGroupDoneHiddenState(groupSection.dataset.groupName || "", shouldHideDone);
+    }
+
+    if (shouldRefresh) {
+      refreshTaskGroupSection(groupSection);
+    } else {
+      syncTaskGroupDoneToggleButton(groupSection);
     }
   };
 
@@ -3046,6 +3237,10 @@ window.addEventListener("DOMContentLoaded", () => {
         setTaskGroupCollapsed(section, resolveInitialGroupCollapsedState("tasks", section), {
           persist: false,
         });
+        setTaskGroupDoneHidden(section, resolveInitialTaskGroupDoneHiddenState(section), {
+          persist: false,
+          refresh: false,
+        });
         refreshTaskGroupSection(section);
       });
 
@@ -3350,6 +3545,13 @@ window.addEventListener("DOMContentLoaded", () => {
 
     if (target instanceof HTMLInputElement && target.matches(uppercaseRequiredInputSelector)) {
       applyFirstLetterUppercaseToInput(target);
+    }
+
+    if (target instanceof HTMLSelectElement && target.matches(".status-select")) {
+      const groupSection = target.closest("[data-task-group]");
+      if (groupSection instanceof HTMLElement) {
+        refreshTaskGroupSection(groupSection);
+      }
     }
 
     if (target.matches("[data-permission-all-checkbox]")) {
@@ -3853,6 +4055,23 @@ window.addEventListener("DOMContentLoaded", () => {
             await submitDeleteGroup(deleteForm);
           },
         });
+      }
+      return;
+    }
+
+    const groupDoneToggleButton = target.closest("[data-toggle-group-done]");
+    if (groupDoneToggleButton instanceof HTMLButtonElement) {
+      if (
+        taskGroupsListElement instanceof HTMLElement &&
+        taskGroupsListElement.classList.contains("is-reorder-mode")
+      ) {
+        return;
+      }
+
+      const groupSection = groupDoneToggleButton.closest("[data-task-group]");
+      if (groupSection instanceof HTMLElement) {
+        const shouldHideDone = !groupSection.classList.contains("is-done-hidden");
+        setTaskGroupDoneHidden(groupSection, shouldHideDone);
       }
       return;
     }
@@ -7111,6 +7330,7 @@ window.addEventListener("DOMContentLoaded", () => {
         }
         groupSection.remove();
       }
+      clearStoredTaskGroupDoneHiddenState(groupName);
 
       if (deletedTaskCount > 0) {
         adjustBoardSummaryCounts({
@@ -7173,6 +7393,7 @@ window.addEventListener("DOMContentLoaded", () => {
         document.body.dataset.defaultGroupName = nextGroupName;
       }
       replaceStoredTaskGroupName(oldGroupName, nextGroupName);
+      replaceStoredTaskGroupDoneHiddenStateName(oldGroupName, nextGroupName);
 
       const groupSection = renameForm.closest("[data-task-group]");
       const dropzone = groupSection?.querySelector("[data-task-dropzone]");
@@ -7236,6 +7457,10 @@ window.addEventListener("DOMContentLoaded", () => {
 
       if (taskDetailContext?.taskItem instanceof HTMLElement && groupSection?.contains(taskDetailContext.taskItem)) {
         populateTaskDetailModalFromRow(taskDetailContext);
+      }
+
+      if (groupSection instanceof HTMLElement) {
+        refreshTaskGroupSection(groupSection);
       }
 
       if (typeof syncTaskGroupInputs === "function") {
@@ -7346,6 +7571,11 @@ window.addEventListener("DOMContentLoaded", () => {
     setTaskGroupCollapsed(section, resolveInitialGroupCollapsedState("tasks", section), {
       persist: false,
     });
+    setTaskGroupDoneHidden(section, resolveInitialTaskGroupDoneHiddenState(section), {
+      persist: false,
+      refresh: false,
+    });
+    refreshTaskGroupSection(section);
   });
   document.querySelectorAll("[data-vault-group]").forEach((section) => {
     setVaultGroupCollapsed(section, resolveInitialGroupCollapsedState("vault", section), {
