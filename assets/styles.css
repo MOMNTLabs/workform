@@ -8357,8 +8357,151 @@ select option:checked,
     box-shadow: 0 0 0 2px rgba(237, 232, 255, 0.4);
 }
 
+.create-task-title-tag-color.is-open {
+    box-shadow: 0 0 0 2px rgba(210, 201, 255, 0.74);
+}
+
+.create-task-title-tag-color-palette {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 6px;
+    margin-top: 2px;
+    padding: 7px;
+    border-radius: 10px;
+    border: 1px solid rgba(223, 215, 255, 0.42);
+    background: rgba(36, 30, 79, 0.44);
+}
+
+.create-task-title-tag-color-option {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    border: 1px solid rgba(238, 235, 255, 0.74);
+    background: var(--wf-tag-color);
+    cursor: pointer;
+    padding: 0;
+    justify-self: center;
+    box-shadow: 0 0 0 1px rgba(17, 14, 47, 0.28);
+    transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+.create-task-title-tag-color-option:hover,
+.create-task-title-tag-color-option:focus-visible {
+    outline: none;
+    transform: scale(1.08);
+    box-shadow: 0 0 0 2px rgba(241, 236, 255, 0.58);
+}
+
+.create-task-title-tag-color-option.is-active {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.88), 0 0 0 4px rgba(173, 162, 241, 0.72);
+}
+
 .create-task-title-tag-option {
     min-width: 0;
+}
+
+/* Group permissions modal readability */
+.group-permissions-modal-card {
+    border: 1px solid rgba(140, 177, 214, 0.56);
+    background: #f7fbff;
+}
+
+.group-permissions-modal-card .modal-head h2 {
+    color: #2f3a49;
+}
+
+.group-permissions-modal-card .modal-close-button {
+    border-color: rgba(120, 160, 201, 0.56);
+    background: #eef6ff;
+    color: #4d6f95;
+}
+
+.group-permissions-modal-card .modal-close-button:hover,
+.group-permissions-modal-card .modal-close-button:focus-visible {
+    border-color: rgba(68, 131, 194, 0.72);
+    background: #e1efff;
+    color: #2f5f92;
+}
+
+.group-permissions-modal-card .group-permissions-counter {
+    border-color: rgba(120, 160, 201, 0.58);
+    background: #e9f3ff;
+    color: #2f5e8f;
+}
+
+.group-permissions-modal-card .group-permissions-members > summary {
+    border-color: rgba(120, 160, 201, 0.58);
+    background: #edf5ff;
+    color: #3b5c83;
+}
+
+.group-permissions-modal-card .group-permissions-members > summary::before {
+    color: #7292b8;
+}
+
+.group-permissions-modal-card .group-permissions-summary-count {
+    border-color: rgba(120, 160, 201, 0.5);
+    background: #e4f0ff;
+    color: #2f5e8f;
+}
+
+.group-permissions-modal-card .group-permissions-members > summary:hover,
+.group-permissions-modal-card .group-permissions-members > summary:focus-visible {
+    border-color: rgba(68, 131, 194, 0.72);
+    background: #e1efff;
+}
+
+.group-permissions-modal-card .group-permissions-empty {
+    border-color: rgba(146, 179, 211, 0.58);
+    background: #f0f7ff;
+    color: #5f7f9f;
+}
+
+.group-permissions-modal-card .group-permissions-row {
+    border-color: rgba(146, 179, 211, 0.52);
+    background: #f8fbff;
+}
+
+.group-permissions-modal-card .group-permissions-user strong {
+    color: #23486f;
+}
+
+.group-permissions-modal-card .group-permissions-user span {
+    color: #5a7c9f;
+}
+
+.group-permissions-modal-card .group-permissions-toggle {
+    border-color: rgba(133, 171, 209, 0.62);
+    background: #edf5ff;
+    color: #2f5f91;
+}
+
+.group-permissions-modal-card .group-permissions-toggle:hover,
+.group-permissions-modal-card .group-permissions-toggle:focus-within {
+    border-color: rgba(68, 131, 194, 0.72);
+    background: #e2efff;
+}
+
+.group-permissions-modal-card .group-permissions-toggle:has(input:checked) {
+    border-color: rgba(68, 131, 194, 0.78);
+    background: #dcebff;
+}
+
+.group-permissions-modal-card .form-stack label.group-permissions-toggle > span,
+.group-permissions-modal-card .group-permissions-toggle span {
+    color: #2f5f91;
+}
+
+.group-permissions-modal-card .group-permissions-toggle input {
+    accent-color: #2f74bf;
+}
+
+.group-permissions-modal-card .group-permissions-toggle input:disabled + span {
+    opacity: 1;
+    color: #7f9ab6;
 }
 
 @media (max-width: 1180px) {
