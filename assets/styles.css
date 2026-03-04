@@ -5081,7 +5081,7 @@ textarea:focus {
 
 .task-detail-subtask-row.is-done .task-detail-subtask-text {
     text-decoration: line-through;
-    color: rgba(188, 255, 227, 0.92);
+    color: #2f745f;
 }
 
 .task-detail-ref-section {
@@ -6972,23 +6972,42 @@ textarea:focus,
 }
 
 .task-list-item {
-    border-color: rgba(130, 164, 200, 0.5);
-    background: linear-gradient(98deg, #edf4fd 0%, #e3edf9 100%);
+    border: 1px solid transparent;
+    background:
+        linear-gradient(#f8fbff, #f8fbff) padding-box,
+        linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.9) 0%,
+            rgba(255, 255, 255, 0.72) 58%,
+            rgba(207, 227, 245, 0.78) 100%
+        ) border-box;
 }
 
 .task-list-item::before {
     background:
         linear-gradient(
             90deg,
-            rgba(var(--task-status-rgb), 0.3) 0%,
-            rgba(var(--task-status-rgb), 0.17) 34%,
-            rgba(var(--task-status-rgb), 0.08) 56%,
-            rgba(var(--task-status-rgb), 0) 74%
+            rgba(var(--task-status-rgb), 0.4) 0%,
+            rgba(var(--task-status-rgb), 0.26) 32%,
+            rgba(var(--task-status-rgb), 0.13) 56%,
+            rgba(var(--task-status-rgb), 0) 80%
         );
 }
 
+.task-list-item::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 0;
+    background: none;
+}
+
 .task-list-item.has-overdue-flag {
-    border-color: rgba(212, 121, 121, 0.42);
+    background:
+        linear-gradient(#f8fbff, #f8fbff) padding-box,
+        linear-gradient(90deg, rgba(212, 121, 121, 0.72), rgba(230, 162, 162, 0.62)) border-box;
 }
 
 input,
@@ -7131,7 +7150,7 @@ textarea:focus,
 .btn,
 .btn-mini {
     border-color: rgba(76, 135, 195, 0.54);
-    background: linear-gradient(180deg, #f4f9ff 0%, #e6f1ff 100%);
+    background: #edf6ff;
     color: #1d538a;
 }
 
@@ -7140,7 +7159,7 @@ textarea:focus,
 .btn-mini:hover,
 .btn-mini:focus-visible {
     border-color: rgba(40, 126, 206, 0.74);
-    background: linear-gradient(180deg, #e9f4ff 0%, #dcebff 100%);
+    background: #ddecff;
     color: #0f5ba7;
 }
 
@@ -7388,8 +7407,27 @@ textarea:focus,
     width: 100%;
     min-height: 86px;
     padding: 10px 14px 12px;
-    border-bottom: 1px solid rgba(141, 188, 233, 0.62);
+    position: relative;
+    border-bottom: 0;
     margin-bottom: 12px;
+}
+
+.sidebar-brand::after {
+    content: "";
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 0;
+    height: 1px;
+    border-radius: 999px;
+    background:
+        linear-gradient(
+            90deg,
+            rgba(var(--wf-divider-rgb), 0) 0%,
+            rgba(var(--wf-divider-rgb), 0.62) 18%,
+            rgba(var(--wf-divider-rgb), 0.62) 82%,
+            rgba(var(--wf-divider-rgb), 0) 100%
+        );
 }
 
 .sidebar-brand-lockup {
@@ -7397,6 +7435,734 @@ textarea:focus,
     height: auto;
     display: block;
     margin: 0 auto;
+}
+
+/* Brand refinement: purple accents + graphite headings */
+:root {
+    --wf-accent-purple: #6967ae;
+    --wf-accent-purple-rgb: 105, 103, 174;
+    --wf-title-graphite: #2f3440;
+    --wf-divider-rgb: 141, 188, 233;
+}
+
+.panel-heading h3,
+.panel-header h2,
+.modal-head h2 {
+    color: var(--wf-title-graphite);
+}
+
+.task-group-head h3,
+.task-group-readonly .task-group-name-input {
+    color: var(--wf-accent-purple);
+}
+
+.workspace-sidebar-picker-title {
+    background: linear-gradient(120deg, #5b59a3 0%, #6967ae 52%, #8a89c6 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 10px rgba(var(--wf-accent-purple-rgb), 0.24);
+}
+
+.sidebar-view-toggle.is-active {
+    border-color: rgba(var(--wf-accent-purple-rgb), 0.58);
+    background: #ecebfd;
+    color: #454386;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.78);
+}
+
+.group-permissions-button,
+.group-add-button,
+.icon-gear-button,
+.header-notification-button,
+.create-task-title-tag-trigger,
+.status-stepper-btn,
+.task-expand-toggle {
+    border-color: rgba(var(--wf-accent-purple-rgb), 0.48);
+    color: #4f4d90;
+}
+
+.group-permissions-button:hover,
+.group-permissions-button:focus-visible,
+.group-add-button:hover,
+.group-add-button:focus-visible,
+.icon-gear-button:hover,
+.icon-gear-button:focus-visible,
+.header-notification-button:hover,
+.header-notification-button:focus-visible,
+.create-task-title-tag-trigger:hover,
+.create-task-title-tag-trigger:focus-visible,
+.status-stepper-btn:hover,
+.status-stepper-btn:focus-visible,
+.task-expand-toggle:hover,
+.task-expand-toggle:focus-visible {
+    border-color: rgba(var(--wf-accent-purple-rgb), 0.72);
+    background: #ecebfd;
+    color: #3f3d78;
+}
+
+.btn-accent {
+    background: #6967ae;
+    background-image: none;
+    border-color: rgba(var(--wf-accent-purple-rgb), 0.62);
+    color: #f7f7ff;
+}
+
+.btn-accent:hover,
+.btn-accent:focus-visible {
+    background: #5f5ca3;
+    background-image: none;
+    border-color: rgba(var(--wf-accent-purple-rgb), 0.76);
+    color: #ffffff;
+}
+
+.btn-logout {
+    background:
+        linear-gradient(135deg, #8077c8 0%, #6967ae 52%, #5a5799 100%);
+    border-color: rgba(var(--wf-accent-purple-rgb), 0.7);
+    color: #f9f9ff;
+}
+
+.btn-logout:hover,
+.btn-logout:focus-visible {
+    background:
+        linear-gradient(135deg, #756dbc 0%, #615ea6 52%, #514e92 100%);
+    border-color: rgba(var(--wf-accent-purple-rgb), 0.82);
+    color: #ffffff;
+}
+
+.btn-logout::after {
+    display: block;
+    background:
+        linear-gradient(115deg, transparent 0%, rgba(255, 255, 255, 0.24) 40%, transparent 72%);
+}
+
+.btn-logout::before {
+    background: linear-gradient(135deg, #f4dcff, #c6dcff);
+}
+
+.top-nav.dashboard-nav .btn-logout::before {
+    box-shadow: 0 0 8px rgba(183, 178, 238, 0.65);
+}
+
+.tag-select,
+.due-date-input,
+.due-date-display,
+.group-tag-select,
+.row-inline-picker > summary,
+.assignee-picker > summary,
+.task-detail-inline-assignee-picker > summary {
+    border-color: rgba(var(--wf-accent-purple-rgb), 0.42);
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+.task-title-input:focus,
+.row-inline-picker[open] > summary,
+.assignee-picker[open] > summary,
+.task-detail-inline-assignee-picker[open] > summary {
+    border-color: rgba(var(--wf-accent-purple-rgb), 0.7);
+}
+
+.create-task-modal .task-subtasks-edit-row,
+.task-detail-modal .task-subtasks-edit-row {
+    border-color: rgba(var(--wf-accent-purple-rgb), 0.32);
+    background: #e9eef6;
+}
+
+.create-task-modal .task-subtasks-edit-title,
+.task-detail-modal .task-subtasks-edit-title {
+    border: 1px solid rgba(var(--wf-accent-purple-rgb), 0.28);
+    background: #f4f7fc;
+    color: #2f425f;
+}
+
+.create-task-modal .task-subtasks-edit-check,
+.task-detail-modal .task-subtasks-edit-check {
+    accent-color: #6967ae;
+}
+
+.status-select.status-todo,
+.status-inline-picker.status-todo > summary {
+    color: #355d87;
+    border-color: rgba(76, 132, 190, 0.48);
+    background: rgba(223, 237, 252, 0.96);
+}
+
+.status-inline-picker .row-inline-picker-option.status-todo {
+    color: #355d87;
+}
+
+.task-list-item.task-status-todo {
+    --task-status-rgb: 74, 126, 187;
+    background:
+        linear-gradient(#f8fbff, #f8fbff) padding-box,
+        linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.92) 0%,
+            rgba(232, 240, 250, 0.92) 56%,
+            rgba(195, 213, 234, 0.9) 100%
+        ) border-box;
+}
+
+.task-list-item.task-status-todo::before {
+    background:
+        linear-gradient(
+            90deg,
+            rgba(var(--task-status-rgb), 0.44) 0%,
+            rgba(var(--task-status-rgb), 0.29) 34%,
+            rgba(var(--task-status-rgb), 0.14) 58%,
+            rgba(var(--task-status-rgb), 0) 80%
+        );
+}
+
+.task-filters-reorder-groups.is-active {
+    background: #ecebfd;
+}
+
+.task-detail-subtask-row.is-done {
+    border-color: rgba(77, 177, 137, 0.48);
+    background: rgba(206, 238, 223, 0.92);
+}
+
+.task-status-subgroup-divider {
+    background:
+        linear-gradient(
+            90deg,
+            rgba(var(--wf-divider-rgb), 0) 0%,
+            rgba(var(--wf-divider-rgb), 0.62) 18%,
+            rgba(var(--wf-divider-rgb), 0.62) 82%,
+            rgba(var(--wf-divider-rgb), 0) 100%
+        );
+    opacity: 1;
+}
+
+/* Vault login/password fields (Gerenciador de acessos): purple fill */
+.vault-entry-value {
+    border-color: rgba(105, 103, 174, 0.76);
+    background: #716eb9;
+}
+
+.vault-entry-value-text {
+    color: #f4f3ff;
+}
+
+.vault-entry-value .vault-icon-button {
+    border-color: rgba(227, 230, 255, 0.92);
+    background: #f2f5ff;
+    color: #5a58a2;
+}
+
+.vault-entry-value .vault-icon-button:hover,
+.vault-entry-value .vault-icon-button:focus-visible {
+    border-color: rgba(255, 255, 255, 0.98);
+    background: #ffffff;
+    color: #4f4d92;
+}
+
+/* Nova tarefa: title field aligned with access-field purple */
+.create-task-modal [data-create-task-title-composer] {
+    border-color: rgba(105, 103, 174, 0.76);
+    background: #716eb9;
+}
+
+.create-task-modal [data-create-task-title-composer]:focus-within {
+    border-color: rgba(105, 103, 174, 0.92);
+    background: #6967ae;
+    box-shadow: 0 0 0 2px rgba(170, 168, 231, 0.26);
+}
+
+.create-task-modal [data-create-task-title-composer] > [data-create-task-title-input] {
+    color: #f4f3ff;
+    caret-color: #f4f3ff;
+}
+
+.create-task-modal [data-create-task-title-composer] > [data-create-task-title-input]::placeholder {
+    color: rgba(230, 227, 255, 0.84);
+}
+
+.create-task-modal [data-create-task-title-composer] .create-task-title-tag-trigger,
+.create-task-modal [data-create-task-title-composer] [data-create-task-title-tag-custom] {
+    border-color: rgba(222, 226, 255, 0.86);
+    background: #d6dcff;
+    color: #4e4d8d;
+}
+
+.create-task-modal [data-create-task-title-composer] .create-task-title-tag-trigger.is-empty {
+    background: #d6dcff;
+    color: #7b7eb5;
+}
+
+.create-task-modal [data-create-task-title-composer] [data-create-task-title-tag-custom]::placeholder {
+    color: rgba(96, 99, 153, 0.78);
+}
+
+/* Fix contrast in group-create and task-edit modals */
+.create-group-modal .form-stack label > span,
+.create-group-modal .inline-form label > span {
+    color: #4d6a90;
+}
+
+.create-group-modal input::placeholder,
+.create-group-modal textarea::placeholder {
+    color: rgba(77, 106, 144, 0.72);
+}
+
+.task-detail-modal .form-stack label > span,
+.task-detail-modal .inline-form label > span,
+.task-detail-modal .assignee-picker-label,
+.task-detail-modal .task-subtasks-editor > span,
+.task-detail-modal .task-detail-inline-field > span,
+.task-detail-modal .task-detail-edit-images-field > span {
+    color: #4d6a90;
+}
+
+.task-detail-modal input::placeholder,
+.task-detail-modal textarea::placeholder,
+.task-detail-modal [data-task-detail-edit-subtask-input]::placeholder,
+.task-detail-modal [data-task-detail-edit-title-tag-custom]::placeholder {
+    color: rgba(77, 106, 144, 0.72);
+}
+
+/* Dropdown standardization: purple surfaces with high contrast */
+:root {
+    --wf-dropdown-control-bg: #f1eeff;
+    --wf-dropdown-control-border: rgba(105, 103, 174, 0.48);
+    --wf-dropdown-control-text: #332f57;
+    --wf-dropdown-control-focus-bg: #eae5ff;
+    --wf-dropdown-control-focus-border: rgba(105, 103, 174, 0.74);
+    --wf-dropdown-menu-bg: #5e58ab;
+    --wf-dropdown-menu-bg-2: #4f4895;
+    --wf-dropdown-menu-border: rgba(223, 218, 255, 0.58);
+    --wf-dropdown-item-bg: rgba(255, 255, 255, 0.08);
+    --wf-dropdown-item-text: #f8f6ff;
+    --wf-dropdown-item-hover-bg: rgba(232, 224, 255, 0.26);
+    --wf-dropdown-item-active-bg: rgba(185, 171, 255, 0.5);
+    --wf-dropdown-item-active-border: rgba(245, 240, 255, 0.78);
+}
+
+.task-filters select,
+.tag-select,
+.group-tag-select,
+.status-select,
+.priority-select,
+.row-inline-picker > summary,
+.assignee-picker > summary,
+.task-detail-inline-assignee-picker > summary {
+    background: var(--wf-dropdown-control-bg);
+    border-color: var(--wf-dropdown-control-border);
+    color: var(--wf-dropdown-control-text);
+}
+
+.task-filters select:focus,
+.tag-select:focus,
+.group-tag-select:focus,
+.status-select:focus,
+.priority-select:focus,
+.row-inline-picker[open] > summary,
+.assignee-picker[open] > summary,
+.task-detail-inline-assignee-picker[open] > summary {
+    background: var(--wf-dropdown-control-focus-bg);
+    border-color: var(--wf-dropdown-control-focus-border);
+}
+
+.row-inline-picker > summary::after,
+.assignee-picker > summary::after,
+.task-detail-inline-assignee-picker > summary::after {
+    color: rgba(63, 57, 111, 0.78);
+}
+
+.row-inline-picker > .row-inline-picker-menu,
+.assignee-picker-menu,
+.workspace-sidebar-picker-menu,
+.create-task-title-tag-menu {
+    border: 1px solid var(--wf-dropdown-menu-border);
+    background: linear-gradient(165deg, var(--wf-dropdown-menu-bg) 0%, var(--wf-dropdown-menu-bg-2) 100%);
+    box-shadow: 0 16px 28px rgba(33, 27, 71, 0.34);
+}
+
+.row-inline-picker-option,
+.assignee-option,
+.workspace-sidebar-picker-option,
+.create-task-title-tag-menu-item {
+    border: 1px solid transparent;
+    background: var(--wf-dropdown-item-bg);
+    color: var(--wf-dropdown-item-text);
+}
+
+.row-inline-picker-option,
+.create-task-title-tag-option,
+.create-task-title-tag-create,
+.workspace-sidebar-picker-option,
+.workspace-sidebar-picker-current,
+.assignee-option span {
+    color: var(--wf-dropdown-item-text);
+}
+
+.row-inline-picker-option:hover,
+.row-inline-picker-option:focus-visible,
+.assignee-option:hover,
+.workspace-sidebar-picker-option:hover,
+.workspace-sidebar-picker-option:focus-visible,
+.create-task-title-tag-menu-item:hover,
+.create-task-title-tag-menu-item:focus-within {
+    background: var(--wf-dropdown-item-hover-bg);
+    border-color: rgba(235, 230, 255, 0.54);
+}
+
+.row-inline-picker-option.is-active,
+.workspace-sidebar-picker-current,
+.assignee-option:has(input:checked),
+.create-task-title-tag-option.is-selected {
+    background: var(--wf-dropdown-item-active-bg);
+    border-color: var(--wf-dropdown-item-active-border);
+    color: #ffffff;
+}
+
+.status-inline-picker .row-inline-picker-option.status-todo,
+.status-inline-picker .row-inline-picker-option.status-in_progress,
+.status-inline-picker .row-inline-picker-option.status-review,
+.status-inline-picker .row-inline-picker-option.status-done,
+.row-inline-picker-option.priority-low,
+.row-inline-picker-option.priority-medium,
+.row-inline-picker-option.priority-high,
+.row-inline-picker-option.priority-urgent {
+    color: var(--wf-dropdown-item-text);
+}
+
+select option,
+select optgroup,
+.priority-select option,
+.status-select option,
+.task-title-tag-editor > select option {
+    background: #5a54a3;
+    color: #f8f6ff;
+}
+
+select option:checked,
+.priority-select option:checked,
+.status-select option:checked,
+.task-title-tag-editor > select option:checked {
+    background: #3f3882;
+    color: #ffffff;
+}
+
+/* Restore "Sair" button light style */
+.btn-logout {
+    background: #edf6ff;
+    border-color: rgba(84, 142, 201, 0.58);
+    color: #1f4f85;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.92),
+        0 6px 14px rgba(31, 79, 133, 0.16);
+}
+
+.btn-logout:hover,
+.btn-logout:focus-visible {
+    background: #e3f0ff;
+    border-color: rgba(62, 127, 193, 0.7);
+    color: #174677;
+}
+
+.btn-logout::before {
+    background: #b6acef;
+    box-shadow: 0 0 0 2px rgba(182, 172, 239, 0.26);
+}
+
+.btn-logout::after {
+    content: none;
+}
+
+.top-nav.dashboard-nav .btn-logout::before {
+    box-shadow: 0 0 0 2px rgba(182, 172, 239, 0.26);
+}
+
+/* Task modals: enforce high-contrast dropdowns */
+.create-task-modal .assignee-picker-menu,
+.task-detail-modal .assignee-picker-menu,
+.create-task-modal .row-inline-picker > .row-inline-picker-menu,
+.task-detail-modal .row-inline-picker > .row-inline-picker-menu {
+    border-color: rgba(232, 226, 255, 0.72);
+    background: linear-gradient(165deg, #5d58ab 0%, #4d4793 100%);
+    box-shadow: 0 16px 28px rgba(33, 27, 71, 0.4);
+}
+
+.create-task-modal .assignee-option,
+.task-detail-modal .assignee-option,
+.create-task-modal .row-inline-picker-option,
+.task-detail-modal .row-inline-picker-option {
+    border: 1px solid transparent;
+    background: rgba(255, 255, 255, 0.1);
+    color: #f9f7ff;
+}
+
+.create-task-modal .assignee-option span,
+.task-detail-modal .assignee-option span,
+.create-task-modal .row-inline-picker-option .row-inline-picker-summary-text,
+.task-detail-modal .row-inline-picker-option .row-inline-picker-summary-text,
+.create-task-modal .row-inline-picker-option,
+.task-detail-modal .row-inline-picker-option {
+    color: #f9f7ff;
+}
+
+.create-task-modal .assignee-option:hover,
+.task-detail-modal .assignee-option:hover,
+.create-task-modal .row-inline-picker-option:hover,
+.task-detail-modal .row-inline-picker-option:hover,
+.create-task-modal .row-inline-picker-option:focus-visible,
+.task-detail-modal .row-inline-picker-option:focus-visible {
+    border-color: rgba(238, 233, 255, 0.6);
+    background: rgba(224, 214, 255, 0.26);
+}
+
+.create-task-modal .assignee-option:has(input:checked),
+.task-detail-modal .assignee-option:has(input:checked),
+.create-task-modal .row-inline-picker-option.is-active,
+.task-detail-modal .row-inline-picker-option.is-active {
+    border-color: rgba(246, 242, 255, 0.84);
+    background: rgba(184, 168, 255, 0.52);
+    color: #ffffff;
+}
+
+.create-task-modal .assignee-option:has(input:checked) span,
+.task-detail-modal .assignee-option:has(input:checked) span {
+    color: #ffffff;
+}
+
+.create-task-modal .row-inline-picker-option.priority-low,
+.create-task-modal .row-inline-picker-option.priority-medium,
+.create-task-modal .row-inline-picker-option.priority-high,
+.create-task-modal .row-inline-picker-option.priority-urgent,
+.task-detail-modal .row-inline-picker-option.priority-low,
+.task-detail-modal .row-inline-picker-option.priority-medium,
+.task-detail-modal .row-inline-picker-option.priority-high,
+.task-detail-modal .row-inline-picker-option.priority-urgent,
+.create-task-modal .status-inline-picker .row-inline-picker-option.status-todo,
+.create-task-modal .status-inline-picker .row-inline-picker-option.status-in_progress,
+.create-task-modal .status-inline-picker .row-inline-picker-option.status-review,
+.create-task-modal .status-inline-picker .row-inline-picker-option.status-done,
+.task-detail-modal .status-inline-picker .row-inline-picker-option.status-todo,
+.task-detail-modal .status-inline-picker .row-inline-picker-option.status-in_progress,
+.task-detail-modal .status-inline-picker .row-inline-picker-option.status-review,
+.task-detail-modal .status-inline-picker .row-inline-picker-option.status-done {
+    color: #f9f7ff;
+    background: rgba(255, 255, 255, 0.12);
+    border-color: transparent;
+}
+
+.create-task-modal .row-inline-picker-option-flag,
+.task-detail-modal .row-inline-picker-option-flag {
+    color: #f2eeff;
+}
+
+/* Prevent task-row dropdown menus from being clipped by sibling rows */
+.task-list-rows,
+.task-list-item {
+    overflow: visible;
+}
+
+.task-list-item.has-open-overlay,
+.task-list-item:has(.row-inline-picker[open]),
+.task-list-item:has(.assignee-picker[open]) {
+    z-index: 45;
+}
+
+.row-inline-picker[open],
+.assignee-picker[open] {
+    z-index: 60;
+}
+
+.row-inline-picker > .row-inline-picker-menu,
+.assignee-picker-menu {
+    z-index: 70;
+}
+
+/* Allow dropdowns to escape group card only while open */
+.task-group.has-open-overlay,
+.task-group:has(.task-list-item.has-open-overlay),
+.task-group:has(.row-inline-picker[open]),
+.task-group:has(.assignee-picker[open]) {
+    position: relative;
+    z-index: 35;
+    overflow: visible;
+}
+
+/* Match task filters to the +Grupo button visual language */
+.task-filters .row-inline-picker > summary,
+.task-filters select {
+    min-height: 34px;
+    border-radius: 999px;
+    border: 1px solid rgba(80, 138, 196, 0.54);
+    background: #edf6ff;
+    color: #1d538a;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.task-filters .row-inline-picker > summary::after {
+    color: #3f6f9f;
+}
+
+.task-filters .row-inline-picker > summary:hover,
+.task-filters .row-inline-picker > summary:focus-visible,
+.task-filters .row-inline-picker[open] > summary,
+.task-filters select:focus {
+    border-color: rgba(41, 125, 204, 0.72);
+    background: #dfedff;
+    color: #0f5ba7;
+}
+
+/* Status dropdown options: color each item by status */
+.status-inline-picker .row-inline-picker-option.status-todo,
+.create-task-modal .status-inline-picker .row-inline-picker-option.status-todo,
+.task-detail-modal .status-inline-picker .row-inline-picker-option.status-todo {
+    color: #1f5f9a;
+    border-color: rgba(68, 136, 196, 0.4);
+    background: rgba(220, 238, 255, 0.96);
+}
+
+.status-inline-picker .row-inline-picker-option.status-in_progress,
+.create-task-modal .status-inline-picker .row-inline-picker-option.status-in_progress,
+.task-detail-modal .status-inline-picker .row-inline-picker-option.status-in_progress {
+    color: #9b5a23;
+    border-color: rgba(213, 144, 85, 0.44);
+    background: rgba(255, 232, 209, 0.96);
+}
+
+.status-inline-picker .row-inline-picker-option.status-review,
+.create-task-modal .status-inline-picker .row-inline-picker-option.status-review,
+.task-detail-modal .status-inline-picker .row-inline-picker-option.status-review {
+    color: #664a9c;
+    border-color: rgba(135, 106, 198, 0.42);
+    background: rgba(236, 227, 255, 0.96);
+}
+
+.status-inline-picker .row-inline-picker-option.status-done,
+.create-task-modal .status-inline-picker .row-inline-picker-option.status-done,
+.task-detail-modal .status-inline-picker .row-inline-picker-option.status-done {
+    color: #1f7a59;
+    border-color: rgba(63, 173, 130, 0.42);
+    background: rgba(220, 247, 235, 0.96);
+}
+
+.status-inline-picker .row-inline-picker-option.status-todo.is-active,
+.create-task-modal .status-inline-picker .row-inline-picker-option.status-todo.is-active,
+.task-detail-modal .status-inline-picker .row-inline-picker-option.status-todo.is-active {
+    background: #cfe5ff;
+    border-color: rgba(48, 116, 184, 0.62);
+}
+
+.status-inline-picker .row-inline-picker-option.status-in_progress.is-active,
+.create-task-modal .status-inline-picker .row-inline-picker-option.status-in_progress.is-active,
+.task-detail-modal .status-inline-picker .row-inline-picker-option.status-in_progress.is-active {
+    background: #ffdcbf;
+    border-color: rgba(188, 119, 62, 0.62);
+}
+
+.status-inline-picker .row-inline-picker-option.status-review.is-active,
+.create-task-modal .status-inline-picker .row-inline-picker-option.status-review.is-active,
+.task-detail-modal .status-inline-picker .row-inline-picker-option.status-review.is-active {
+    background: #dfd0ff;
+    border-color: rgba(112, 86, 170, 0.62);
+}
+
+.status-inline-picker .row-inline-picker-option.status-done.is-active,
+.create-task-modal .status-inline-picker .row-inline-picker-option.status-done.is-active,
+.task-detail-modal .status-inline-picker .row-inline-picker-option.status-done.is-active {
+    background: #c9f1df;
+    border-color: rgba(49, 146, 108, 0.62);
+}
+
+/* Priority dropdown options: stronger contrast in all contexts */
+.priority-inline-picker .row-inline-picker-option.priority-low,
+.create-task-modal .priority-inline-picker .row-inline-picker-option.priority-low,
+.task-detail-modal .priority-inline-picker .row-inline-picker-option.priority-low {
+    color: #1a568f;
+    border-color: rgba(56, 134, 204, 0.46);
+    background: #d8ebff;
+}
+
+.priority-inline-picker .row-inline-picker-option.priority-medium,
+.create-task-modal .priority-inline-picker .row-inline-picker-option.priority-medium,
+.task-detail-modal .priority-inline-picker .row-inline-picker-option.priority-medium {
+    color: #7f5518;
+    border-color: rgba(199, 155, 82, 0.5);
+    background: #ffe5c4;
+}
+
+.priority-inline-picker .row-inline-picker-option.priority-high,
+.create-task-modal .priority-inline-picker .row-inline-picker-option.priority-high,
+.task-detail-modal .priority-inline-picker .row-inline-picker-option.priority-high {
+    color: #96491c;
+    border-color: rgba(216, 125, 73, 0.52);
+    background: #ffd2bc;
+}
+
+.priority-inline-picker .row-inline-picker-option.priority-urgent,
+.create-task-modal .priority-inline-picker .row-inline-picker-option.priority-urgent,
+.task-detail-modal .priority-inline-picker .row-inline-picker-option.priority-urgent {
+    color: #8f3048;
+    border-color: rgba(212, 95, 112, 0.54);
+    background: #ffcfdc;
+}
+
+.priority-inline-picker .row-inline-picker-option.priority-low.is-active,
+.create-task-modal .priority-inline-picker .row-inline-picker-option.priority-low.is-active,
+.task-detail-modal .priority-inline-picker .row-inline-picker-option.priority-low.is-active {
+    color: #13497d;
+    border-color: rgba(44, 111, 176, 0.68);
+    background: #c6e1ff;
+}
+
+.priority-inline-picker .row-inline-picker-option.priority-medium.is-active,
+.create-task-modal .priority-inline-picker .row-inline-picker-option.priority-medium.is-active,
+.task-detail-modal .priority-inline-picker .row-inline-picker-option.priority-medium.is-active {
+    color: #70480f;
+    border-color: rgba(176, 128, 47, 0.68);
+    background: #ffd8aa;
+}
+
+.priority-inline-picker .row-inline-picker-option.priority-high.is-active,
+.create-task-modal .priority-inline-picker .row-inline-picker-option.priority-high.is-active,
+.task-detail-modal .priority-inline-picker .row-inline-picker-option.priority-high.is-active {
+    color: #873e13;
+    border-color: rgba(188, 97, 47, 0.7);
+    background: #ffc3a3;
+}
+
+.priority-inline-picker .row-inline-picker-option.priority-urgent.is-active,
+.create-task-modal .priority-inline-picker .row-inline-picker-option.priority-urgent.is-active,
+.task-detail-modal .priority-inline-picker .row-inline-picker-option.priority-urgent.is-active {
+    color: #7c253d;
+    border-color: rgba(183, 63, 92, 0.72);
+    background: #ffb7ca;
+}
+
+.priority-inline-picker .row-inline-picker-option.priority-low .row-inline-picker-option-flag,
+.priority-inline-picker .row-inline-picker-option.priority-medium .row-inline-picker-option-flag,
+.priority-inline-picker .row-inline-picker-option.priority-high .row-inline-picker-option-flag,
+.priority-inline-picker .row-inline-picker-option.priority-urgent .row-inline-picker-option-flag {
+    color: currentColor;
+}
+
+.priority-select option[value="low"] {
+    background: #d8ebff;
+    color: #1a568f;
+}
+
+.priority-select option[value="medium"] {
+    background: #ffe5c4;
+    color: #7f5518;
+}
+
+.priority-select option[value="high"] {
+    background: #ffd2bc;
+    color: #96491c;
+}
+
+.priority-select option[value="urgent"] {
+    background: #ffcfdc;
+    color: #8f3048;
 }
 
 @media (max-width: 1180px) {

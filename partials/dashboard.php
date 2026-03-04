@@ -600,7 +600,7 @@ $taskTitleTagOptions = array_values($taskTitleTagOptions);
                                                     <div class="tag-field tag-field-status row-inline-picker-wrap" data-inline-select-wrap>
                                                         <details class="row-inline-picker status-inline-picker status-<?= e($statusKey) ?>" data-inline-select-picker>
                                                             <summary aria-label="Status da tarefa">
-                                                                <span class="row-inline-picker-summary-text" data-inline-select-text><?= e((string) ($statusOptions[$statusKey] ?? 'Backlog')) ?></span>
+                                                                <span class="row-inline-picker-summary-text" data-inline-select-text><?= e((string) ($statusOptions[$statusKey] ?? 'A fazer')) ?></span>
                                                             </summary>
                                                             <div class="assignee-picker-menu row-inline-picker-menu" role="listbox" aria-label="Selecionar status">
                                                                 <?php foreach ($statusOptions as $optionKey => $optionLabel): ?>
@@ -1720,14 +1720,41 @@ $taskTitleTagOptions = array_values($taskTitleTagOptions);
                             <span aria-hidden="true">&#8249;</span>
                         </button>
 
-                        <label class="tag-field tag-field-status">
-                            <span class="sr-only">Status</span>
-                            <select name="status" class="tag-select status-select">
+                        <div class="tag-field tag-field-status row-inline-picker-wrap" data-inline-select-wrap>
+                            <details class="row-inline-picker status-inline-picker status-todo" data-inline-select-picker>
+                                <summary aria-label="Status da tarefa">
+                                    <span class="row-inline-picker-summary-text" data-inline-select-text>A fazer</span>
+                                </summary>
+                                <div
+                                    class="assignee-picker-menu row-inline-picker-menu"
+                                    role="listbox"
+                                    aria-label="Selecionar status"
+                                >
+                                    <?php foreach ($statusOptions as $key => $label): ?>
+                                        <button
+                                            type="button"
+                                            class="row-inline-picker-option status-<?= e($key) ?><?= $key === 'todo' ? ' is-active' : '' ?>"
+                                            data-inline-select-option
+                                            data-value="<?= e($key) ?>"
+                                            data-label="<?= e($label) ?>"
+                                            role="option"
+                                            aria-selected="<?= $key === 'todo' ? 'true' : 'false' ?>"
+                                        ><?= e($label) ?></button>
+                                    <?php endforeach; ?>
+                                </div>
+                            </details>
+                            <select
+                                name="status"
+                                class="tag-select status-select status-todo row-inline-picker-native"
+                                data-inline-select-source
+                                aria-label="Status"
+                                hidden
+                            >
                                 <?php foreach ($statusOptions as $key => $label): ?>
-                                    <option value="<?= e($key) ?>"><?= e($label) ?></option>
+                                    <option value="<?= e($key) ?>"<?= $key === 'todo' ? ' selected' : '' ?>><?= e($label) ?></option>
                                 <?php endforeach; ?>
                             </select>
-                        </label>
+                        </div>
 
                         <button
                             type="button"
@@ -2803,14 +2830,41 @@ $taskTitleTagOptions = array_values($taskTitleTagOptions);
                                     <span aria-hidden="true">&#8249;</span>
                                 </button>
 
-                                <label class="tag-field tag-field-status">
-                                    <span class="sr-only">Status</span>
-                                    <select class="tag-select status-select" data-task-detail-edit-status>
+                                <div class="tag-field tag-field-status row-inline-picker-wrap" data-inline-select-wrap>
+                                    <details class="row-inline-picker status-inline-picker status-todo" data-inline-select-picker>
+                                        <summary aria-label="Status da tarefa">
+                                            <span class="row-inline-picker-summary-text" data-inline-select-text>A fazer</span>
+                                        </summary>
+                                        <div
+                                            class="assignee-picker-menu row-inline-picker-menu"
+                                            role="listbox"
+                                            aria-label="Selecionar status"
+                                        >
+                                            <?php foreach ($statusOptions as $key => $label): ?>
+                                                <button
+                                                    type="button"
+                                                    class="row-inline-picker-option status-<?= e($key) ?><?= $key === 'todo' ? ' is-active' : '' ?>"
+                                                    data-inline-select-option
+                                                    data-value="<?= e($key) ?>"
+                                                    data-label="<?= e($label) ?>"
+                                                    role="option"
+                                                    aria-selected="<?= $key === 'todo' ? 'true' : 'false' ?>"
+                                                ><?= e($label) ?></button>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </details>
+                                    <select
+                                        class="tag-select status-select status-todo row-inline-picker-native"
+                                        data-inline-select-source
+                                        data-task-detail-edit-status
+                                        aria-label="Status"
+                                        hidden
+                                    >
                                         <?php foreach ($statusOptions as $key => $label): ?>
-                                            <option value="<?= e($key) ?>"><?= e($label) ?></option>
+                                            <option value="<?= e($key) ?>"<?= $key === 'todo' ? ' selected' : '' ?>><?= e($label) ?></option>
                                         <?php endforeach; ?>
                                     </select>
-                                </label>
+                                </div>
 
                                 <button
                                     type="button"
@@ -2825,14 +2879,52 @@ $taskTitleTagOptions = array_values($taskTitleTagOptions);
 
                         <div class="task-detail-inline-field task-detail-inline-priority">
                             <span>Prioridade</span>
-                            <label class="tag-field">
-                                <span class="sr-only">Prioridade</span>
-                                <select class="tag-select priority-select" data-task-detail-edit-priority>
+                            <div
+                                class="tag-field tag-field-priority row-inline-picker-wrap"
+                                data-inline-select-wrap
+                                data-inline-picker-kind="priority"
+                            >
+                                <details
+                                    class="row-inline-picker priority-inline-picker priority-medium"
+                                    data-inline-select-picker
+                                >
+                                    <summary aria-label="Prioridade da tarefa">
+                                        <span class="row-inline-picker-summary-icon" aria-hidden="true">&#9873;</span>
+                                        <span class="row-inline-picker-summary-text sr-only" data-inline-select-text>Media</span>
+                                    </summary>
+                                    <div
+                                        class="assignee-picker-menu row-inline-picker-menu"
+                                        role="listbox"
+                                        aria-label="Selecionar prioridade"
+                                    >
+                                        <?php foreach ($priorityOptions as $key => $label): ?>
+                                            <button
+                                                type="button"
+                                                class="row-inline-picker-option priority-<?= e($key) ?><?= $key === 'medium' ? ' is-active' : '' ?>"
+                                                data-inline-select-option
+                                                data-value="<?= e($key) ?>"
+                                                data-label="<?= e($label) ?>"
+                                                role="option"
+                                                aria-selected="<?= $key === 'medium' ? 'true' : 'false' ?>"
+                                            >
+                                                <span class="row-inline-picker-option-flag" aria-hidden="true">&#9873;</span>
+                                                <span><?= e($label) ?></span>
+                                            </button>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </details>
+                                <select
+                                    class="tag-select priority-select priority-medium row-inline-picker-native"
+                                    data-inline-select-source
+                                    data-task-detail-edit-priority
+                                    aria-label="Prioridade"
+                                    hidden
+                                >
                                     <?php foreach ($priorityOptions as $key => $label): ?>
-                                        <option value="<?= e($key) ?>">&#9873;</option>
+                                        <option value="<?= e($key) ?>"<?= $key === 'medium' ? ' selected' : '' ?>>&#9873;</option>
                                     <?php endforeach; ?>
                                 </select>
-                            </label>
+                            </div>
                         </div>
                     </div>
 

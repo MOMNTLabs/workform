@@ -345,6 +345,14 @@ window.addEventListener("DOMContentLoaded", () => {
       taskItem.querySelector('details[open].assignee-picker, details[open][data-inline-select-picker]')
     );
     taskItem.classList.toggle("has-open-overlay", hasOpenOverlay);
+
+    const groupSection = taskItem.closest("[data-task-group]");
+    if (groupSection instanceof HTMLElement) {
+      const groupHasOpenOverlay = Boolean(
+        groupSection.querySelector('details[open].assignee-picker, details[open][data-inline-select-picker]')
+      );
+      groupSection.classList.toggle("has-open-overlay", groupHasOpenOverlay);
+    }
   };
 
   const closeSiblingTaskOverlays = (detailsEl) => {

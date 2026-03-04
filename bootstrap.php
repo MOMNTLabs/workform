@@ -4664,7 +4664,7 @@ function deleteWorkspaceInventoryEntry(PDO $pdo, int $workspaceId, int $entryId)
 function taskStatuses(): array
 {
     return [
-        'todo' => 'Backlog',
+        'todo' => 'A fazer',
         'in_progress' => 'Em andamento',
         'review' => 'Revisão',
         'done' => 'Concluído',
