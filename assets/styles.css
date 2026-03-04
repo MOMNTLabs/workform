@@ -8478,16 +8478,28 @@ select option:checked,
     box-shadow: 0 0 0 2px rgba(210, 201, 255, 0.74);
 }
 
+.create-task-title-tag-menu {
+    overflow-x: hidden;
+}
+
+.create-task-title-tag-menu-item {
+    min-width: 0;
+}
+
 .create-task-title-tag-color-palette {
     grid-column: 1 / -1;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
     display: grid;
-    grid-template-columns: repeat(10, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(18px, 1fr));
     gap: 6px;
     margin-top: 2px;
     padding: 7px;
     border-radius: 10px;
     border: 1px solid rgba(223, 215, 255, 0.42);
     background: rgba(36, 30, 79, 0.44);
+    overflow: hidden;
 }
 
 .create-task-title-tag-color-option {
