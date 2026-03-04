@@ -262,7 +262,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 setActiveWorkspaceId($workspaceId);
-                flash('success', 'Workspace atualizado.');
                 redirectTo('index.php#tasks');
 
             case 'create_workspace':
