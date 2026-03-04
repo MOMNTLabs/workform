@@ -1696,6 +1696,8 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
         <form method="post" class="form-stack modal-form" data-create-task-form>
             <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
             <input type="hidden" name="action" value="create_task">
+            <input type="hidden" name="redirect_group" value="<?= e((string) ($groupFilter ?? '')) ?>">
+            <input type="hidden" name="redirect_created_by" value="<?= e((string) ($creatorFilterId ?? '')) ?>">
 
             <label>
                 <span>Titulo</span>

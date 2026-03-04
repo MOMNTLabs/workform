@@ -66,6 +66,37 @@ function dashboardSummaryPayloadForUser(int $userId, ?int $workspaceId = null): 
     ];
 }
 
+function tasksRedirectPathFromRequest(?array $get = null, ?array $post = null): string
+{
+    $get ??= $_GET;
+    $post ??= $_POST;
+
+    $groupRaw = null;
+    if (isset($get['group']) && trim((string) $get['group']) !== '') {
+        $groupRaw = (string) $get['group'];
+    } elseif (isset($post['redirect_group']) && trim((string) $post['redirect_group']) !== '') {
+        $groupRaw = (string) $post['redirect_group'];
+    }
+
+    $creatorRaw = $get['created_by'] ?? ($get['assignee'] ?? null);
+    if (($creatorRaw === null || trim((string) $creatorRaw) === '') && isset($post['redirect_created_by'])) {
+        $creatorRaw = $post['redirect_created_by'];
+    }
+
+    $params = [];
+    if ($groupRaw !== null) {
+        $params['group'] = normalizeTaskGroupName($groupRaw);
+    }
+
+    $creatorId = isset($creatorRaw) ? (int) $creatorRaw : 0;
+    if ($creatorId > 0) {
+        $params['created_by'] = (string) $creatorId;
+    }
+
+    $query = http_build_query($params);
+    return $query !== '' ? "index.php?{$query}#tasks" : 'index.php#tasks';
+}
+
 function workspaceRolesByUserId(array $workspaceMembers): array
 {
     $rolesByUserId = [];
@@ -1731,7 +1762,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     }
                     flash('success', 'Tarefa criada.');
-                    redirectTo('index.php#tasks');
+                    redirectTo(tasksRedirectPathFromRequest());
                 }
 
                 if ($taskId <= 0) {
