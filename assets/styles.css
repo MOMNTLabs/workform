@@ -7991,25 +7991,26 @@ select option:checked,
 /* Match task filters to the +Grupo button visual language */
 .task-filters .row-inline-picker > summary,
 .task-filters select {
-    min-height: 34px;
-    border-radius: 999px;
-    border: 1px solid rgba(80, 138, 196, 0.54);
-    background: #edf6ff;
-    color: #1d538a;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    min-height: 36px;
+    border-radius: 14px;
+    border: 1px solid #a8c8ea;
+    background: #f5faff;
+    color: #34608c;
+    box-shadow: none;
+    font-weight: 500;
 }
 
 .task-filters .row-inline-picker > summary::after {
-    color: #3f6f9f;
+    color: #6f94bc;
 }
 
 .task-filters .row-inline-picker > summary:hover,
 .task-filters .row-inline-picker > summary:focus-visible,
 .task-filters .row-inline-picker[open] > summary,
 .task-filters select:focus {
-    border-color: rgba(41, 125, 204, 0.72);
-    background: #dfedff;
-    color: #0f5ba7;
+    border-color: #93bce3;
+    background: #edf6ff;
+    color: #2e5883;
 }
 
 /* Status dropdown options: color each item by status */
@@ -8163,6 +8164,139 @@ select option:checked,
 .priority-select option[value="urgent"] {
     background: #ffcfdc;
     color: #8f3048;
+}
+
+/* Row title consistency across Tasks, Accesses, Due and Inventory */
+.task-list-item .task-title-input,
+.vault-entry-row .task-title-input,
+.due-entry-title,
+.inventory-entry-title {
+    color: #1f4a74;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+/* Due/Inventory tabs: align visual language with task list cards */
+.due-entry-row,
+.inventory-entry-row {
+    border: 1px solid transparent;
+    background:
+        linear-gradient(#f8fbff, #f8fbff) padding-box,
+        linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.9) 0%,
+            rgba(255, 255, 255, 0.72) 58%,
+            rgba(207, 227, 245, 0.78) 100%
+        ) border-box;
+}
+
+.due-entry-title,
+.inventory-entry-title {
+    color: #1f4a74;
+}
+
+.due-entry-schedule,
+.due-entry-next,
+.due-entry-amount,
+.inventory-entry-qty,
+.inventory-entry-min,
+.inventory-entry-alert {
+    border-width: 1px;
+    border-style: solid;
+    box-shadow: none;
+}
+
+.due-entry-schedule {
+    border-color: rgba(86, 146, 203, 0.46);
+    background: #e9f4ff;
+    color: #2a5f92;
+}
+
+.due-entry-schedule.is-fixed {
+    border-color: rgba(116, 141, 182, 0.46);
+    background: #eef2fa;
+    color: #4a6388;
+}
+
+.due-entry-schedule.is-annual {
+    border-color: rgba(89, 168, 151, 0.46);
+    background: #e6f7f2;
+    color: #277560;
+}
+
+.due-entry-next {
+    border-color: rgba(103, 153, 204, 0.48);
+    background: #edf6ff;
+    color: #355f8d;
+}
+
+.due-entry-inline-label {
+    color: #5f7fa4;
+}
+
+.due-entry-next-date {
+    color: #2a4f78;
+}
+
+.due-entry-amount {
+    border-color: rgba(198, 151, 83, 0.5);
+    background: #fcedd8;
+    color: #865c21;
+}
+
+.due-entry-amount-number {
+    color: #7a541f;
+}
+
+.inventory-entry-qty {
+    border-color: rgba(93, 147, 200, 0.5);
+    background: #eaf5ff;
+    color: #2b5f92;
+}
+
+.inventory-entry-inline-label {
+    color: #5f7fa4;
+}
+
+.inventory-entry-qty strong,
+.inventory-entry-min strong {
+    color: #2a4f78;
+}
+
+.inventory-entry-qty-input {
+    border-color: rgba(93, 147, 200, 0.52);
+    background: #f4f9ff;
+    color: #1f4a74;
+}
+
+.inventory-entry-qty-input:focus {
+    border-color: rgba(62, 130, 197, 0.72);
+    box-shadow: 0 0 0 2px rgba(76, 147, 216, 0.22);
+}
+
+.inventory-entry-qty-step {
+    color: #3f6794;
+}
+
+.inventory-entry-qty-step:hover,
+.inventory-entry-qty-step:focus-visible {
+    color: #205a93;
+}
+
+.inventory-entry-qty-unit {
+    color: #355f8d;
+}
+
+.inventory-entry-min {
+    border-color: rgba(196, 151, 85, 0.52);
+    background: #fdf0df;
+    color: #875c20;
+}
+
+.inventory-entry-alert {
+    border-color: rgba(212, 121, 92, 0.52);
+    background: #ffe7dc;
+    color: #9a4a31;
 }
 
 @media (max-width: 1180px) {
