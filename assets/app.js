@@ -103,6 +103,40 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const normalizeTaskStatusValue = (status) => {
+    const raw = String(status || "").trim().toLowerCase();
+    if (!raw) return "";
+
+    const normalized = raw
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[\s-]+/g, "_");
+
+    switch (normalized) {
+      case "review":
+      case "revisao":
+      case "revision":
+        return "review";
+      case "in_progress":
+      case "inprogress":
+      case "em_andamento":
+      case "andamento":
+        return "in_progress";
+      case "todo":
+      case "a_fazer":
+      case "afazer":
+      case "backlog":
+        return "todo";
+      case "done":
+      case "concluido":
+      case "completed":
+      case "finalizado":
+        return "done";
+      default:
+        return normalized;
+    }
+  };
+
   const taskPrioritySortRank = (priority) => {
     switch ((priority || "").trim()) {
       case "urgent":
@@ -226,7 +260,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if (!(taskItem instanceof HTMLElement)) return "";
     const select = taskItem.querySelector("select.status-select");
     if (select instanceof HTMLSelectElement) {
-      const selectedValue = (select.value || "").trim();
+      const selectedValue = normalizeTaskStatusValue(select.value);
       if (selectedValue) {
         return selectedValue;
       }
@@ -236,7 +270,20 @@ window.addEventListener("DOMContentLoaded", () => {
       className.startsWith("task-status-")
     );
     if (!classStatus) return "";
-    return classStatus.replace("task-status-", "").trim();
+    return normalizeTaskStatusValue(classStatus.replace("task-status-", ""));
+  };
+
+  const isDoneTaskItem = (taskItem) => {
+    if (!(taskItem instanceof HTMLElement)) return false;
+
+    if (getTaskItemStatusValue(taskItem) === "done") {
+      return true;
+    }
+
+    return Array.from(taskItem.classList).some((className) => {
+      if (!className.startsWith("task-status-")) return false;
+      return normalizeTaskStatusValue(className.replace("task-status-", "")) === "done";
+    });
   };
 
   const getTaskItemPriorityValue = (taskItem) => {
@@ -2149,9 +2196,7 @@ window.addEventListener("DOMContentLoaded", () => {
       if (!(taskItem instanceof HTMLElement)) return;
       totalTaskCount += 1;
 
-      const statusValue = getTaskItemStatusValue(taskItem);
-      const isDoneTask =
-        statusValue === "done" || taskItem.classList.contains("task-status-done");
+      const isDoneTask = isDoneTaskItem(taskItem);
       const shouldHide = hideDone && isDoneTask;
 
       taskItem.hidden = shouldHide;
@@ -2177,6 +2222,26 @@ window.addEventListener("DOMContentLoaded", () => {
 
     // Re-sort after toggling hidden/visible states to keep auto ordering stable.
     sortGroupTaskItemsByStatus(dropzone);
+    const orderedTaskItems = Array.from(dropzone.children).filter(
+      (child) => child instanceof HTMLElement && child.matches("[data-task-item]")
+    );
+    if (orderedTaskItems.length > 1) {
+      const doneItems = [];
+      const nonDoneItems = [];
+      orderedTaskItems.forEach((taskItem) => {
+        const isDoneTask = isDoneTaskItem(taskItem);
+        if (isDoneTask) {
+          doneItems.push(taskItem);
+        } else {
+          nonDoneItems.push(taskItem);
+        }
+      });
+      if (doneItems.length > 0 && nonDoneItems.length > 0) {
+        [...nonDoneItems, ...doneItems].forEach((taskItem) => {
+          dropzone.append(taskItem);
+        });
+      }
+    }
 
     const countEl = groupSection.querySelector(".task-group-count");
     if (countEl) countEl.textContent = String(totalTaskCount);
