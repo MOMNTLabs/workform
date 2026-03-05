@@ -4337,6 +4337,7 @@ window.addEventListener("DOMContentLoaded", () => {
       normalized === "vault" ||
       normalized === "dues" ||
       normalized === "inventory" ||
+      normalized === "accounting" ||
       normalized === "users"
       ? normalized
       : "";

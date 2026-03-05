@@ -157,6 +157,7 @@ function migrate(PDO $pdo): void
     ensureWorkspaceVaultSchema($pdo);
     ensureWorkspaceDueSchema($pdo);
     ensureWorkspaceInventorySchema($pdo);
+    ensureWorkspaceAccountingSchema($pdo);
     ensureTaskExtendedSchema($pdo);
     ensureTaskGroupsSchema($pdo);
     ensureTaskHistorySchema($pdo);
@@ -1373,6 +1374,197 @@ function ensureWorkspaceInventorySchema(PDO $pdo): void
             isset($workspaceRow['created_by']) ? (int) $workspaceRow['created_by'] : null,
             $workspaceId
         );
+    }
+}
+
+function ensureWorkspaceAccountingSchema(PDO $pdo): void
+{
+    if (dbDriverName($pdo) === 'pgsql') {
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS workspace_accounting_entries (
+                id BIGSERIAL PRIMARY KEY,
+                workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+                period_key VARCHAR(7) NOT NULL,
+                entry_type VARCHAR(16) NOT NULL DEFAULT \'expense\',
+                label TEXT NOT NULL,
+                amount_cents BIGINT NOT NULL DEFAULT 0,
+                is_settled SMALLINT NOT NULL DEFAULT 0,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_by BIGINT DEFAULT NULL REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+                updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL
+            )'
+        );
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS workspace_accounting_periods (
+                id BIGSERIAL PRIMARY KEY,
+                workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+                period_key VARCHAR(7) NOT NULL,
+                opening_balance_cents BIGINT NOT NULL DEFAULT 0,
+                updated_by BIGINT DEFAULT NULL REFERENCES users(id) ON DELETE SET NULL,
+                updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL
+            )'
+        );
+    } else {
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS workspace_accounting_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                workspace_id INTEGER NOT NULL,
+                period_key TEXT NOT NULL,
+                entry_type TEXT NOT NULL DEFAULT \'expense\',
+                label TEXT NOT NULL,
+                amount_cents INTEGER NOT NULL DEFAULT 0,
+                is_settled INTEGER NOT NULL DEFAULT 0,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_by INTEGER DEFAULT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+                FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+            )'
+        );
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS workspace_accounting_periods (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                workspace_id INTEGER NOT NULL,
+                period_key TEXT NOT NULL,
+                opening_balance_cents INTEGER NOT NULL DEFAULT 0,
+                updated_by INTEGER DEFAULT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+                FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+            )'
+        );
+    }
+
+    if (!tableHasColumn($pdo, 'workspace_accounting_entries', 'period_key')) {
+        $pdo->exec("ALTER TABLE workspace_accounting_entries ADD COLUMN period_key TEXT NOT NULL DEFAULT '1970-01'");
+    }
+    if (!tableHasColumn($pdo, 'workspace_accounting_entries', 'entry_type')) {
+        $pdo->exec("ALTER TABLE workspace_accounting_entries ADD COLUMN entry_type TEXT NOT NULL DEFAULT 'expense'");
+    }
+    if (!tableHasColumn($pdo, 'workspace_accounting_entries', 'label')) {
+        $pdo->exec("ALTER TABLE workspace_accounting_entries ADD COLUMN label TEXT NOT NULL DEFAULT ''");
+    }
+    if (!tableHasColumn($pdo, 'workspace_accounting_entries', 'amount_cents')) {
+        if (dbDriverName($pdo) === 'pgsql') {
+            $pdo->exec("ALTER TABLE workspace_accounting_entries ADD COLUMN amount_cents BIGINT NOT NULL DEFAULT 0");
+        } else {
+            $pdo->exec("ALTER TABLE workspace_accounting_entries ADD COLUMN amount_cents INTEGER NOT NULL DEFAULT 0");
+        }
+    }
+    if (!tableHasColumn($pdo, 'workspace_accounting_entries', 'is_settled')) {
+        $pdo->exec("ALTER TABLE workspace_accounting_entries ADD COLUMN is_settled INTEGER NOT NULL DEFAULT 0");
+    }
+    if (!tableHasColumn($pdo, 'workspace_accounting_entries', 'sort_order')) {
+        $pdo->exec("ALTER TABLE workspace_accounting_entries ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0");
+    }
+    if (!tableHasColumn($pdo, 'workspace_accounting_entries', 'created_by')) {
+        $pdo->exec("ALTER TABLE workspace_accounting_entries ADD COLUMN created_by INTEGER DEFAULT NULL");
+    }
+    if (!tableHasColumn($pdo, 'workspace_accounting_entries', 'created_at')) {
+        $pdo->exec("ALTER TABLE workspace_accounting_entries ADD COLUMN created_at TEXT NOT NULL DEFAULT ''");
+    }
+    if (!tableHasColumn($pdo, 'workspace_accounting_entries', 'updated_at')) {
+        $pdo->exec("ALTER TABLE workspace_accounting_entries ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''");
+    }
+
+    if (!tableHasColumn($pdo, 'workspace_accounting_periods', 'period_key')) {
+        $pdo->exec("ALTER TABLE workspace_accounting_periods ADD COLUMN period_key TEXT NOT NULL DEFAULT '1970-01'");
+    }
+    if (!tableHasColumn($pdo, 'workspace_accounting_periods', 'opening_balance_cents')) {
+        if (dbDriverName($pdo) === 'pgsql') {
+            $pdo->exec("ALTER TABLE workspace_accounting_periods ADD COLUMN opening_balance_cents BIGINT NOT NULL DEFAULT 0");
+        } else {
+            $pdo->exec("ALTER TABLE workspace_accounting_periods ADD COLUMN opening_balance_cents INTEGER NOT NULL DEFAULT 0");
+        }
+    }
+    if (!tableHasColumn($pdo, 'workspace_accounting_periods', 'updated_by')) {
+        $pdo->exec("ALTER TABLE workspace_accounting_periods ADD COLUMN updated_by INTEGER DEFAULT NULL");
+    }
+    if (!tableHasColumn($pdo, 'workspace_accounting_periods', 'updated_at')) {
+        $pdo->exec("ALTER TABLE workspace_accounting_periods ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''");
+    }
+
+    $pdo->exec(
+        'CREATE INDEX IF NOT EXISTS idx_workspace_accounting_entries_workspace_period
+         ON workspace_accounting_entries(workspace_id, period_key)'
+    );
+    $pdo->exec(
+        'CREATE INDEX IF NOT EXISTS idx_workspace_accounting_entries_workspace_period_type
+         ON workspace_accounting_entries(workspace_id, period_key, entry_type)'
+    );
+    $pdo->exec(
+        'CREATE INDEX IF NOT EXISTS idx_workspace_accounting_entries_workspace_period_sort
+         ON workspace_accounting_entries(workspace_id, period_key, sort_order, id)'
+    );
+    $pdo->exec(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_workspace_accounting_periods_workspace_period
+         ON workspace_accounting_periods(workspace_id, period_key)'
+    );
+
+    $rows = $pdo->query(
+        'SELECT id, period_key, entry_type, label, amount_cents, is_settled, sort_order, created_at, updated_at
+         FROM workspace_accounting_entries'
+    )->fetchAll();
+    if ($rows) {
+        $normalizeStmt = $pdo->prepare(
+            'UPDATE workspace_accounting_entries
+             SET period_key = :period_key,
+                 entry_type = :entry_type,
+                 label = :label,
+                 amount_cents = :amount_cents,
+                 is_settled = :is_settled,
+                 sort_order = :sort_order,
+                 created_at = :created_at,
+                 updated_at = :updated_at
+             WHERE id = :id'
+        );
+        foreach ($rows as $row) {
+            $normalizedPeriod = normalizeAccountingPeriodKey((string) ($row['period_key'] ?? ''));
+            $normalizedType = normalizeAccountingEntryType((string) ($row['entry_type'] ?? 'expense'));
+            $normalizedLabel = normalizeAccountingEntryLabel((string) ($row['label'] ?? ''));
+            $normalizedAmount = normalizeDueAmountCents($row['amount_cents'] ?? null) ?? 0;
+            $normalizedSettled = ((int) ($row['is_settled'] ?? 0)) === 1 ? 1 : 0;
+            $normalizedSortOrder = max(0, (int) ($row['sort_order'] ?? 0));
+            $createdAt = trim((string) ($row['created_at'] ?? ''));
+            $updatedAt = trim((string) ($row['updated_at'] ?? ''));
+            $normalizeStmt->execute([
+                ':period_key' => $normalizedPeriod,
+                ':entry_type' => $normalizedType,
+                ':label' => $normalizedLabel,
+                ':amount_cents' => $normalizedAmount,
+                ':is_settled' => $normalizedSettled,
+                ':sort_order' => $normalizedSortOrder,
+                ':created_at' => $createdAt !== '' ? $createdAt : nowIso(),
+                ':updated_at' => $updatedAt !== '' ? $updatedAt : nowIso(),
+                ':id' => (int) ($row['id'] ?? 0),
+            ]);
+        }
+    }
+
+    $periodRows = $pdo->query(
+        'SELECT id, period_key, opening_balance_cents, updated_at
+         FROM workspace_accounting_periods'
+    )->fetchAll();
+    if ($periodRows) {
+        $periodNormalizeStmt = $pdo->prepare(
+            'UPDATE workspace_accounting_periods
+             SET period_key = :period_key,
+                 opening_balance_cents = :opening_balance_cents,
+                 updated_at = :updated_at
+             WHERE id = :id'
+        );
+        foreach ($periodRows as $periodRow) {
+            $periodNormalizeStmt->execute([
+                ':period_key' => normalizeAccountingPeriodKey((string) ($periodRow['period_key'] ?? '')),
+                ':opening_balance_cents' => normalizeDueAmountCents($periodRow['opening_balance_cents'] ?? null) ?? 0,
+                ':updated_at' => trim((string) ($periodRow['updated_at'] ?? '')) !== ''
+                    ? trim((string) ($periodRow['updated_at'] ?? ''))
+                    : nowIso(),
+                ':id' => (int) ($periodRow['id'] ?? 0),
+            ]);
+        }
     }
 }
 
@@ -4673,6 +4865,510 @@ function deleteWorkspaceInventoryEntry(PDO $pdo, int $workspaceId, int $entryId)
     if ($stmt->rowCount() <= 0) {
         throw new RuntimeException('Registro nao encontrado.');
     }
+}
+
+function normalizeAccountingPeriodKey(?string $value): string
+{
+    $raw = trim((string) $value);
+    if ($raw === '') {
+        return (new DateTimeImmutable('today'))->format('Y-m');
+    }
+
+    if (preg_match('/^\d{4}-\d{2}$/', $raw) === 1) {
+        $year = (int) substr($raw, 0, 4);
+        $month = (int) substr($raw, 5, 2);
+        if ($year >= 1970 && $year <= 9999 && $month >= 1 && $month <= 12) {
+            return sprintf('%04d-%02d', $year, $month);
+        }
+    }
+
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw) === 1) {
+        return substr($raw, 0, 7);
+    }
+
+    return (new DateTimeImmutable('today'))->format('Y-m');
+}
+
+function accountingMonthLabel(string $periodKey): string
+{
+    $periodKey = normalizeAccountingPeriodKey($periodKey);
+    $year = (int) substr($periodKey, 0, 4);
+    $month = (int) substr($periodKey, 5, 2);
+    $monthNames = [
+        1 => 'Janeiro',
+        2 => 'Fevereiro',
+        3 => 'Marco',
+        4 => 'Abril',
+        5 => 'Maio',
+        6 => 'Junho',
+        7 => 'Julho',
+        8 => 'Agosto',
+        9 => 'Setembro',
+        10 => 'Outubro',
+        11 => 'Novembro',
+        12 => 'Dezembro',
+    ];
+
+    $monthLabel = $monthNames[$month] ?? 'Mes';
+    return $monthLabel . ' de ' . (string) $year;
+}
+
+function normalizeAccountingEntryType(string $value): string
+{
+    $normalized = mb_strtolower(trim($value));
+    return $normalized === 'income' ? 'income' : 'expense';
+}
+
+function normalizeAccountingEntryLabel(string $value): string
+{
+    $value = trim($value);
+    if ($value === '') {
+        return '';
+    }
+
+    $value = preg_replace('/\s+/u', ' ', $value) ?? $value;
+    if (mb_strlen($value) > 120) {
+        $value = mb_substr($value, 0, 120);
+    }
+
+    return uppercaseFirstCharacter($value);
+}
+
+function accountingEntryTypeLabel(string $entryType): string
+{
+    return normalizeAccountingEntryType($entryType) === 'income'
+        ? 'Entrada'
+        : 'Conta';
+}
+
+function workspaceAccountingOpeningBalanceCents(?int $workspaceId = null, ?string $periodKey = null): int
+{
+    $workspaceId = $workspaceId && $workspaceId > 0 ? $workspaceId : activeWorkspaceId();
+    if ($workspaceId === null) {
+        return 0;
+    }
+
+    $periodKey = normalizeAccountingPeriodKey($periodKey);
+    $stmt = db()->prepare(
+        'SELECT opening_balance_cents
+         FROM workspace_accounting_periods
+         WHERE workspace_id = :workspace_id
+           AND period_key = :period_key
+         LIMIT 1'
+    );
+    $stmt->execute([
+        ':workspace_id' => $workspaceId,
+        ':period_key' => $periodKey,
+    ]);
+    $amount = $stmt->fetchColumn();
+
+    return normalizeDueAmountCents($amount) ?? 0;
+}
+
+function setWorkspaceAccountingOpeningBalance(
+    PDO $pdo,
+    int $workspaceId,
+    ?string $periodKey,
+    $amountInput,
+    ?int $updatedBy = null
+): int {
+    if ($workspaceId <= 0) {
+        throw new RuntimeException('Workspace invalido.');
+    }
+
+    $periodKey = normalizeAccountingPeriodKey($periodKey);
+    $amountCents = normalizeDueAmountCents($amountInput);
+    if ($amountCents === null) {
+        throw new RuntimeException('Informe um saldo atual valido.');
+    }
+
+    $updatedAt = nowIso();
+
+    if (dbDriverName($pdo) === 'pgsql') {
+        $stmt = $pdo->prepare(
+            'INSERT INTO workspace_accounting_periods (
+                workspace_id,
+                period_key,
+                opening_balance_cents,
+                updated_by,
+                updated_at
+            ) VALUES (
+                :workspace_id,
+                :period_key,
+                :opening_balance_cents,
+                :updated_by,
+                :updated_at
+            )
+            ON CONFLICT (workspace_id, period_key)
+            DO UPDATE SET
+                opening_balance_cents = EXCLUDED.opening_balance_cents,
+                updated_by = EXCLUDED.updated_by,
+                updated_at = EXCLUDED.updated_at'
+        );
+    } else {
+        $stmt = $pdo->prepare(
+            'INSERT INTO workspace_accounting_periods (
+                workspace_id,
+                period_key,
+                opening_balance_cents,
+                updated_by,
+                updated_at
+            ) VALUES (
+                :workspace_id,
+                :period_key,
+                :opening_balance_cents,
+                :updated_by,
+                :updated_at
+            )
+            ON CONFLICT(workspace_id, period_key)
+            DO UPDATE SET
+                opening_balance_cents = excluded.opening_balance_cents,
+                updated_by = excluded.updated_by,
+                updated_at = excluded.updated_at'
+        );
+    }
+
+    $stmt->bindValue(':workspace_id', $workspaceId, PDO::PARAM_INT);
+    $stmt->bindValue(':period_key', $periodKey, PDO::PARAM_STR);
+    $stmt->bindValue(':opening_balance_cents', $amountCents, PDO::PARAM_INT);
+    if ($updatedBy !== null && $updatedBy > 0) {
+        $stmt->bindValue(':updated_by', $updatedBy, PDO::PARAM_INT);
+    } else {
+        $stmt->bindValue(':updated_by', null, PDO::PARAM_NULL);
+    }
+    $stmt->bindValue(':updated_at', $updatedAt, PDO::PARAM_STR);
+    $stmt->execute();
+
+    return $amountCents;
+}
+
+function workspaceAccountingEntriesList(
+    ?int $workspaceId = null,
+    ?string $periodKey = null,
+    ?string $entryType = null
+): array {
+    $workspaceId = $workspaceId && $workspaceId > 0 ? $workspaceId : activeWorkspaceId();
+    if ($workspaceId === null) {
+        return [];
+    }
+
+    $periodKey = normalizeAccountingPeriodKey($periodKey);
+    $entryType = $entryType !== null ? normalizeAccountingEntryType($entryType) : null;
+
+    $sql =
+        'SELECT ae.id,
+                ae.workspace_id,
+                ae.period_key,
+                ae.entry_type,
+                ae.label,
+                ae.amount_cents,
+                ae.is_settled,
+                ae.sort_order,
+                ae.created_by,
+                ae.created_at,
+                ae.updated_at,
+                u.name AS created_by_name
+         FROM workspace_accounting_entries ae
+         LEFT JOIN users u ON u.id = ae.created_by
+         WHERE ae.workspace_id = :workspace_id
+           AND ae.period_key = :period_key';
+    if ($entryType !== null) {
+        $sql .= ' AND ae.entry_type = :entry_type';
+    }
+    $sql .= '
+         ORDER BY ae.entry_type ASC, ae.sort_order ASC, ae.id ASC';
+
+    $stmt = db()->prepare($sql);
+    $stmt->bindValue(':workspace_id', $workspaceId, PDO::PARAM_INT);
+    $stmt->bindValue(':period_key', $periodKey, PDO::PARAM_STR);
+    if ($entryType !== null) {
+        $stmt->bindValue(':entry_type', $entryType, PDO::PARAM_STR);
+    }
+    $stmt->execute();
+    $rows = $stmt->fetchAll();
+
+    foreach ($rows as &$row) {
+        $row['id'] = (int) ($row['id'] ?? 0);
+        $row['workspace_id'] = (int) ($row['workspace_id'] ?? 0);
+        $row['period_key'] = normalizeAccountingPeriodKey((string) ($row['period_key'] ?? $periodKey));
+        $row['entry_type'] = normalizeAccountingEntryType((string) ($row['entry_type'] ?? 'expense'));
+        $row['entry_type_label'] = accountingEntryTypeLabel((string) $row['entry_type']);
+        $row['label'] = normalizeAccountingEntryLabel((string) ($row['label'] ?? ''));
+        $row['amount_cents'] = normalizeDueAmountCents($row['amount_cents'] ?? null) ?? 0;
+        $row['amount_display'] = dueAmountLabelFromCents($row['amount_cents']);
+        $row['amount_input'] = number_format($row['amount_cents'] / 100, 2, ',', '.');
+        $row['is_settled'] = ((int) ($row['is_settled'] ?? 0)) === 1 ? 1 : 0;
+        $row['sort_order'] = max(0, (int) ($row['sort_order'] ?? 0));
+        $row['created_by'] = isset($row['created_by']) ? (int) $row['created_by'] : null;
+    }
+    unset($row);
+
+    return $rows;
+}
+
+function workspaceAccountingEntriesByType(array $entries): array
+{
+    $grouped = [
+        'expense' => [],
+        'income' => [],
+    ];
+
+    foreach ($entries as $entry) {
+        $entryType = normalizeAccountingEntryType((string) ($entry['entry_type'] ?? 'expense'));
+        if (!array_key_exists($entryType, $grouped)) {
+            $grouped[$entryType] = [];
+        }
+        $grouped[$entryType][] = $entry;
+    }
+
+    return $grouped;
+}
+
+function createWorkspaceAccountingEntry(
+    PDO $pdo,
+    int $workspaceId,
+    ?string $periodKey,
+    string $entryType,
+    string $label,
+    $amountInput,
+    int $isSettled = 0,
+    ?int $createdBy = null
+): int {
+    if ($workspaceId <= 0) {
+        throw new RuntimeException('Workspace invalido.');
+    }
+
+    $periodKey = normalizeAccountingPeriodKey($periodKey);
+    $entryType = normalizeAccountingEntryType($entryType);
+    $label = normalizeAccountingEntryLabel($label);
+    if ($label === '') {
+        throw new RuntimeException('Informe um nome para o registro.');
+    }
+    $amountCents = normalizeDueAmountCents($amountInput);
+    if ($amountCents === null) {
+        throw new RuntimeException('Informe um valor valido.');
+    }
+    $settledFlag = $isSettled === 1 ? 1 : 0;
+
+    $sortOrderStmt = $pdo->prepare(
+        'SELECT COALESCE(MAX(sort_order), 0)
+         FROM workspace_accounting_entries
+         WHERE workspace_id = :workspace_id
+           AND period_key = :period_key
+           AND entry_type = :entry_type'
+    );
+    $sortOrderStmt->execute([
+        ':workspace_id' => $workspaceId,
+        ':period_key' => $periodKey,
+        ':entry_type' => $entryType,
+    ]);
+    $nextSortOrder = ((int) $sortOrderStmt->fetchColumn()) + 1;
+    $createdAt = nowIso();
+
+    if (dbDriverName($pdo) === 'pgsql') {
+        $stmt = $pdo->prepare(
+            'INSERT INTO workspace_accounting_entries (
+                workspace_id,
+                period_key,
+                entry_type,
+                label,
+                amount_cents,
+                is_settled,
+                sort_order,
+                created_by,
+                created_at,
+                updated_at
+            ) VALUES (
+                :workspace_id,
+                :period_key,
+                :entry_type,
+                :label,
+                :amount_cents,
+                :is_settled,
+                :sort_order,
+                :created_by,
+                :created_at,
+                :updated_at
+            )
+            RETURNING id'
+        );
+    } else {
+        $stmt = $pdo->prepare(
+            'INSERT INTO workspace_accounting_entries (
+                workspace_id,
+                period_key,
+                entry_type,
+                label,
+                amount_cents,
+                is_settled,
+                sort_order,
+                created_by,
+                created_at,
+                updated_at
+            ) VALUES (
+                :workspace_id,
+                :period_key,
+                :entry_type,
+                :label,
+                :amount_cents,
+                :is_settled,
+                :sort_order,
+                :created_by,
+                :created_at,
+                :updated_at
+            )'
+        );
+    }
+
+    $stmt->bindValue(':workspace_id', $workspaceId, PDO::PARAM_INT);
+    $stmt->bindValue(':period_key', $periodKey, PDO::PARAM_STR);
+    $stmt->bindValue(':entry_type', $entryType, PDO::PARAM_STR);
+    $stmt->bindValue(':label', $label, PDO::PARAM_STR);
+    $stmt->bindValue(':amount_cents', $amountCents, PDO::PARAM_INT);
+    $stmt->bindValue(':is_settled', $settledFlag, PDO::PARAM_INT);
+    $stmt->bindValue(':sort_order', $nextSortOrder, PDO::PARAM_INT);
+    if ($createdBy !== null && $createdBy > 0) {
+        $stmt->bindValue(':created_by', $createdBy, PDO::PARAM_INT);
+    } else {
+        $stmt->bindValue(':created_by', null, PDO::PARAM_NULL);
+    }
+    $stmt->bindValue(':created_at', $createdAt, PDO::PARAM_STR);
+    $stmt->bindValue(':updated_at', $createdAt, PDO::PARAM_STR);
+    $stmt->execute();
+
+    if (dbDriverName($pdo) === 'pgsql') {
+        return (int) $stmt->fetchColumn();
+    }
+
+    return (int) $pdo->lastInsertId();
+}
+
+function updateWorkspaceAccountingEntry(
+    PDO $pdo,
+    int $workspaceId,
+    int $entryId,
+    string $label,
+    $amountInput,
+    int $isSettled = 0
+): void {
+    if ($workspaceId <= 0 || $entryId <= 0) {
+        throw new RuntimeException('Registro invalido.');
+    }
+
+    $label = normalizeAccountingEntryLabel($label);
+    if ($label === '') {
+        throw new RuntimeException('Informe um nome para o registro.');
+    }
+    $amountCents = normalizeDueAmountCents($amountInput);
+    if ($amountCents === null) {
+        throw new RuntimeException('Informe um valor valido.');
+    }
+    $settledFlag = $isSettled === 1 ? 1 : 0;
+
+    $stmt = $pdo->prepare(
+        'UPDATE workspace_accounting_entries
+         SET label = :label,
+             amount_cents = :amount_cents,
+             is_settled = :is_settled,
+             updated_at = :updated_at
+         WHERE id = :id
+           AND workspace_id = :workspace_id'
+    );
+    $stmt->execute([
+        ':label' => $label,
+        ':amount_cents' => $amountCents,
+        ':is_settled' => $settledFlag,
+        ':updated_at' => nowIso(),
+        ':id' => $entryId,
+        ':workspace_id' => $workspaceId,
+    ]);
+
+    if ($stmt->rowCount() <= 0) {
+        $existsStmt = $pdo->prepare(
+            'SELECT 1
+             FROM workspace_accounting_entries
+             WHERE id = :id
+               AND workspace_id = :workspace_id
+             LIMIT 1'
+        );
+        $existsStmt->execute([
+            ':id' => $entryId,
+            ':workspace_id' => $workspaceId,
+        ]);
+        if (!$existsStmt->fetchColumn()) {
+            throw new RuntimeException('Registro nao encontrado.');
+        }
+    }
+}
+
+function deleteWorkspaceAccountingEntry(PDO $pdo, int $workspaceId, int $entryId): void
+{
+    if ($workspaceId <= 0 || $entryId <= 0) {
+        throw new RuntimeException('Registro invalido.');
+    }
+
+    $stmt = $pdo->prepare(
+        'DELETE FROM workspace_accounting_entries
+         WHERE id = :id
+           AND workspace_id = :workspace_id'
+    );
+    $stmt->execute([
+        ':id' => $entryId,
+        ':workspace_id' => $workspaceId,
+    ]);
+
+    if ($stmt->rowCount() <= 0) {
+        throw new RuntimeException('Registro nao encontrado.');
+    }
+}
+
+function accountingSummary(array $entries, int $openingBalanceCents): array
+{
+    $expenseTotal = 0;
+    $expensePaid = 0;
+    $incomeTotal = 0;
+    $incomeReceived = 0;
+
+    foreach ($entries as $entry) {
+        $entryType = normalizeAccountingEntryType((string) ($entry['entry_type'] ?? 'expense'));
+        $amountCents = normalizeDueAmountCents($entry['amount_cents'] ?? null) ?? 0;
+        $isSettled = ((int) ($entry['is_settled'] ?? 0)) === 1;
+
+        if ($entryType === 'income') {
+            $incomeTotal += $amountCents;
+            if ($isSettled) {
+                $incomeReceived += $amountCents;
+            }
+        } else {
+            $expenseTotal += $amountCents;
+            if ($isSettled) {
+                $expensePaid += $amountCents;
+            }
+        }
+    }
+
+    $expenseRemaining = max(0, $expenseTotal - $expensePaid);
+    $incomeRemaining = max(0, $incomeTotal - $incomeReceived);
+    $finalBalance = $openingBalanceCents + $incomeRemaining - $expenseRemaining;
+
+    return [
+        'expense_total_cents' => $expenseTotal,
+        'expense_paid_cents' => $expensePaid,
+        'expense_remaining_cents' => $expenseRemaining,
+        'income_total_cents' => $incomeTotal,
+        'income_received_cents' => $incomeReceived,
+        'income_remaining_cents' => $incomeRemaining,
+        'opening_balance_cents' => $openingBalanceCents,
+        'final_balance_cents' => $finalBalance,
+        'expense_total_display' => dueAmountLabelFromCents($expenseTotal),
+        'expense_paid_display' => dueAmountLabelFromCents($expensePaid),
+        'expense_remaining_display' => dueAmountLabelFromCents($expenseRemaining),
+        'income_total_display' => dueAmountLabelFromCents($incomeTotal),
+        'income_received_display' => dueAmountLabelFromCents($incomeReceived),
+        'income_remaining_display' => dueAmountLabelFromCents($incomeRemaining),
+        'opening_balance_display' => dueAmountLabelFromCents($openingBalanceCents),
+        'final_balance_display' => dueAmountLabelFromCents($finalBalance),
+    ];
 }
 
 function taskStatuses(): array

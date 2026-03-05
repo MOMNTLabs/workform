@@ -97,6 +97,26 @@ function tasksRedirectPathFromRequest(?array $get = null, ?array $post = null): 
     return $query !== '' ? "index.php?{$query}#tasks" : 'index.php#tasks';
 }
 
+function accountingRedirectPathFromRequest(?array $get = null, ?array $post = null): string
+{
+    $get ??= $_GET;
+    $post ??= $_POST;
+
+    $periodRaw = null;
+    if (isset($get['accounting_period']) && trim((string) $get['accounting_period']) !== '') {
+        $periodRaw = (string) $get['accounting_period'];
+    } elseif (isset($post['period_key']) && trim((string) $post['period_key']) !== '') {
+        $periodRaw = (string) $post['period_key'];
+    }
+
+    $periodKey = normalizeAccountingPeriodKey($periodRaw);
+    $query = http_build_query([
+        'accounting_period' => $periodKey,
+    ]);
+
+    return "index.php?{$query}#accounting";
+}
+
 function workspaceRolesByUserId(array $workspaceMembers): array
 {
     $rolesByUserId = [];
@@ -1348,6 +1368,115 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 flash('success', 'Item de estoque removido.');
                 redirectTo('index.php#inventory');
+
+            case 'set_accounting_opening_balance':
+                $authUser = requireAuth();
+                $workspaceId = activeWorkspaceId($authUser);
+                if ($workspaceId === null) {
+                    throw new RuntimeException('Workspace ativo nao encontrado.');
+                }
+
+                $periodKey = normalizeAccountingPeriodKey((string) ($_POST['period_key'] ?? ''));
+                setWorkspaceAccountingOpeningBalance(
+                    $pdo,
+                    $workspaceId,
+                    $periodKey,
+                    $_POST['opening_balance_value'] ?? null,
+                    (int) ($authUser['id'] ?? 0)
+                );
+
+                flash('success', 'Saldo atual atualizado.');
+                redirectTo(accountingRedirectPathFromRequest());
+
+            case 'create_accounting_entry':
+                $authUser = requireAuth();
+                $workspaceId = activeWorkspaceId($authUser);
+                if ($workspaceId === null) {
+                    throw new RuntimeException('Workspace ativo nao encontrado.');
+                }
+
+                $periodKey = normalizeAccountingPeriodKey((string) ($_POST['period_key'] ?? ''));
+                $entryType = normalizeAccountingEntryType((string) ($_POST['entry_type'] ?? 'expense'));
+                $isSettled = array_key_exists('is_settled', $_POST) ? 1 : 0;
+
+                createWorkspaceAccountingEntry(
+                    $pdo,
+                    $workspaceId,
+                    $periodKey,
+                    $entryType,
+                    (string) ($_POST['label'] ?? ''),
+                    $_POST['amount_value'] ?? null,
+                    $isSettled,
+                    (int) ($authUser['id'] ?? 0)
+                );
+
+                flash('success', $entryType === 'income' ? 'Entrada adicionada.' : 'Conta adicionada.');
+                redirectTo(accountingRedirectPathFromRequest());
+
+            case 'update_accounting_entry':
+                $authUser = requireAuth();
+                $workspaceId = activeWorkspaceId($authUser);
+                if ($workspaceId === null) {
+                    throw new RuntimeException('Workspace ativo nao encontrado.');
+                }
+
+                $entryId = (int) ($_POST['entry_id'] ?? 0);
+                if ($entryId <= 0) {
+                    throw new RuntimeException('Registro invalido.');
+                }
+
+                $entryWorkspaceStmt = $pdo->prepare(
+                    'SELECT workspace_id
+                     FROM workspace_accounting_entries
+                     WHERE id = :id
+                     LIMIT 1'
+                );
+                $entryWorkspaceStmt->execute([':id' => $entryId]);
+                $entryWorkspaceId = (int) $entryWorkspaceStmt->fetchColumn();
+                if ($entryWorkspaceId <= 0 || $entryWorkspaceId !== $workspaceId) {
+                    throw new RuntimeException('Registro nao encontrado.');
+                }
+
+                $isSettled = array_key_exists('is_settled', $_POST) ? 1 : 0;
+                updateWorkspaceAccountingEntry(
+                    $pdo,
+                    $workspaceId,
+                    $entryId,
+                    (string) ($_POST['label'] ?? ''),
+                    $_POST['amount_value'] ?? null,
+                    $isSettled
+                );
+
+                flash('success', 'Registro atualizado.');
+                redirectTo(accountingRedirectPathFromRequest());
+
+            case 'delete_accounting_entry':
+                $authUser = requireAuth();
+                $workspaceId = activeWorkspaceId($authUser);
+                if ($workspaceId === null) {
+                    throw new RuntimeException('Workspace ativo nao encontrado.');
+                }
+
+                $entryId = (int) ($_POST['entry_id'] ?? 0);
+                if ($entryId <= 0) {
+                    throw new RuntimeException('Registro invalido.');
+                }
+
+                $entryWorkspaceStmt = $pdo->prepare(
+                    'SELECT workspace_id
+                     FROM workspace_accounting_entries
+                     WHERE id = :id
+                     LIMIT 1'
+                );
+                $entryWorkspaceStmt->execute([':id' => $entryId]);
+                $entryWorkspaceId = (int) $entryWorkspaceStmt->fetchColumn();
+                if ($entryWorkspaceId <= 0 || $entryWorkspaceId !== $workspaceId) {
+                    throw new RuntimeException('Registro nao encontrado.');
+                }
+
+                deleteWorkspaceAccountingEntry($pdo, $workspaceId, $entryId);
+                flash('success', 'Registro removido.');
+                redirectTo(accountingRedirectPathFromRequest());
 
             case 'create_group':
                 $authUser = requireAuth();
@@ -2751,6 +2880,19 @@ $dueEntries = array_values(array_filter(
 $dueEntriesByGroup = $currentUser ? dueEntriesByGroup($dueEntries, $dueGroups) : [];
 $inventoryEntries = ($currentUser && $currentWorkspaceId !== null) ? workspaceInventoryEntriesList($currentWorkspaceId) : [];
 $inventoryEntriesByGroup = $currentUser ? inventoryEntriesByGroup($inventoryEntries, $inventoryGroups) : [];
+$accountingPeriod = normalizeAccountingPeriodKey((string) ($_GET['accounting_period'] ?? ''));
+$accountingPeriodLabel = accountingMonthLabel($accountingPeriod);
+$accountingEntries = ($currentUser && $currentWorkspaceId !== null)
+    ? workspaceAccountingEntriesList($currentWorkspaceId, $accountingPeriod)
+    : [];
+$accountingEntriesByType = workspaceAccountingEntriesByType($accountingEntries);
+$accountingExpenseEntries = $accountingEntriesByType['expense'] ?? [];
+$accountingIncomeEntries = $accountingEntriesByType['income'] ?? [];
+$accountingOpeningBalanceCents = ($currentUser && $currentWorkspaceId !== null)
+    ? workspaceAccountingOpeningBalanceCents($currentWorkspaceId, $accountingPeriod)
+    : 0;
+$accountingOpeningBalanceInput = number_format($accountingOpeningBalanceCents / 100, 2, ',', '.');
+$accountingSummary = accountingSummary($accountingEntries, $accountingOpeningBalanceCents);
 $groupFilter = isset($_GET['group']) && trim((string) $_GET['group']) !== ''
     ? normalizeTaskGroupName((string) $_GET['group'])
     : null;
@@ -2798,8 +2940,8 @@ $defaultTaskGroupName = $taskGroups[0] ?? 'Geral';
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/styles.css?v=102">
-    <script src="assets/app.js?v=64" defer></script>
+    <link rel="stylesheet" href="assets/styles.css?v=103">
+    <script src="assets/app.js?v=65" defer></script>
 </head>
 <body
     class="<?= $currentUser ? 'is-dashboard' : 'is-auth' ?>"

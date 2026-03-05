@@ -179,6 +179,23 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                         </span>
                         <span class="sidebar-view-toggle-label">Estoque</span>
                     </button>
+                    <button
+                        type="button"
+                        class="sidebar-view-toggle"
+                        data-dashboard-view-toggle
+                        data-view="accounting"
+                        aria-pressed="false"
+                    >
+                        <span class="sidebar-view-toggle-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <circle cx="12" cy="12" r="8"></circle>
+                                <path d="M12 8v8"></path>
+                                <path d="M9.5 9.5h4"></path>
+                                <path d="M9.5 14.5h4"></path>
+                            </svg>
+                        </span>
+                        <span class="sidebar-view-toggle-label">Contabilidade</span>
+                    </button>
                 </nav>
             </div>
         </aside>
@@ -1557,6 +1574,287 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                         </section>
                     <?php endforeach; ?>
                 <?php endif; ?>
+            </div>
+        </section>
+
+        <section class="accounting-wrap panel" id="accounting" data-dashboard-view-panel="accounting" hidden>
+            <div class="panel-header board-header accounting-header">
+                <div>
+                    <h2>Contabilidade</h2>
+                    <p><?= e($accountingPeriodLabel) ?></p>
+                </div>
+                <div class="board-summary accounting-board-summary">
+                    <form method="get" class="accounting-period-form">
+                        <label for="accounting-period-input" class="sr-only">Periodo de referencia</label>
+                        <input
+                            type="month"
+                            id="accounting-period-input"
+                            name="accounting_period"
+                            value="<?= e($accountingPeriod) ?>"
+                            class="accounting-period-input"
+                        >
+                        <button type="submit" class="icon-gear-button vault-summary-button">
+                            <span class="vault-summary-button-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" focusable="false">
+                                    <path d="M8 6v4"></path>
+                                    <path d="M16 6v4"></path>
+                                    <rect x="4" y="8" width="16" height="12" rx="2"></rect>
+                                    <path d="M4 12h16"></path>
+                                </svg>
+                            </span>
+                            <span class="vault-summary-button-label">Aplicar</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="accounting-sheet">
+                <div class="accounting-columns">
+                    <section class="accounting-card">
+                        <header class="accounting-card-head">
+                            <h3>Contas</h3>
+                            <span>Pago</span>
+                        </header>
+                        <div class="accounting-grid-head" aria-hidden="true">
+                            <span class="accounting-grid-col accounting-grid-col-label">Conta</span>
+                            <span class="accounting-grid-col accounting-grid-col-amount">Valor</span>
+                            <span class="accounting-grid-col accounting-grid-col-check">Pago</span>
+                            <span class="accounting-grid-col accounting-grid-col-action">Acao</span>
+                        </div>
+
+                        <div class="accounting-entries">
+                            <?php if (empty($accountingExpenseEntries)): ?>
+                                <div class="accounting-empty">Nenhuma conta cadastrada neste mes.</div>
+                            <?php else: ?>
+                                <?php foreach ($accountingExpenseEntries as $accountingEntry): ?>
+                                    <?php
+                                    $accountingEntryId = (int) ($accountingEntry['id'] ?? 0);
+                                    $accountingEntryLabel = (string) ($accountingEntry['label'] ?? '');
+                                    $accountingEntryAmountInput = (string) ($accountingEntry['amount_input'] ?? '0,00');
+                                    $accountingEntryIsSettled = ((int) ($accountingEntry['is_settled'] ?? 0)) === 1;
+                                    ?>
+                                    <div class="accounting-entry-row">
+                                        <form method="post" class="accounting-entry-form">
+                                            <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+                                            <input type="hidden" name="action" value="update_accounting_entry">
+                                            <input type="hidden" name="entry_id" value="<?= e((string) $accountingEntryId) ?>">
+                                            <input type="hidden" name="period_key" value="<?= e($accountingPeriod) ?>">
+                                            <input
+                                                type="text"
+                                                name="label"
+                                                value="<?= e($accountingEntryLabel) ?>"
+                                                maxlength="120"
+                                                class="accounting-input accounting-input-label"
+                                                placeholder="Nome da conta"
+                                                required
+                                            >
+                                            <input
+                                                type="text"
+                                                name="amount_value"
+                                                value="<?= e($accountingEntryAmountInput) ?>"
+                                                class="accounting-input accounting-input-amount"
+                                                placeholder="0,00"
+                                                required
+                                            >
+                                            <label class="accounting-check">
+                                                <input type="checkbox" name="is_settled" value="1" <?= $accountingEntryIsSettled ? 'checked' : '' ?>>
+                                                <span>Pago</span>
+                                            </label>
+                                            <button type="submit" class="btn btn-mini btn-ghost">Salvar</button>
+                                        </form>
+                                        <form method="post" class="accounting-entry-delete-form">
+                                            <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+                                            <input type="hidden" name="action" value="delete_accounting_entry">
+                                            <input type="hidden" name="entry_id" value="<?= e((string) $accountingEntryId) ?>">
+                                            <input type="hidden" name="period_key" value="<?= e($accountingPeriod) ?>">
+                                            <button type="submit" class="vault-entry-delete-button" aria-label="Excluir conta">
+                                                <span aria-hidden="true">&#10005;</span>
+                                            </button>
+                                        </form>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
+
+                        <form method="post" class="accounting-create-form is-create">
+                            <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+                            <input type="hidden" name="action" value="create_accounting_entry">
+                            <input type="hidden" name="period_key" value="<?= e($accountingPeriod) ?>">
+                            <input type="hidden" name="entry_type" value="expense">
+                            <input
+                                type="text"
+                                name="label"
+                                maxlength="120"
+                                class="accounting-input accounting-input-label"
+                                placeholder="Nova conta"
+                                required
+                            >
+                            <input
+                                type="text"
+                                name="amount_value"
+                                class="accounting-input accounting-input-amount"
+                                placeholder="0,00"
+                                required
+                            >
+                            <label class="accounting-check">
+                                <input type="checkbox" name="is_settled" value="1">
+                                <span>Pago</span>
+                            </label>
+                            <button type="submit" class="btn btn-mini">Adicionar conta</button>
+                        </form>
+
+                        <dl class="accounting-totals">
+                            <div>
+                                <dt>Total</dt>
+                                <dd><?= e((string) ($accountingSummary['expense_total_display'] ?? 'R$ 0,00')) ?></dd>
+                            </div>
+                            <div class="is-strong">
+                                <dt>Falta pagar</dt>
+                                <dd><?= e((string) ($accountingSummary['expense_remaining_display'] ?? 'R$ 0,00')) ?></dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    <section class="accounting-card">
+                        <header class="accounting-card-head">
+                            <h3>Entradas</h3>
+                            <span>Recebido</span>
+                        </header>
+                        <div class="accounting-grid-head" aria-hidden="true">
+                            <span class="accounting-grid-col accounting-grid-col-label">Entrada</span>
+                            <span class="accounting-grid-col accounting-grid-col-amount">Valor</span>
+                            <span class="accounting-grid-col accounting-grid-col-check">Recebido</span>
+                            <span class="accounting-grid-col accounting-grid-col-action">Acao</span>
+                        </div>
+
+                        <div class="accounting-entries">
+                            <?php if (empty($accountingIncomeEntries)): ?>
+                                <div class="accounting-empty">Nenhuma entrada cadastrada neste mes.</div>
+                            <?php else: ?>
+                                <?php foreach ($accountingIncomeEntries as $accountingEntry): ?>
+                                    <?php
+                                    $accountingEntryId = (int) ($accountingEntry['id'] ?? 0);
+                                    $accountingEntryLabel = (string) ($accountingEntry['label'] ?? '');
+                                    $accountingEntryAmountInput = (string) ($accountingEntry['amount_input'] ?? '0,00');
+                                    $accountingEntryIsSettled = ((int) ($accountingEntry['is_settled'] ?? 0)) === 1;
+                                    ?>
+                                    <div class="accounting-entry-row">
+                                        <form method="post" class="accounting-entry-form">
+                                            <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+                                            <input type="hidden" name="action" value="update_accounting_entry">
+                                            <input type="hidden" name="entry_id" value="<?= e((string) $accountingEntryId) ?>">
+                                            <input type="hidden" name="period_key" value="<?= e($accountingPeriod) ?>">
+                                            <input
+                                                type="text"
+                                                name="label"
+                                                value="<?= e($accountingEntryLabel) ?>"
+                                                maxlength="120"
+                                                class="accounting-input accounting-input-label"
+                                                placeholder="Nome da entrada"
+                                                required
+                                            >
+                                            <input
+                                                type="text"
+                                                name="amount_value"
+                                                value="<?= e($accountingEntryAmountInput) ?>"
+                                                class="accounting-input accounting-input-amount"
+                                                placeholder="0,00"
+                                                required
+                                            >
+                                            <label class="accounting-check">
+                                                <input type="checkbox" name="is_settled" value="1" <?= $accountingEntryIsSettled ? 'checked' : '' ?>>
+                                                <span>Recebido</span>
+                                            </label>
+                                            <button type="submit" class="btn btn-mini btn-ghost">Salvar</button>
+                                        </form>
+                                        <form method="post" class="accounting-entry-delete-form">
+                                            <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+                                            <input type="hidden" name="action" value="delete_accounting_entry">
+                                            <input type="hidden" name="entry_id" value="<?= e((string) $accountingEntryId) ?>">
+                                            <input type="hidden" name="period_key" value="<?= e($accountingPeriod) ?>">
+                                            <button type="submit" class="vault-entry-delete-button" aria-label="Excluir entrada">
+                                                <span aria-hidden="true">&#10005;</span>
+                                            </button>
+                                        </form>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
+
+                        <form method="post" class="accounting-create-form is-create">
+                            <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+                            <input type="hidden" name="action" value="create_accounting_entry">
+                            <input type="hidden" name="period_key" value="<?= e($accountingPeriod) ?>">
+                            <input type="hidden" name="entry_type" value="income">
+                            <input
+                                type="text"
+                                name="label"
+                                maxlength="120"
+                                class="accounting-input accounting-input-label"
+                                placeholder="Nova entrada"
+                                required
+                            >
+                            <input
+                                type="text"
+                                name="amount_value"
+                                class="accounting-input accounting-input-amount"
+                                placeholder="0,00"
+                                required
+                            >
+                            <label class="accounting-check">
+                                <input type="checkbox" name="is_settled" value="1">
+                                <span>Recebido</span>
+                            </label>
+                            <button type="submit" class="btn btn-mini">Adicionar entrada</button>
+                        </form>
+
+                        <dl class="accounting-totals">
+                            <div>
+                                <dt>Total</dt>
+                                <dd><?= e((string) ($accountingSummary['income_total_display'] ?? 'R$ 0,00')) ?></dd>
+                            </div>
+                            <div>
+                                <dt>Recebido</dt>
+                                <dd><?= e((string) ($accountingSummary['income_received_display'] ?? 'R$ 0,00')) ?></dd>
+                            </div>
+                            <div class="is-strong is-positive">
+                                <dt>A receber</dt>
+                                <dd><?= e((string) ($accountingSummary['income_remaining_display'] ?? 'R$ 0,00')) ?></dd>
+                            </div>
+                        </dl>
+                    </section>
+                </div>
+
+                <section class="accounting-balance-card">
+                    <form method="post" class="accounting-balance-form">
+                        <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+                        <input type="hidden" name="action" value="set_accounting_opening_balance">
+                        <input type="hidden" name="period_key" value="<?= e($accountingPeriod) ?>">
+                        <label>
+                            <span>Saldo atual</span>
+                            <input
+                                type="text"
+                                name="opening_balance_value"
+                                value="<?= e($accountingOpeningBalanceInput) ?>"
+                                class="accounting-input accounting-input-amount"
+                                placeholder="0,00"
+                                required
+                            >
+                        </label>
+                        <button type="submit" class="btn btn-mini">Salvar saldo</button>
+                    </form>
+
+                    <dl class="accounting-balance-values">
+                        <div>
+                            <dt>Saldo atual</dt>
+                            <dd><?= e((string) ($accountingSummary['opening_balance_display'] ?? 'R$ 0,00')) ?></dd>
+                        </div>
+                        <div class="is-final">
+                            <dt>Saldo final</dt>
+                            <dd><?= e((string) ($accountingSummary['final_balance_display'] ?? 'R$ 0,00')) ?></dd>
+                        </div>
+                    </dl>
+                </section>
             </div>
         </section>
 
