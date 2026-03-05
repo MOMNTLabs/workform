@@ -2544,12 +2544,23 @@ window.addEventListener("DOMContentLoaded", () => {
   };
 
   const moveTaskItemToGroupDom = (taskItem, groupName) => {
-    if (!(taskItem instanceof HTMLElement)) return false;
+    if (!(taskItem instanceof HTMLElement) || !taskItem.isConnected) return false;
     const nextGroup = (groupName || "").trim() || "Geral";
     const targetDropzone = document.querySelector(
       `[data-task-dropzone][data-group-name="${CSS.escape(nextGroup)}"]`
     );
     if (!(targetDropzone instanceof HTMLElement)) return false;
+
+    const taskItemId = String(taskItem.id || "").trim();
+    if (taskItemId) {
+      const selector = `[data-task-item]#${CSS.escape(taskItemId)}`;
+      document.querySelectorAll(selector).forEach((duplicateItem) => {
+        if (duplicateItem === taskItem) return;
+        if (duplicateItem instanceof HTMLElement) {
+          duplicateItem.remove();
+        }
+      });
+    }
 
     const sourceSection = taskItem.closest("[data-task-group]");
     const targetSection = targetDropzone.closest("[data-task-group]");
@@ -3435,6 +3446,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const autosaveTimers = new WeakMap();
   const submitTaskAutosave = async (form) => {
     if (!(form instanceof HTMLFormElement)) return;
+    if (!form.isConnected) return false;
     if (form.dataset.autosaveSubmitting === "1") return false;
 
     form.dataset.autosaveSubmitting = "1";
@@ -3443,6 +3455,10 @@ window.addEventListener("DOMContentLoaded", () => {
 
     try {
       const data = await postFormJson(form);
+      if (!form.isConnected) {
+        success = true;
+        return true;
+      }
       const task = data.task || {};
       const taskItem = form.closest("[data-task-item]");
 
@@ -3598,6 +3614,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   const scheduleTaskAutosave = (form, delay = 180) => {
     if (!(form instanceof HTMLFormElement)) return;
+    if (!form.isConnected) return;
 
     if (form.dataset.autosaveSubmitting === "1") {
       form.dataset.autosavePending = "1";
@@ -3608,6 +3625,10 @@ window.addEventListener("DOMContentLoaded", () => {
     if (previousTimer) window.clearTimeout(previousTimer);
 
     const nextTimer = window.setTimeout(() => {
+      if (!form.isConnected) {
+        autosaveTimers.delete(form);
+        return;
+      }
       if (typeof form.reportValidity === "function" && !form.reportValidity()) {
         return;
       }
