@@ -3480,6 +3480,128 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const normalizeAccountingLabelField = (form) => {
+    if (!(form instanceof HTMLFormElement)) return;
+    const labelField = form.querySelector('input[name="label"]');
+    if (labelField instanceof HTMLInputElement) {
+      applyFirstLetterUppercaseToInput(labelField);
+    }
+  };
+
+  const refreshAccountingSectionFromServer = async () => {
+    const url = `${window.location.pathname}${window.location.search}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        Accept: "text/html",
+      },
+      credentials: "same-origin",
+    });
+
+    if (!response.ok) {
+      throw new Error("Nao foi possivel atualizar a contabilidade.");
+    }
+
+    const html = await response.text();
+    const parser = new DOMParser();
+    const nextDoc = parser.parseFromString(html, "text/html");
+
+    const currentSheet = document.querySelector("#accounting .accounting-sheet");
+    const nextSheet = nextDoc.querySelector("#accounting .accounting-sheet");
+    if (!(currentSheet instanceof HTMLElement) || !(nextSheet instanceof HTMLElement)) {
+      throw new Error("Nao foi possivel atualizar a contabilidade.");
+    }
+
+    currentSheet.replaceWith(nextSheet);
+  };
+
+  const submitAccountingActionForm = async (
+    form,
+    {
+      showSuccess = true,
+      successMessage = "",
+      fallbackError = "Falha ao atualizar a contabilidade.",
+      refresh = true,
+    } = {}
+  ) => {
+    if (!(form instanceof HTMLFormElement)) return false;
+    if (form.dataset.submitting === "1") return false;
+
+    normalizeAccountingLabelField(form);
+
+    form.dataset.submitting = "1";
+    form.classList.add("is-saving");
+
+    try {
+      const data = await postFormJson(form);
+      if (refresh) {
+        await refreshAccountingSectionFromServer();
+      }
+
+      if (showSuccess) {
+        const message = String(data?.message || "").trim() || successMessage;
+        if (message) {
+          showClientFlash("success", message);
+        }
+      }
+
+      return true;
+    } catch (error) {
+      showClientFlash("error", error instanceof Error ? error.message : fallbackError);
+      throw error;
+    } finally {
+      form.classList.remove("is-saving");
+      delete form.dataset.submitting;
+    }
+  };
+
+  const accountingAutosaveTimers = new WeakMap();
+  const submitAccountingAutosaveForm = async (form, options = {}) => {
+    if (!(form instanceof HTMLFormElement) || !form.isConnected) return false;
+    if (form.dataset.submitting === "1") {
+      form.dataset.accountingPending = "1";
+      return false;
+    }
+
+    try {
+      return await submitAccountingActionForm(form, {
+        ...options,
+        showSuccess: false,
+      });
+    } finally {
+      if (form.isConnected && form.dataset.accountingPending === "1") {
+        delete form.dataset.accountingPending;
+        scheduleAccountingAutosave(form, 80, options);
+      }
+    }
+  };
+
+  const scheduleAccountingAutosave = (form, delay = 160, options = {}) => {
+    if (!(form instanceof HTMLFormElement) || !form.isConnected) return;
+
+    if (form.dataset.submitting === "1") {
+      form.dataset.accountingPending = "1";
+      return;
+    }
+
+    const previousTimer = accountingAutosaveTimers.get(form);
+    if (previousTimer) {
+      window.clearTimeout(previousTimer);
+    }
+
+    const nextTimer = window.setTimeout(() => {
+      accountingAutosaveTimers.delete(form);
+      if (!form.isConnected) return;
+      if (typeof form.reportValidity === "function" && !form.reportValidity()) {
+        return;
+      }
+      void submitAccountingAutosaveForm(form, options).catch(() => {});
+    }, delay);
+
+    accountingAutosaveTimers.set(form, nextTimer);
+  };
+
   const autosaveTimers = new WeakMap();
   const submitTaskAutosave = async (form) => {
     if (!(form instanceof HTMLFormElement)) return;
@@ -9791,6 +9913,92 @@ window.addEventListener("DOMContentLoaded", () => {
       event.preventDefault();
       void submitVaultEntryNameForm(form);
     });
+  });
+
+  document.addEventListener("change", (event) => {
+    const target = getEventTargetElement(event);
+    if (!(target instanceof HTMLElement)) return;
+
+    const accountingEntryForm = target.closest(".accounting-entry-form");
+    if (
+      accountingEntryForm instanceof HTMLFormElement &&
+      target instanceof HTMLInputElement &&
+      ["label", "amount_value", "is_settled"].includes(target.name)
+    ) {
+      scheduleAccountingAutosave(accountingEntryForm, target.type === "checkbox" ? 60 : 140, {
+        refresh: true,
+        fallbackError: "Falha ao atualizar registro.",
+      });
+      return;
+    }
+
+    const accountingBalanceForm = target.closest(".accounting-balance-form");
+    if (
+      accountingBalanceForm instanceof HTMLFormElement &&
+      target instanceof HTMLInputElement &&
+      target.name === "opening_balance_value"
+    ) {
+      scheduleAccountingAutosave(accountingBalanceForm, 140, {
+        refresh: true,
+        fallbackError: "Falha ao atualizar saldo.",
+      });
+    }
+  });
+
+  document.addEventListener("submit", (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement)) return;
+
+    if (form.matches(".accounting-entry-form")) {
+      event.preventDefault();
+      if (typeof form.reportValidity === "function" && !form.reportValidity()) {
+        return;
+      }
+      void submitAccountingAutosaveForm(form, {
+        refresh: true,
+        fallbackError: "Falha ao atualizar registro.",
+      }).catch(() => {});
+      return;
+    }
+
+    if (form.matches(".accounting-create-form")) {
+      event.preventDefault();
+      if (typeof form.reportValidity === "function" && !form.reportValidity()) {
+        return;
+      }
+
+      const entryTypeField = form.querySelector('input[name="entry_type"]');
+      const isIncome =
+        entryTypeField instanceof HTMLInputElement && entryTypeField.value === "income";
+
+      void submitAccountingActionForm(form, {
+        successMessage: isIncome ? "Entrada adicionada." : "Conta adicionada.",
+        fallbackError: isIncome ? "Falha ao adicionar entrada." : "Falha ao adicionar conta.",
+        refresh: true,
+      }).catch(() => {});
+      return;
+    }
+
+    if (form.matches(".accounting-entry-delete-form")) {
+      event.preventDefault();
+      void submitAccountingActionForm(form, {
+        successMessage: "Registro removido.",
+        fallbackError: "Falha ao remover registro.",
+        refresh: true,
+      }).catch(() => {});
+      return;
+    }
+
+    if (form.matches(".accounting-balance-form")) {
+      event.preventDefault();
+      if (typeof form.reportValidity === "function" && !form.reportValidity()) {
+        return;
+      }
+      void submitAccountingAutosaveForm(form, {
+        refresh: true,
+        fallbackError: "Falha ao atualizar saldo.",
+      }).catch(() => {});
+    }
   });
 
   startTaskNotificationsPolling();

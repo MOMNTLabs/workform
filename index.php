@@ -1385,6 +1385,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     (int) ($authUser['id'] ?? 0)
                 );
 
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'message' => 'Saldo atual atualizado.',
+                    ]);
+                }
+
                 flash('success', 'Saldo atual atualizado.');
                 redirectTo(accountingRedirectPathFromRequest());
 
@@ -1409,6 +1416,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $isSettled,
                     (int) ($authUser['id'] ?? 0)
                 );
+
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'message' => $entryType === 'income' ? 'Entrada adicionada.' : 'Conta adicionada.',
+                    ]);
+                }
 
                 flash('success', $entryType === 'income' ? 'Entrada adicionada.' : 'Conta adicionada.');
                 redirectTo(accountingRedirectPathFromRequest());
@@ -1447,6 +1461,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $isSettled
                 );
 
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'message' => 'Registro atualizado.',
+                    ]);
+                }
+
                 flash('success', 'Registro atualizado.');
                 redirectTo(accountingRedirectPathFromRequest());
 
@@ -1475,6 +1496,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 deleteWorkspaceAccountingEntry($pdo, $workspaceId, $entryId);
+
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'message' => 'Registro removido.',
+                    ]);
+                }
+
                 flash('success', 'Registro removido.');
                 redirectTo(accountingRedirectPathFromRequest());
 

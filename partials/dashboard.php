@@ -1618,12 +1618,6 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                             </div>
                             <span><?= e((string) count($accountingExpenseEntries)) ?> item(ns)</span>
                         </header>
-                        <div class="accounting-grid-head" aria-hidden="true">
-                            <span class="accounting-grid-col accounting-grid-col-label">Conta</span>
-                            <span class="accounting-grid-col accounting-grid-col-amount">Valor</span>
-                            <span class="accounting-grid-col accounting-grid-col-check">Pago</span>
-                            <span class="accounting-grid-col accounting-grid-col-action">Acao</span>
-                        </div>
 
                         <div class="accounting-entries">
                             <?php if (empty($accountingExpenseEntries)): ?>
@@ -1663,7 +1657,6 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                                 <input type="checkbox" name="is_settled" value="1" <?= $accountingEntryIsSettled ? 'checked' : '' ?>>
                                                 <span>Pago</span>
                                             </label>
-                                            <button type="submit" class="btn btn-mini btn-ghost">Salvar</button>
                                         </form>
                                         <form method="post" class="accounting-entry-delete-form">
                                             <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
@@ -1705,7 +1698,7 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                     <input type="checkbox" name="is_settled" value="1">
                                     <span>Pago</span>
                                 </label>
-                                <button type="submit" class="btn btn-mini">Salvar</button>
+                                <button type="submit" class="btn btn-mini">Adicionar</button>
                             </form>
                         </details>
 
@@ -1729,12 +1722,6 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                             </div>
                             <span><?= e((string) count($accountingIncomeEntries)) ?> item(ns)</span>
                         </header>
-                        <div class="accounting-grid-head" aria-hidden="true">
-                            <span class="accounting-grid-col accounting-grid-col-label">Entrada</span>
-                            <span class="accounting-grid-col accounting-grid-col-amount">Valor</span>
-                            <span class="accounting-grid-col accounting-grid-col-check">Recebido</span>
-                            <span class="accounting-grid-col accounting-grid-col-action">Acao</span>
-                        </div>
 
                         <div class="accounting-entries">
                             <?php if (empty($accountingIncomeEntries)): ?>
@@ -1774,7 +1761,6 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                                 <input type="checkbox" name="is_settled" value="1" <?= $accountingEntryIsSettled ? 'checked' : '' ?>>
                                                 <span>Recebido</span>
                                             </label>
-                                            <button type="submit" class="btn btn-mini btn-ghost">Salvar</button>
                                         </form>
                                         <form method="post" class="accounting-entry-delete-form">
                                             <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
@@ -1816,7 +1802,7 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                     <input type="checkbox" name="is_settled" value="1">
                                     <span>Recebido</span>
                                 </label>
-                                <button type="submit" class="btn btn-mini">Salvar</button>
+                                <button type="submit" class="btn btn-mini">Adicionar</button>
                             </form>
                         </details>
 
@@ -1853,7 +1839,6 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                 required
                             >
                         </label>
-                        <button type="submit" class="btn btn-mini">Salvar saldo</button>
                     </form>
 
                     <dl class="accounting-balance-values">

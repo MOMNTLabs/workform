@@ -8871,50 +8871,19 @@ select option:checked,
     text-transform: uppercase;
 }
 
-.accounting-grid-head {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 116px auto auto;
-    gap: 8px;
-    align-items: center;
-    padding: 0 2px;
-}
-
-.accounting-grid-col {
-    color: #68829f;
-    font-size: 0.72rem;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    font-weight: 600;
-}
-
-.accounting-grid-col-amount {
-    text-align: right;
-}
-
-.accounting-grid-col-check,
-.accounting-grid-col-action {
-    text-align: center;
-}
-
 .accounting-entries {
     display: grid;
     gap: 0;
     max-height: 340px;
     overflow: auto;
     padding-right: 2px;
-    border: 1px solid rgba(143, 184, 225, 0.48);
-    border-radius: 8px;
-    background: #f1f7ff;
 }
 
 .accounting-empty {
-    border-radius: 6px;
-    border: 1px dashed rgba(138, 180, 224, 0.72);
-    background: #f7faff;
     color: #6d86a2;
     font-size: 0.86rem;
-    padding: 11px 12px;
-    margin: 8px;
+    padding: 4px 0 10px;
+    margin: 0;
 }
 
 .accounting-entry-row {
@@ -8922,7 +8891,7 @@ select option:checked,
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 8px;
     align-items: center;
-    padding: 6px 8px;
+    padding: 8px 0;
     border-bottom: 1px solid rgba(142, 183, 224, 0.42);
 }
 
@@ -8932,7 +8901,7 @@ select option:checked,
 
 .accounting-entry-form {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 116px auto auto;
+    grid-template-columns: minmax(0, 1fr) 116px auto;
     gap: 8px;
     align-items: center;
 }
@@ -8975,6 +8944,11 @@ select option:checked,
 
 .accounting-create-toggle[open] .accounting-create-trigger {
     margin-bottom: 8px;
+}
+
+.accounting-entry-form.is-saving,
+.accounting-balance-form.is-saving {
+    opacity: 0.72;
 }
 
 .accounting-input {
@@ -9157,10 +9131,6 @@ select option:checked,
 @media (max-width: 1024px) {
     .accounting-columns {
         grid-template-columns: 1fr;
-    }
-
-    .accounting-grid-head {
-        display: none;
     }
 
     .accounting-entry-row {
