@@ -1660,9 +1660,14 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                                 required
                                             >
                                             <?php if ($accountingEntryIsInstallment): ?>
-                                                <span class="accounting-entry-badge is-installment accounting-entry-badge-inline">
+                                                <button
+                                                    type="button"
+                                                    class="accounting-entry-badge is-installment accounting-entry-badge-inline"
+                                                    data-accounting-entry-edit
+                                                    aria-label="Editar conta parcelada"
+                                                >
                                                     <?= e($accountingEntryInstallmentBadge) ?>
-                                                </span>
+                                                </button>
                                             <?php endif; ?>
                                             <input
                                                 type="text"
@@ -1699,23 +1704,15 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                                 value="<?= e($accountingEntryTotalAmountInput) ?>"
                                             >
                                         </form>
-                                        <div class="accounting-entry-actions">
-                                            <button type="button" class="accounting-entry-edit-button" data-accounting-entry-edit aria-label="Editar conta">
-                                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                                    <path d="M4 20h4l10-10-4-4L4 16v4Z"></path>
-                                                    <path d="m13 7 4 4"></path>
-                                                </svg>
+                                        <form method="post" class="accounting-entry-delete-form">
+                                            <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+                                            <input type="hidden" name="action" value="delete_accounting_entry">
+                                            <input type="hidden" name="entry_id" value="<?= e((string) $accountingEntryId) ?>">
+                                            <input type="hidden" name="period_key" value="<?= e($accountingPeriod) ?>">
+                                            <button type="submit" class="vault-entry-delete-button" aria-label="Excluir conta">
+                                                <span aria-hidden="true">&#10005;</span>
                                             </button>
-                                            <form method="post" class="accounting-entry-delete-form">
-                                                <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
-                                                <input type="hidden" name="action" value="delete_accounting_entry">
-                                                <input type="hidden" name="entry_id" value="<?= e((string) $accountingEntryId) ?>">
-                                                <input type="hidden" name="period_key" value="<?= e($accountingPeriod) ?>">
-                                                <button type="submit" class="vault-entry-delete-button" aria-label="Excluir conta">
-                                                    <span aria-hidden="true">&#10005;</span>
-                                                </button>
-                                            </form>
-                                        </div>
+                                        </form>
                                     </div>
                                 <?php endforeach; ?>
                             <?php endif; ?>
@@ -1861,9 +1858,14 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                                 required
                                             >
                                             <?php if ($accountingEntryIsInstallment): ?>
-                                                <span class="accounting-entry-badge is-installment accounting-entry-badge-inline">
+                                                <button
+                                                    type="button"
+                                                    class="accounting-entry-badge is-installment accounting-entry-badge-inline"
+                                                    data-accounting-entry-edit
+                                                    aria-label="Editar entrada parcelada"
+                                                >
                                                     <?= e($accountingEntryInstallmentBadge) ?>
-                                                </span>
+                                                </button>
                                             <?php endif; ?>
                                             <input
                                                 type="text"
@@ -1897,23 +1899,15 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                                 value="<?= e($accountingEntryTotalAmountInput) ?>"
                                             >
                                         </form>
-                                        <div class="accounting-entry-actions">
-                                            <button type="button" class="accounting-entry-edit-button" data-accounting-entry-edit aria-label="Editar entrada">
-                                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                                    <path d="M4 20h4l10-10-4-4L4 16v4Z"></path>
-                                                    <path d="m13 7 4 4"></path>
-                                                </svg>
+                                        <form method="post" class="accounting-entry-delete-form">
+                                            <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+                                            <input type="hidden" name="action" value="delete_accounting_entry">
+                                            <input type="hidden" name="entry_id" value="<?= e((string) $accountingEntryId) ?>">
+                                            <input type="hidden" name="period_key" value="<?= e($accountingPeriod) ?>">
+                                            <button type="submit" class="vault-entry-delete-button" aria-label="Excluir entrada">
+                                                <span aria-hidden="true">&#10005;</span>
                                             </button>
-                                            <form method="post" class="accounting-entry-delete-form">
-                                                <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
-                                                <input type="hidden" name="action" value="delete_accounting_entry">
-                                                <input type="hidden" name="entry_id" value="<?= e((string) $accountingEntryId) ?>">
-                                                <input type="hidden" name="period_key" value="<?= e($accountingPeriod) ?>">
-                                                <button type="submit" class="vault-entry-delete-button" aria-label="Excluir entrada">
-                                                    <span aria-hidden="true">&#10005;</span>
-                                                </button>
-                                            </form>
-                                        </div>
+                                        </form>
                                     </div>
                                 <?php endforeach; ?>
                             <?php endif; ?>
@@ -1958,7 +1952,7 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                             </details>
 
                             <dl class="accounting-totals">
-                                <div>
+                                <div class="is-faturamento">
                                     <dt>Faturamento</dt>
                                     <dd>
                                         <?= e((string) ($accountingSummary['income_received_display'] ?? 'R$ 0,00')) ?>
