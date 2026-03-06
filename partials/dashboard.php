@@ -1669,44 +1669,21 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                                 <input type="checkbox" name="is_settled" value="1" <?= $accountingEntryIsSettled ? 'checked' : '' ?>>
                                                 <span>Pago</span>
                                             </label>
-                                            <div class="accounting-entry-options">
-                                                <label class="accounting-check accounting-check-installment">
-                                                    <input
-                                                        type="checkbox"
-                                                        name="is_installment"
-                                                        value="1"
-                                                        <?= $accountingEntryIsInstallment ? 'checked' : '' ?>
-                                                        data-accounting-installment-toggle
-                                                    >
-                                                    <span>Parcelado</span>
-                                                </label>
-                                                <div
-                                                    class="accounting-installment-fields"
-                                                    data-accounting-installment-fields
-                                                    <?= $accountingEntryIsInstallment ? '' : 'hidden' ?>
-                                                >
-                                                    <input
-                                                        type="text"
-                                                        name="installment_progress"
-                                                        value="<?= e($accountingEntryInstallmentProgress) ?>"
-                                                        class="accounting-input accounting-input-installment-progress"
-                                                        placeholder="4/12"
-                                                        aria-label="Parcela atual"
-                                                        data-accounting-installment-progress
-                                                        <?= $accountingEntryIsInstallment ? '' : 'disabled' ?>
-                                                    >
-                                                    <input
-                                                        type="text"
-                                                        name="total_amount_value"
-                                                        value="<?= e($accountingEntryTotalAmountInput) ?>"
-                                                        class="accounting-input accounting-input-amount accounting-input-installment-total"
-                                                        placeholder="Valor total"
-                                                        aria-label="Valor total"
-                                                        data-accounting-installment-total
-                                                        <?= $accountingEntryIsInstallment ? '' : 'disabled' ?>
-                                                    >
-                                                </div>
-                                            </div>
+                                            <input
+                                                type="hidden"
+                                                name="is_installment"
+                                                value="<?= $accountingEntryIsInstallment ? '1' : '0' ?>"
+                                            >
+                                            <input
+                                                type="hidden"
+                                                name="installment_progress"
+                                                value="<?= e($accountingEntryInstallmentProgress) ?>"
+                                            >
+                                            <input
+                                                type="hidden"
+                                                name="total_amount_value"
+                                                value="<?= e($accountingEntryTotalAmountInput) ?>"
+                                            >
                                         </form>
                                         <form method="post" class="accounting-entry-delete-form">
                                             <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
@@ -1848,44 +1825,21 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                                 <input type="checkbox" name="is_settled" value="1" <?= $accountingEntryIsSettled ? 'checked' : '' ?>>
                                                 <span>Recebido</span>
                                             </label>
-                                            <div class="accounting-entry-options">
-                                                <label class="accounting-check accounting-check-installment">
-                                                    <input
-                                                        type="checkbox"
-                                                        name="is_installment"
-                                                        value="1"
-                                                        <?= $accountingEntryIsInstallment ? 'checked' : '' ?>
-                                                        data-accounting-installment-toggle
-                                                    >
-                                                    <span>Parcelado</span>
-                                                </label>
-                                                <div
-                                                    class="accounting-installment-fields"
-                                                    data-accounting-installment-fields
-                                                    <?= $accountingEntryIsInstallment ? '' : 'hidden' ?>
-                                                >
-                                                    <input
-                                                        type="text"
-                                                        name="installment_progress"
-                                                        value="<?= e($accountingEntryInstallmentProgress) ?>"
-                                                        class="accounting-input accounting-input-installment-progress"
-                                                        placeholder="4/12"
-                                                        aria-label="Parcela atual"
-                                                        data-accounting-installment-progress
-                                                        <?= $accountingEntryIsInstallment ? '' : 'disabled' ?>
-                                                    >
-                                                    <input
-                                                        type="text"
-                                                        name="total_amount_value"
-                                                        value="<?= e($accountingEntryTotalAmountInput) ?>"
-                                                        class="accounting-input accounting-input-amount accounting-input-installment-total"
-                                                        placeholder="Valor total"
-                                                        aria-label="Valor total"
-                                                        data-accounting-installment-total
-                                                        <?= $accountingEntryIsInstallment ? '' : 'disabled' ?>
-                                                    >
-                                                </div>
-                                            </div>
+                                            <input
+                                                type="hidden"
+                                                name="is_installment"
+                                                value="<?= $accountingEntryIsInstallment ? '1' : '0' ?>"
+                                            >
+                                            <input
+                                                type="hidden"
+                                                name="installment_progress"
+                                                value="<?= e($accountingEntryInstallmentProgress) ?>"
+                                            >
+                                            <input
+                                                type="hidden"
+                                                name="total_amount_value"
+                                                value="<?= e($accountingEntryTotalAmountInput) ?>"
+                                            >
                                         </form>
                                         <form method="post" class="accounting-entry-delete-form">
                                             <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
@@ -1928,37 +1882,9 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                     <input type="checkbox" name="is_settled" value="1">
                                     <span>Recebido</span>
                                 </label>
-                                <div class="accounting-entry-options">
-                                    <label class="accounting-check accounting-check-installment">
-                                        <input
-                                            type="checkbox"
-                                            name="is_installment"
-                                            value="1"
-                                            data-accounting-installment-toggle
-                                        >
-                                        <span>Parcelado</span>
-                                    </label>
-                                    <div class="accounting-installment-fields" data-accounting-installment-fields hidden>
-                                        <input
-                                            type="text"
-                                            name="installment_progress"
-                                            class="accounting-input accounting-input-installment-progress"
-                                            placeholder="4/12"
-                                            aria-label="Parcela atual"
-                                            data-accounting-installment-progress
-                                            disabled
-                                        >
-                                        <input
-                                            type="text"
-                                            name="total_amount_value"
-                                            class="accounting-input accounting-input-amount accounting-input-installment-total"
-                                            placeholder="Valor total"
-                                            aria-label="Valor total"
-                                            data-accounting-installment-total
-                                            disabled
-                                        >
-                                    </div>
-                                </div>
+                                <input type="hidden" name="is_installment" value="0">
+                                <input type="hidden" name="installment_progress" value="">
+                                <input type="hidden" name="total_amount_value" value="">
                                 <button type="submit" class="btn btn-mini">Adicionar</button>
                             </form>
                         </details>

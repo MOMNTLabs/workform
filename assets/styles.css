@@ -8794,10 +8794,11 @@ select option:checked,
 }
 
 .accounting-period-form {
-    display: inline-flex;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
     align-items: center;
     gap: 8px;
-    flex-wrap: wrap;
+    width: min(100%, 322px);
 }
 
 .accounting-period-nav {
@@ -8833,6 +8834,8 @@ select option:checked,
 }
 
 .accounting-period-input {
+    width: 100%;
+    min-width: 0;
     min-height: 34px;
     border-radius: 999px;
     border: 1px solid rgba(120, 171, 225, 0.82);

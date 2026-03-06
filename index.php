@@ -1415,7 +1415,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_POST['amount_value'] ?? null,
                     $isSettled,
                     (int) ($authUser['id'] ?? 0),
-                    array_key_exists('is_installment', $_POST) ? 1 : 0,
+                    ((string) ($_POST['is_installment'] ?? '0')) === '1' ? 1 : 0,
                     (string) ($_POST['installment_progress'] ?? ''),
                     $_POST['total_amount_value'] ?? null
                 );
@@ -1462,7 +1462,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     (string) ($_POST['label'] ?? ''),
                     $_POST['amount_value'] ?? null,
                     $isSettled,
-                    array_key_exists('is_installment', $_POST) ? 1 : 0,
+                    ((string) ($_POST['is_installment'] ?? '0')) === '1' ? 1 : 0,
                     (string) ($_POST['installment_progress'] ?? ''),
                     $_POST['total_amount_value'] ?? null
                 );
