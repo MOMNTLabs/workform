@@ -1609,11 +1609,33 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
             </div>
 
             <div class="accounting-sheet">
+                <section class="accounting-overview" aria-label="Resumo do mes">
+                    <article class="accounting-overview-card is-outgoing">
+                        <span>Contas pendentes</span>
+                        <strong><?= e((string) ($accountingSummary['expense_remaining_display'] ?? 'R$ 0,00')) ?></strong>
+                    </article>
+                    <article class="accounting-overview-card is-incoming">
+                        <span>Entradas a receber</span>
+                        <strong><?= e((string) ($accountingSummary['income_remaining_display'] ?? 'R$ 0,00')) ?></strong>
+                    </article>
+                    <article class="accounting-overview-card">
+                        <span>Saldo atual</span>
+                        <strong><?= e((string) ($accountingSummary['opening_balance_display'] ?? 'R$ 0,00')) ?></strong>
+                    </article>
+                    <article class="accounting-overview-card is-final">
+                        <span>Saldo final</span>
+                        <strong><?= e((string) ($accountingSummary['final_balance_display'] ?? 'R$ 0,00')) ?></strong>
+                    </article>
+                </section>
+
                 <div class="accounting-columns">
                     <section class="accounting-card">
                         <header class="accounting-card-head">
-                            <h3>Contas</h3>
-                            <span>Pago</span>
+                            <div class="accounting-card-head-text">
+                                <h3>Contas</h3>
+                                <p>Despesas do mes</p>
+                            </div>
+                            <span><?= e((string) count($accountingExpenseEntries)) ?> item(ns)</span>
                         </header>
                         <div class="accounting-grid-head" aria-hidden="true">
                             <span class="accounting-grid-col accounting-grid-col-label">Conta</span>
@@ -1717,8 +1739,11 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
 
                     <section class="accounting-card">
                         <header class="accounting-card-head">
-                            <h3>Entradas</h3>
-                            <span>Recebido</span>
+                            <div class="accounting-card-head-text">
+                                <h3>Entradas</h3>
+                                <p>Receitas do mes</p>
+                            </div>
+                            <span><?= e((string) count($accountingIncomeEntries)) ?> item(ns)</span>
                         </header>
                         <div class="accounting-grid-head" aria-hidden="true">
                             <span class="accounting-grid-col accounting-grid-col-label">Entrada</span>

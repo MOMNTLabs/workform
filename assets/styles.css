@@ -8758,8 +8758,20 @@ select option:checked,
 }
 
 .accounting-wrap {
+    min-height: 720px;
+    position: relative;
+    padding-bottom: 16px;
     display: grid;
     gap: 10px;
+}
+
+.is-dashboard .accounting-wrap {
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: 6px;
 }
 
 .accounting-header p {
@@ -8794,6 +8806,54 @@ select option:checked,
 .accounting-sheet {
     display: grid;
     gap: 10px;
+    align-content: start;
+}
+
+.is-dashboard .accounting-sheet {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding-right: 2px;
+}
+
+.accounting-overview {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.accounting-overview-card {
+    border-radius: 10px;
+    border: 1px solid rgba(133, 178, 225, 0.62);
+    background: #f7faff;
+    padding: 10px 12px;
+    display: grid;
+    gap: 4px;
+}
+
+.accounting-overview-card.is-outgoing,
+.accounting-overview-card.is-final {
+    border-color: rgba(105, 103, 174, 0.42);
+    background: rgba(105, 103, 174, 0.1);
+}
+
+.accounting-overview-card.is-incoming {
+    border-color: rgba(80, 166, 133, 0.44);
+    background: rgba(120, 208, 175, 0.12);
+}
+
+.accounting-overview-card span {
+    color: #5f7692;
+    font-size: 0.76rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.accounting-overview-card strong {
+    color: #28486a;
+    font-size: 1.05rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
 }
 
 .accounting-columns {
@@ -8820,13 +8880,31 @@ select option:checked,
     border-bottom: 1px solid rgba(142, 183, 224, 0.45);
 }
 
+.accounting-card-head-text {
+    display: grid;
+    gap: 3px;
+}
+
 .accounting-card-head h3 {
     margin: 0;
     font-size: 1rem;
     color: #2f4562;
 }
 
+.accounting-card-head p {
+    margin: 0;
+    color: #627996;
+    font-size: 0.81rem;
+}
+
 .accounting-card-head span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(136, 179, 223, 0.46);
+    background: rgba(237, 244, 255, 0.95);
     font-size: 0.76rem;
     color: #5f7591;
     letter-spacing: 0.05em;
@@ -9013,7 +9091,7 @@ select option:checked,
     display: grid;
     grid-template-columns: minmax(220px, 290px) minmax(0, 1fr);
     gap: 10px;
-    align-items: center;
+    align-items: start;
 }
 
 .accounting-balance-form {
@@ -9092,6 +9170,10 @@ select option:checked,
 }
 
 @media (max-width: 1024px) {
+    .accounting-overview {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .accounting-columns {
         grid-template-columns: 1fr;
     }
@@ -9115,6 +9197,12 @@ select option:checked,
     }
 
     .accounting-balance-values {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .accounting-overview {
         grid-template-columns: 1fr;
     }
 }
