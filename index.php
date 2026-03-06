@@ -1414,7 +1414,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     (string) ($_POST['label'] ?? ''),
                     $_POST['amount_value'] ?? null,
                     $isSettled,
-                    (int) ($authUser['id'] ?? 0)
+                    (int) ($authUser['id'] ?? 0),
+                    array_key_exists('is_installment', $_POST) ? 1 : 0,
+                    (string) ($_POST['installment_progress'] ?? ''),
+                    $_POST['total_amount_value'] ?? null
                 );
 
                 if (requestExpectsJson()) {
@@ -1458,7 +1461,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $entryId,
                     (string) ($_POST['label'] ?? ''),
                     $_POST['amount_value'] ?? null,
-                    $isSettled
+                    $isSettled,
+                    array_key_exists('is_installment', $_POST) ? 1 : 0,
+                    (string) ($_POST['installment_progress'] ?? ''),
+                    $_POST['total_amount_value'] ?? null
                 );
 
                 if (requestExpectsJson()) {
@@ -2911,6 +2917,11 @@ $inventoryEntries = ($currentUser && $currentWorkspaceId !== null) ? workspaceIn
 $inventoryEntriesByGroup = $currentUser ? inventoryEntriesByGroup($inventoryEntries, $inventoryGroups) : [];
 $accountingPeriod = normalizeAccountingPeriodKey((string) ($_GET['accounting_period'] ?? ''));
 $accountingPeriodLabel = accountingMonthLabel($accountingPeriod);
+$accountingPeriodDate = DateTimeImmutable::createFromFormat('!Y-m', $accountingPeriod) ?: new DateTimeImmutable('first day of this month');
+$accountingPreviousPeriod = $accountingPeriodDate->modify('-1 month')->format('Y-m');
+$accountingNextPeriod = $accountingPeriodDate->modify('+1 month')->format('Y-m');
+$accountingPreviousPeriodPath = accountingRedirectPathFromRequest(['accounting_period' => $accountingPreviousPeriod], []);
+$accountingNextPeriodPath = accountingRedirectPathFromRequest(['accounting_period' => $accountingNextPeriod], []);
 $accountingEntries = ($currentUser && $currentWorkspaceId !== null)
     ? workspaceAccountingEntriesList($currentWorkspaceId, $accountingPeriod)
     : [];

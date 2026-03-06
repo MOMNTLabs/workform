@@ -1388,6 +1388,10 @@ function ensureWorkspaceAccountingSchema(PDO $pdo): void
                 entry_type VARCHAR(16) NOT NULL DEFAULT \'expense\',
                 label TEXT NOT NULL,
                 amount_cents BIGINT NOT NULL DEFAULT 0,
+                total_amount_cents BIGINT NOT NULL DEFAULT 0,
+                is_installment SMALLINT NOT NULL DEFAULT 0,
+                installment_number INTEGER NOT NULL DEFAULT 0,
+                installment_total INTEGER NOT NULL DEFAULT 0,
                 is_settled SMALLINT NOT NULL DEFAULT 0,
                 sort_order INTEGER NOT NULL DEFAULT 0,
                 created_by BIGINT DEFAULT NULL REFERENCES users(id) ON DELETE SET NULL,
@@ -1414,6 +1418,10 @@ function ensureWorkspaceAccountingSchema(PDO $pdo): void
                 entry_type TEXT NOT NULL DEFAULT \'expense\',
                 label TEXT NOT NULL,
                 amount_cents INTEGER NOT NULL DEFAULT 0,
+                total_amount_cents INTEGER NOT NULL DEFAULT 0,
+                is_installment INTEGER NOT NULL DEFAULT 0,
+                installment_number INTEGER NOT NULL DEFAULT 0,
+                installment_total INTEGER NOT NULL DEFAULT 0,
                 is_settled INTEGER NOT NULL DEFAULT 0,
                 sort_order INTEGER NOT NULL DEFAULT 0,
                 created_by INTEGER DEFAULT NULL,
@@ -1452,6 +1460,22 @@ function ensureWorkspaceAccountingSchema(PDO $pdo): void
         } else {
             $pdo->exec("ALTER TABLE workspace_accounting_entries ADD COLUMN amount_cents INTEGER NOT NULL DEFAULT 0");
         }
+    }
+    if (!tableHasColumn($pdo, 'workspace_accounting_entries', 'total_amount_cents')) {
+        if (dbDriverName($pdo) === 'pgsql') {
+            $pdo->exec("ALTER TABLE workspace_accounting_entries ADD COLUMN total_amount_cents BIGINT NOT NULL DEFAULT 0");
+        } else {
+            $pdo->exec("ALTER TABLE workspace_accounting_entries ADD COLUMN total_amount_cents INTEGER NOT NULL DEFAULT 0");
+        }
+    }
+    if (!tableHasColumn($pdo, 'workspace_accounting_entries', 'is_installment')) {
+        $pdo->exec("ALTER TABLE workspace_accounting_entries ADD COLUMN is_installment INTEGER NOT NULL DEFAULT 0");
+    }
+    if (!tableHasColumn($pdo, 'workspace_accounting_entries', 'installment_number')) {
+        $pdo->exec("ALTER TABLE workspace_accounting_entries ADD COLUMN installment_number INTEGER NOT NULL DEFAULT 0");
+    }
+    if (!tableHasColumn($pdo, 'workspace_accounting_entries', 'installment_total')) {
+        $pdo->exec("ALTER TABLE workspace_accounting_entries ADD COLUMN installment_total INTEGER NOT NULL DEFAULT 0");
     }
     if (!tableHasColumn($pdo, 'workspace_accounting_entries', 'is_settled')) {
         $pdo->exec("ALTER TABLE workspace_accounting_entries ADD COLUMN is_settled INTEGER NOT NULL DEFAULT 0");
@@ -1504,7 +1528,8 @@ function ensureWorkspaceAccountingSchema(PDO $pdo): void
     );
 
     $rows = $pdo->query(
-        'SELECT id, period_key, entry_type, label, amount_cents, is_settled, sort_order, created_at, updated_at
+        'SELECT id, period_key, entry_type, label, amount_cents, total_amount_cents, is_installment,
+                installment_number, installment_total, is_settled, sort_order, created_at, updated_at
          FROM workspace_accounting_entries'
     )->fetchAll();
     if ($rows) {
@@ -1514,6 +1539,10 @@ function ensureWorkspaceAccountingSchema(PDO $pdo): void
                  entry_type = :entry_type,
                  label = :label,
                  amount_cents = :amount_cents,
+                 total_amount_cents = :total_amount_cents,
+                 is_installment = :is_installment,
+                 installment_number = :installment_number,
+                 installment_total = :installment_total,
                  is_settled = :is_settled,
                  sort_order = :sort_order,
                  created_at = :created_at,
@@ -1525,6 +1554,25 @@ function ensureWorkspaceAccountingSchema(PDO $pdo): void
             $normalizedType = normalizeAccountingEntryType((string) ($row['entry_type'] ?? 'expense'));
             $normalizedLabel = normalizeAccountingEntryLabel((string) ($row['label'] ?? ''));
             $normalizedAmount = normalizeDueAmountCents($row['amount_cents'] ?? null) ?? 0;
+            $normalizedTotalAmount = normalizeDueAmountCents($row['total_amount_cents'] ?? null);
+            if ($normalizedTotalAmount === null || $normalizedTotalAmount <= 0) {
+                $normalizedTotalAmount = $normalizedAmount;
+            }
+            $installmentMeta = normalizeAccountingInstallmentMeta(
+                $row['is_installment'] ?? 0,
+                $row['installment_number'] ?? 0,
+                $row['installment_total'] ?? 0,
+                $normalizedTotalAmount
+            );
+            if ($installmentMeta['is_installment'] === 1) {
+                $normalizedAmount = accountingInstallmentAmountCents(
+                    $normalizedTotalAmount,
+                    $installmentMeta['installment_number'],
+                    $installmentMeta['installment_total']
+                );
+            } else {
+                $normalizedTotalAmount = $normalizedAmount;
+            }
             $normalizedSettled = ((int) ($row['is_settled'] ?? 0)) === 1 ? 1 : 0;
             $normalizedSortOrder = max(0, (int) ($row['sort_order'] ?? 0));
             $createdAt = trim((string) ($row['created_at'] ?? ''));
@@ -1534,6 +1582,10 @@ function ensureWorkspaceAccountingSchema(PDO $pdo): void
                 ':entry_type' => $normalizedType,
                 ':label' => $normalizedLabel,
                 ':amount_cents' => $normalizedAmount,
+                ':total_amount_cents' => $normalizedTotalAmount,
+                ':is_installment' => $installmentMeta['is_installment'],
+                ':installment_number' => $installmentMeta['installment_number'],
+                ':installment_total' => $installmentMeta['installment_total'],
                 ':is_settled' => $normalizedSettled,
                 ':sort_order' => $normalizedSortOrder,
                 ':created_at' => $createdAt !== '' ? $createdAt : nowIso(),
@@ -4913,6 +4965,126 @@ function accountingMonthLabel(string $periodKey): string
     return $monthLabel . ' de ' . (string) $year;
 }
 
+function parseAccountingInstallmentProgress(?string $value): ?array
+{
+    $raw = trim((string) $value);
+    if ($raw === '') {
+        return null;
+    }
+
+    if (preg_match('/^(\d{1,3})\s*\/\s*(\d{1,3})$/', $raw, $matches) !== 1) {
+        return null;
+    }
+
+    $installmentNumber = (int) ($matches[1] ?? 0);
+    $installmentTotal = (int) ($matches[2] ?? 0);
+    if ($installmentTotal < 2 || $installmentNumber < 1 || $installmentNumber > $installmentTotal) {
+        return null;
+    }
+
+    return [
+        'installment_number' => $installmentNumber,
+        'installment_total' => $installmentTotal,
+    ];
+}
+
+function accountingInstallmentProgressLabel(int $installmentNumber, int $installmentTotal): string
+{
+    if ($installmentTotal < 2 || $installmentNumber < 1 || $installmentNumber > $installmentTotal) {
+        return '';
+    }
+
+    return $installmentNumber . '/' . $installmentTotal;
+}
+
+function accountingInstallmentAmountCents(
+    int $totalAmountCents,
+    int $installmentNumber,
+    int $installmentTotal
+): int {
+    $totalAmountCents = max(0, $totalAmountCents);
+    if ($totalAmountCents <= 0 || $installmentTotal <= 0 || $installmentNumber <= 0) {
+        return 0;
+    }
+
+    $baseAmount = intdiv($totalAmountCents, $installmentTotal);
+    $remainder = $totalAmountCents - ($baseAmount * $installmentTotal);
+
+    return $baseAmount + ($installmentNumber <= $remainder ? 1 : 0);
+}
+
+function normalizeAccountingInstallmentMeta(
+    $isInstallmentValue,
+    $installmentNumberValue,
+    $installmentTotalValue,
+    int $totalAmountCents = 0
+): array {
+    $installmentNumber = max(0, (int) $installmentNumberValue);
+    $installmentTotal = max(0, (int) $installmentTotalValue);
+    $isInstallment = ((int) $isInstallmentValue) === 1 || $installmentTotal > 1;
+
+    if (!$isInstallment || $totalAmountCents <= 0 || $installmentTotal < 2 || $installmentNumber < 1 || $installmentNumber > $installmentTotal) {
+        return [
+            'is_installment' => 0,
+            'installment_number' => 0,
+            'installment_total' => 0,
+        ];
+    }
+
+    return [
+        'is_installment' => 1,
+        'installment_number' => $installmentNumber,
+        'installment_total' => $installmentTotal,
+    ];
+}
+
+function resolveAccountingEntryAmounts(
+    $amountInput,
+    $totalAmountInput,
+    int $isInstallment = 0,
+    ?string $installmentProgress = null
+): array {
+    if ($isInstallment === 1) {
+        $parsedInstallment = parseAccountingInstallmentProgress($installmentProgress);
+        if ($parsedInstallment === null) {
+            throw new RuntimeException('Informe a parcela no formato 4/12.');
+        }
+
+        $totalAmountCents = normalizeDueAmountCents($totalAmountInput);
+        if ($totalAmountCents === null) {
+            $totalAmountCents = normalizeDueAmountCents($amountInput);
+        }
+        if ($totalAmountCents === null) {
+            throw new RuntimeException('Informe o valor total do parcelamento.');
+        }
+
+        return [
+            'amount_cents' => accountingInstallmentAmountCents(
+                $totalAmountCents,
+                (int) $parsedInstallment['installment_number'],
+                (int) $parsedInstallment['installment_total']
+            ),
+            'total_amount_cents' => $totalAmountCents,
+            'is_installment' => 1,
+            'installment_number' => (int) $parsedInstallment['installment_number'],
+            'installment_total' => (int) $parsedInstallment['installment_total'],
+        ];
+    }
+
+    $amountCents = normalizeDueAmountCents($amountInput);
+    if ($amountCents === null) {
+        throw new RuntimeException('Informe um valor valido.');
+    }
+
+    return [
+        'amount_cents' => $amountCents,
+        'total_amount_cents' => $amountCents,
+        'is_installment' => 0,
+        'installment_number' => 0,
+        'installment_total' => 0,
+    ];
+}
+
 function normalizeAccountingEntryType(string $value): string
 {
     $normalized = mb_strtolower(trim($value));
@@ -5062,6 +5234,10 @@ function workspaceAccountingEntriesList(
                 ae.entry_type,
                 ae.label,
                 ae.amount_cents,
+                ae.total_amount_cents,
+                ae.is_installment,
+                ae.installment_number,
+                ae.installment_total,
                 ae.is_settled,
                 ae.sort_order,
                 ae.created_by,
@@ -5095,8 +5271,35 @@ function workspaceAccountingEntriesList(
         $row['entry_type_label'] = accountingEntryTypeLabel((string) $row['entry_type']);
         $row['label'] = normalizeAccountingEntryLabel((string) ($row['label'] ?? ''));
         $row['amount_cents'] = normalizeDueAmountCents($row['amount_cents'] ?? null) ?? 0;
+        $row['total_amount_cents'] = normalizeDueAmountCents($row['total_amount_cents'] ?? null);
+        if ($row['total_amount_cents'] === null || $row['total_amount_cents'] <= 0) {
+            $row['total_amount_cents'] = $row['amount_cents'];
+        }
+        $installmentMeta = normalizeAccountingInstallmentMeta(
+            $row['is_installment'] ?? 0,
+            $row['installment_number'] ?? 0,
+            $row['installment_total'] ?? 0,
+            (int) $row['total_amount_cents']
+        );
+        $row['is_installment'] = $installmentMeta['is_installment'];
+        $row['installment_number'] = $installmentMeta['installment_number'];
+        $row['installment_total'] = $installmentMeta['installment_total'];
+        if ($row['is_installment'] === 1) {
+            $row['amount_cents'] = accountingInstallmentAmountCents(
+                (int) $row['total_amount_cents'],
+                (int) $row['installment_number'],
+                (int) $row['installment_total']
+            );
+        } else {
+            $row['total_amount_cents'] = $row['amount_cents'];
+        }
         $row['amount_display'] = dueAmountLabelFromCents($row['amount_cents']);
         $row['amount_input'] = number_format($row['amount_cents'] / 100, 2, ',', '.');
+        $row['total_amount_display'] = dueAmountLabelFromCents($row['total_amount_cents']);
+        $row['total_amount_input'] = number_format($row['total_amount_cents'] / 100, 2, ',', '.');
+        $row['installment_progress'] = $row['is_installment'] === 1
+            ? accountingInstallmentProgressLabel((int) $row['installment_number'], (int) $row['installment_total'])
+            : '';
         $row['is_settled'] = ((int) ($row['is_settled'] ?? 0)) === 1 ? 1 : 0;
         $row['sort_order'] = max(0, (int) ($row['sort_order'] ?? 0));
         $row['created_by'] = isset($row['created_by']) ? (int) $row['created_by'] : null;
@@ -5132,7 +5335,10 @@ function createWorkspaceAccountingEntry(
     string $label,
     $amountInput,
     int $isSettled = 0,
-    ?int $createdBy = null
+    ?int $createdBy = null,
+    int $isInstallment = 0,
+    ?string $installmentProgress = null,
+    $totalAmountInput = null
 ): int {
     if ($workspaceId <= 0) {
         throw new RuntimeException('Workspace invalido.');
@@ -5144,10 +5350,12 @@ function createWorkspaceAccountingEntry(
     if ($label === '') {
         throw new RuntimeException('Informe um nome para o registro.');
     }
-    $amountCents = normalizeDueAmountCents($amountInput);
-    if ($amountCents === null) {
-        throw new RuntimeException('Informe um valor valido.');
-    }
+    $amountPayload = resolveAccountingEntryAmounts(
+        $amountInput,
+        $totalAmountInput,
+        $isInstallment === 1 ? 1 : 0,
+        $installmentProgress
+    );
     $settledFlag = $isSettled === 1 ? 1 : 0;
 
     $sortOrderStmt = $pdo->prepare(
@@ -5173,6 +5381,10 @@ function createWorkspaceAccountingEntry(
                 entry_type,
                 label,
                 amount_cents,
+                total_amount_cents,
+                is_installment,
+                installment_number,
+                installment_total,
                 is_settled,
                 sort_order,
                 created_by,
@@ -5184,6 +5396,10 @@ function createWorkspaceAccountingEntry(
                 :entry_type,
                 :label,
                 :amount_cents,
+                :total_amount_cents,
+                :is_installment,
+                :installment_number,
+                :installment_total,
                 :is_settled,
                 :sort_order,
                 :created_by,
@@ -5200,6 +5416,10 @@ function createWorkspaceAccountingEntry(
                 entry_type,
                 label,
                 amount_cents,
+                total_amount_cents,
+                is_installment,
+                installment_number,
+                installment_total,
                 is_settled,
                 sort_order,
                 created_by,
@@ -5211,6 +5431,10 @@ function createWorkspaceAccountingEntry(
                 :entry_type,
                 :label,
                 :amount_cents,
+                :total_amount_cents,
+                :is_installment,
+                :installment_number,
+                :installment_total,
                 :is_settled,
                 :sort_order,
                 :created_by,
@@ -5224,7 +5448,11 @@ function createWorkspaceAccountingEntry(
     $stmt->bindValue(':period_key', $periodKey, PDO::PARAM_STR);
     $stmt->bindValue(':entry_type', $entryType, PDO::PARAM_STR);
     $stmt->bindValue(':label', $label, PDO::PARAM_STR);
-    $stmt->bindValue(':amount_cents', $amountCents, PDO::PARAM_INT);
+    $stmt->bindValue(':amount_cents', (int) $amountPayload['amount_cents'], PDO::PARAM_INT);
+    $stmt->bindValue(':total_amount_cents', (int) $amountPayload['total_amount_cents'], PDO::PARAM_INT);
+    $stmt->bindValue(':is_installment', (int) $amountPayload['is_installment'], PDO::PARAM_INT);
+    $stmt->bindValue(':installment_number', (int) $amountPayload['installment_number'], PDO::PARAM_INT);
+    $stmt->bindValue(':installment_total', (int) $amountPayload['installment_total'], PDO::PARAM_INT);
     $stmt->bindValue(':is_settled', $settledFlag, PDO::PARAM_INT);
     $stmt->bindValue(':sort_order', $nextSortOrder, PDO::PARAM_INT);
     if ($createdBy !== null && $createdBy > 0) {
@@ -5249,7 +5477,10 @@ function updateWorkspaceAccountingEntry(
     int $entryId,
     string $label,
     $amountInput,
-    int $isSettled = 0
+    int $isSettled = 0,
+    int $isInstallment = 0,
+    ?string $installmentProgress = null,
+    $totalAmountInput = null
 ): void {
     if ($workspaceId <= 0 || $entryId <= 0) {
         throw new RuntimeException('Registro invalido.');
@@ -5259,16 +5490,22 @@ function updateWorkspaceAccountingEntry(
     if ($label === '') {
         throw new RuntimeException('Informe um nome para o registro.');
     }
-    $amountCents = normalizeDueAmountCents($amountInput);
-    if ($amountCents === null) {
-        throw new RuntimeException('Informe um valor valido.');
-    }
+    $amountPayload = resolveAccountingEntryAmounts(
+        $amountInput,
+        $totalAmountInput,
+        $isInstallment === 1 ? 1 : 0,
+        $installmentProgress
+    );
     $settledFlag = $isSettled === 1 ? 1 : 0;
 
     $stmt = $pdo->prepare(
         'UPDATE workspace_accounting_entries
          SET label = :label,
              amount_cents = :amount_cents,
+             total_amount_cents = :total_amount_cents,
+             is_installment = :is_installment,
+             installment_number = :installment_number,
+             installment_total = :installment_total,
              is_settled = :is_settled,
              updated_at = :updated_at
          WHERE id = :id
@@ -5276,7 +5513,11 @@ function updateWorkspaceAccountingEntry(
     );
     $stmt->execute([
         ':label' => $label,
-        ':amount_cents' => $amountCents,
+        ':amount_cents' => (int) $amountPayload['amount_cents'],
+        ':total_amount_cents' => (int) $amountPayload['total_amount_cents'],
+        ':is_installment' => (int) $amountPayload['is_installment'],
+        ':installment_number' => (int) $amountPayload['installment_number'],
+        ':installment_total' => (int) $amountPayload['installment_total'],
         ':is_settled' => $settledFlag,
         ':updated_at' => nowIso(),
         ':id' => $entryId,

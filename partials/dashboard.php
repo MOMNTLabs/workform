@@ -1581,10 +1581,19 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
             <div class="panel-header board-header accounting-header">
                 <div>
                     <h2>Contabilidade</h2>
-                    <p><?= e($accountingPeriodLabel) ?></p>
+                    <p class="accounting-period-label"><?= e($accountingPeriodLabel) ?></p>
                 </div>
                 <div class="board-summary accounting-board-summary">
-                    <form method="get" class="accounting-period-form">
+                    <form method="get" action="index.php#accounting" class="accounting-period-form">
+                        <a
+                            href="<?= e($accountingPreviousPeriodPath) ?>"
+                            class="accounting-period-nav"
+                            aria-label="Ir para o mes anterior"
+                        >
+                            <svg viewBox="0 0 16 16" focusable="false" aria-hidden="true">
+                                <path d="M9.5 3.5 5 8l4.5 4.5"></path>
+                            </svg>
+                        </a>
                         <label for="accounting-period-input" class="sr-only">Periodo de referencia</label>
                         <input
                             type="month"
@@ -1593,17 +1602,15 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                             value="<?= e($accountingPeriod) ?>"
                             class="accounting-period-input"
                         >
-                        <button type="submit" class="icon-gear-button vault-summary-button">
-                            <span class="vault-summary-button-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" focusable="false">
-                                    <path d="M8 6v4"></path>
-                                    <path d="M16 6v4"></path>
-                                    <rect x="4" y="8" width="16" height="12" rx="2"></rect>
-                                    <path d="M4 12h16"></path>
-                                </svg>
-                            </span>
-                            <span class="vault-summary-button-label">Aplicar</span>
-                        </button>
+                        <a
+                            href="<?= e($accountingNextPeriodPath) ?>"
+                            class="accounting-period-nav"
+                            aria-label="Ir para o proximo mes"
+                        >
+                            <svg viewBox="0 0 16 16" focusable="false" aria-hidden="true">
+                                <path d="M6.5 3.5 11 8l-4.5 4.5"></path>
+                            </svg>
+                        </a>
                     </form>
                 </div>
             </div>
@@ -1628,10 +1635,13 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                     $accountingEntryId = (int) ($accountingEntry['id'] ?? 0);
                                     $accountingEntryLabel = (string) ($accountingEntry['label'] ?? '');
                                     $accountingEntryAmountInput = (string) ($accountingEntry['amount_input'] ?? '0,00');
+                                    $accountingEntryTotalAmountInput = (string) ($accountingEntry['total_amount_input'] ?? $accountingEntryAmountInput);
                                     $accountingEntryIsSettled = ((int) ($accountingEntry['is_settled'] ?? 0)) === 1;
+                                    $accountingEntryIsInstallment = ((int) ($accountingEntry['is_installment'] ?? 0)) === 1;
+                                    $accountingEntryInstallmentProgress = (string) ($accountingEntry['installment_progress'] ?? '');
                                     ?>
                                     <div class="accounting-entry-row">
-                                        <form method="post" class="accounting-entry-form">
+                                        <form method="post" class="accounting-entry-form" data-accounting-form>
                                             <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
                                             <input type="hidden" name="action" value="update_accounting_entry">
                                             <input type="hidden" name="entry_id" value="<?= e((string) $accountingEntryId) ?>">
@@ -1652,11 +1662,51 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                                 class="accounting-input accounting-input-amount"
                                                 placeholder="0,00"
                                                 required
+                                                data-accounting-primary-amount
+                                                <?= $accountingEntryIsInstallment ? 'readonly' : '' ?>
                                             >
                                             <label class="accounting-check">
                                                 <input type="checkbox" name="is_settled" value="1" <?= $accountingEntryIsSettled ? 'checked' : '' ?>>
                                                 <span>Pago</span>
                                             </label>
+                                            <div class="accounting-entry-options">
+                                                <label class="accounting-check accounting-check-installment">
+                                                    <input
+                                                        type="checkbox"
+                                                        name="is_installment"
+                                                        value="1"
+                                                        <?= $accountingEntryIsInstallment ? 'checked' : '' ?>
+                                                        data-accounting-installment-toggle
+                                                    >
+                                                    <span>Parcelado</span>
+                                                </label>
+                                                <div
+                                                    class="accounting-installment-fields"
+                                                    data-accounting-installment-fields
+                                                    <?= $accountingEntryIsInstallment ? '' : 'hidden' ?>
+                                                >
+                                                    <input
+                                                        type="text"
+                                                        name="installment_progress"
+                                                        value="<?= e($accountingEntryInstallmentProgress) ?>"
+                                                        class="accounting-input accounting-input-installment-progress"
+                                                        placeholder="4/12"
+                                                        aria-label="Parcela atual"
+                                                        data-accounting-installment-progress
+                                                        <?= $accountingEntryIsInstallment ? '' : 'disabled' ?>
+                                                    >
+                                                    <input
+                                                        type="text"
+                                                        name="total_amount_value"
+                                                        value="<?= e($accountingEntryTotalAmountInput) ?>"
+                                                        class="accounting-input accounting-input-amount accounting-input-installment-total"
+                                                        placeholder="Valor total"
+                                                        aria-label="Valor total"
+                                                        data-accounting-installment-total
+                                                        <?= $accountingEntryIsInstallment ? '' : 'disabled' ?>
+                                                    >
+                                                </div>
+                                            </div>
                                         </form>
                                         <form method="post" class="accounting-entry-delete-form">
                                             <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
@@ -1674,7 +1724,7 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
 
                         <details class="accounting-create-toggle">
                             <summary class="accounting-create-trigger">+ Adicionar</summary>
-                            <form method="post" class="accounting-create-form">
+                            <form method="post" class="accounting-create-form" data-accounting-form>
                                 <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
                                 <input type="hidden" name="action" value="create_accounting_entry">
                                 <input type="hidden" name="period_key" value="<?= e($accountingPeriod) ?>">
@@ -1693,11 +1743,43 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                     class="accounting-input accounting-input-amount"
                                     placeholder="0,00"
                                     required
+                                    data-accounting-primary-amount
                                 >
                                 <label class="accounting-check">
                                     <input type="checkbox" name="is_settled" value="1">
                                     <span>Pago</span>
                                 </label>
+                                <div class="accounting-entry-options">
+                                    <label class="accounting-check accounting-check-installment">
+                                        <input
+                                            type="checkbox"
+                                            name="is_installment"
+                                            value="1"
+                                            data-accounting-installment-toggle
+                                        >
+                                        <span>Parcelado</span>
+                                    </label>
+                                    <div class="accounting-installment-fields" data-accounting-installment-fields hidden>
+                                        <input
+                                            type="text"
+                                            name="installment_progress"
+                                            class="accounting-input accounting-input-installment-progress"
+                                            placeholder="4/12"
+                                            aria-label="Parcela atual"
+                                            data-accounting-installment-progress
+                                            disabled
+                                        >
+                                        <input
+                                            type="text"
+                                            name="total_amount_value"
+                                            class="accounting-input accounting-input-amount accounting-input-installment-total"
+                                            placeholder="Valor total"
+                                            aria-label="Valor total"
+                                            data-accounting-installment-total
+                                            disabled
+                                        >
+                                    </div>
+                                </div>
                                 <button type="submit" class="btn btn-mini">Adicionar</button>
                             </form>
                         </details>
@@ -1732,10 +1814,13 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                     $accountingEntryId = (int) ($accountingEntry['id'] ?? 0);
                                     $accountingEntryLabel = (string) ($accountingEntry['label'] ?? '');
                                     $accountingEntryAmountInput = (string) ($accountingEntry['amount_input'] ?? '0,00');
+                                    $accountingEntryTotalAmountInput = (string) ($accountingEntry['total_amount_input'] ?? $accountingEntryAmountInput);
                                     $accountingEntryIsSettled = ((int) ($accountingEntry['is_settled'] ?? 0)) === 1;
+                                    $accountingEntryIsInstallment = ((int) ($accountingEntry['is_installment'] ?? 0)) === 1;
+                                    $accountingEntryInstallmentProgress = (string) ($accountingEntry['installment_progress'] ?? '');
                                     ?>
                                     <div class="accounting-entry-row">
-                                        <form method="post" class="accounting-entry-form">
+                                        <form method="post" class="accounting-entry-form" data-accounting-form>
                                             <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
                                             <input type="hidden" name="action" value="update_accounting_entry">
                                             <input type="hidden" name="entry_id" value="<?= e((string) $accountingEntryId) ?>">
@@ -1756,11 +1841,51 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                                 class="accounting-input accounting-input-amount"
                                                 placeholder="0,00"
                                                 required
+                                                data-accounting-primary-amount
+                                                <?= $accountingEntryIsInstallment ? 'readonly' : '' ?>
                                             >
                                             <label class="accounting-check">
                                                 <input type="checkbox" name="is_settled" value="1" <?= $accountingEntryIsSettled ? 'checked' : '' ?>>
                                                 <span>Recebido</span>
                                             </label>
+                                            <div class="accounting-entry-options">
+                                                <label class="accounting-check accounting-check-installment">
+                                                    <input
+                                                        type="checkbox"
+                                                        name="is_installment"
+                                                        value="1"
+                                                        <?= $accountingEntryIsInstallment ? 'checked' : '' ?>
+                                                        data-accounting-installment-toggle
+                                                    >
+                                                    <span>Parcelado</span>
+                                                </label>
+                                                <div
+                                                    class="accounting-installment-fields"
+                                                    data-accounting-installment-fields
+                                                    <?= $accountingEntryIsInstallment ? '' : 'hidden' ?>
+                                                >
+                                                    <input
+                                                        type="text"
+                                                        name="installment_progress"
+                                                        value="<?= e($accountingEntryInstallmentProgress) ?>"
+                                                        class="accounting-input accounting-input-installment-progress"
+                                                        placeholder="4/12"
+                                                        aria-label="Parcela atual"
+                                                        data-accounting-installment-progress
+                                                        <?= $accountingEntryIsInstallment ? '' : 'disabled' ?>
+                                                    >
+                                                    <input
+                                                        type="text"
+                                                        name="total_amount_value"
+                                                        value="<?= e($accountingEntryTotalAmountInput) ?>"
+                                                        class="accounting-input accounting-input-amount accounting-input-installment-total"
+                                                        placeholder="Valor total"
+                                                        aria-label="Valor total"
+                                                        data-accounting-installment-total
+                                                        <?= $accountingEntryIsInstallment ? '' : 'disabled' ?>
+                                                    >
+                                                </div>
+                                            </div>
                                         </form>
                                         <form method="post" class="accounting-entry-delete-form">
                                             <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
@@ -1778,7 +1903,7 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
 
                         <details class="accounting-create-toggle">
                             <summary class="accounting-create-trigger">+ Adicionar</summary>
-                            <form method="post" class="accounting-create-form">
+                            <form method="post" class="accounting-create-form" data-accounting-form>
                                 <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
                                 <input type="hidden" name="action" value="create_accounting_entry">
                                 <input type="hidden" name="period_key" value="<?= e($accountingPeriod) ?>">
@@ -1797,11 +1922,43 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                     class="accounting-input accounting-input-amount"
                                     placeholder="0,00"
                                     required
+                                    data-accounting-primary-amount
                                 >
                                 <label class="accounting-check">
                                     <input type="checkbox" name="is_settled" value="1">
                                     <span>Recebido</span>
                                 </label>
+                                <div class="accounting-entry-options">
+                                    <label class="accounting-check accounting-check-installment">
+                                        <input
+                                            type="checkbox"
+                                            name="is_installment"
+                                            value="1"
+                                            data-accounting-installment-toggle
+                                        >
+                                        <span>Parcelado</span>
+                                    </label>
+                                    <div class="accounting-installment-fields" data-accounting-installment-fields hidden>
+                                        <input
+                                            type="text"
+                                            name="installment_progress"
+                                            class="accounting-input accounting-input-installment-progress"
+                                            placeholder="4/12"
+                                            aria-label="Parcela atual"
+                                            data-accounting-installment-progress
+                                            disabled
+                                        >
+                                        <input
+                                            type="text"
+                                            name="total_amount_value"
+                                            class="accounting-input accounting-input-amount accounting-input-installment-total"
+                                            placeholder="Valor total"
+                                            aria-label="Valor total"
+                                            data-accounting-installment-total
+                                            disabled
+                                        >
+                                    </div>
+                                </div>
                                 <button type="submit" class="btn btn-mini">Adicionar</button>
                             </form>
                         </details>
