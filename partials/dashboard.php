@@ -1985,17 +1985,15 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                         <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
                         <input type="hidden" name="action" value="set_accounting_opening_balance">
                         <input type="hidden" name="period_key" value="<?= e($accountingPeriod) ?>">
-                        <label>
-                            <span>Saldo atual</span>
-                            <input
-                                type="text"
-                                name="opening_balance_value"
-                                value="<?= e($accountingOpeningBalanceInput) ?>"
-                                class="accounting-input accounting-input-amount"
-                                placeholder="0,00"
-                                required
-                            >
-                        </label>
+                        <span class="accounting-balance-label">Saldo atual</span>
+                        <input
+                            type="text"
+                            name="opening_balance_value"
+                            value="<?= e($accountingOpeningBalanceInput) ?>"
+                            class="accounting-balance-input"
+                            placeholder="R$ 0,00"
+                            required
+                        >
                     </form>
 
                     <dl class="accounting-balance-values">

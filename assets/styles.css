@@ -9136,21 +9136,44 @@ select option:checked,
 }
 
 .accounting-balance-form {
+    margin: 0;
     border-radius: 8px;
     border: 1px solid rgba(135, 177, 221, 0.6);
     background: #fbfdff;
     padding: 8px 10px;
     display: grid;
-    gap: 6px;
+    gap: 4px;
 }
 
-.accounting-balance-form label {
-    display: grid;
-    gap: 4px;
+.accounting-balance-form:focus-within {
+    border-color: rgba(99, 154, 210, 0.98);
+    box-shadow: 0 0 0 1px rgba(93, 146, 201, 0.2);
+}
+
+.accounting-balance-label {
     color: #5c7390;
-    font-size: 0.74rem;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    font-size: 0.8rem;
+}
+
+.accounting-balance-input {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    color: #29486a;
+    font: inherit;
+    font-weight: 700;
+    font-size: 1.04rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.accounting-balance-input::placeholder {
+    color: #6e88a6;
+}
+
+.accounting-balance-input:focus {
+    outline: none;
 }
 
 .accounting-balance-values {
