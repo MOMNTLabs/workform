@@ -1959,12 +1959,12 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
 
                             <dl class="accounting-totals">
                                 <div>
-                                    <dt>Total</dt>
-                                    <dd><?= e((string) ($accountingSummary['income_total_display'] ?? 'R$ 0,00')) ?></dd>
-                                </div>
-                                <div>
-                                    <dt>Recebido</dt>
-                                    <dd><?= e((string) ($accountingSummary['income_received_display'] ?? 'R$ 0,00')) ?></dd>
+                                    <dt>Faturamento</dt>
+                                    <dd>
+                                        <?= e((string) ($accountingSummary['income_received_display'] ?? 'R$ 0,00')) ?>
+                                        /
+                                        <?= e((string) ($accountingSummary['income_total_display'] ?? 'R$ 0,00')) ?>
+                                    </dd>
                                 </div>
                                 <div class="is-strong is-positive">
                                     <dt>A receber</dt>
@@ -1979,7 +1979,7 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                     <dl class="accounting-balance-values">
                         <div>
                             <dt>Saldo atual</dt>
-                            <dd><?= e((string) ($accountingSummary['opening_balance_display'] ?? 'R$ 0,00')) ?></dd>
+                            <dd><?= e((string) ($accountingSummary['current_balance_display'] ?? 'R$ 0,00')) ?></dd>
                         </div>
                         <div class="is-final">
                             <dt>Saldo final</dt>

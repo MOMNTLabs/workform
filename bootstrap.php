@@ -3800,6 +3800,24 @@ function dueAmountLabelFromCents($amountCents): string
     return 'R$ ' . number_format($normalized / 100, 2, ',', '.');
 }
 
+function dueAmountLabelFromSignedCents($amountCents): string
+{
+    $normalized = 0;
+    if (is_int($amountCents)) {
+        $normalized = $amountCents;
+    } elseif (is_float($amountCents)) {
+        $normalized = (int) round($amountCents);
+    } elseif (is_string($amountCents) && is_numeric(trim($amountCents))) {
+        $normalized = (int) round((float) trim($amountCents));
+    } elseif (is_numeric($amountCents)) {
+        $normalized = (int) round((float) $amountCents);
+    }
+
+    $isNegative = $normalized < 0;
+    $absoluteValue = abs($normalized);
+    return ($isNegative ? '-R$ ' : 'R$ ') . number_format($absoluteValue / 100, 2, ',', '.');
+}
+
 function normalizeDueRecurrenceType(string $value): string
 {
     $normalized = mb_strtolower(trim($value));
@@ -5919,7 +5937,8 @@ function accountingSummary(array $entries, int $openingBalanceCents): array
 
     $expenseRemaining = max(0, $expenseTotal - $expensePaid);
     $incomeRemaining = max(0, $incomeTotal - $incomeReceived);
-    $finalBalance = $openingBalanceCents + $incomeReceived - $expensePaid;
+    $currentBalance = $incomeReceived - $expensePaid;
+    $finalBalance = $openingBalanceCents + $currentBalance;
 
     return [
         'expense_total_cents' => $expenseTotal,
@@ -5928,6 +5947,7 @@ function accountingSummary(array $entries, int $openingBalanceCents): array
         'income_total_cents' => $incomeTotal,
         'income_received_cents' => $incomeReceived,
         'income_remaining_cents' => $incomeRemaining,
+        'current_balance_cents' => $currentBalance,
         'opening_balance_cents' => $openingBalanceCents,
         'final_balance_cents' => $finalBalance,
         'expense_total_display' => dueAmountLabelFromCents($expenseTotal),
@@ -5936,6 +5956,7 @@ function accountingSummary(array $entries, int $openingBalanceCents): array
         'income_total_display' => dueAmountLabelFromCents($incomeTotal),
         'income_received_display' => dueAmountLabelFromCents($incomeReceived),
         'income_remaining_display' => dueAmountLabelFromCents($incomeRemaining),
+        'current_balance_display' => dueAmountLabelFromSignedCents($currentBalance),
         'opening_balance_display' => dueAmountLabelFromCents($openingBalanceCents),
         'final_balance_display' => dueAmountLabelFromCents($finalBalance),
     ];
