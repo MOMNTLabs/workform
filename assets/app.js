@@ -3519,28 +3519,6 @@ window.addEventListener("DOMContentLoaded", () => {
     }).format(parsed / 100);
   };
 
-  const parseAccountingInstallmentProgress = (value) => {
-    const raw = String(value || "").trim();
-    if (!raw) return null;
-
-    const match = raw.match(/^(\d{1,3})\s*\/\s*(\d{1,3})$/);
-    if (!match) return null;
-
-    const installmentNumber = Number.parseInt(match[1], 10);
-    const installmentTotal = Number.parseInt(match[2], 10);
-    if (
-      !Number.isFinite(installmentNumber) ||
-      !Number.isFinite(installmentTotal) ||
-      installmentTotal < 2 ||
-      installmentNumber < 1 ||
-      installmentNumber > installmentTotal
-    ) {
-      return null;
-    }
-
-    return { installmentNumber, installmentTotal };
-  };
-
   const calculateAccountingInstallmentAmountCents = (
     totalAmountCents,
     installmentNumber,
@@ -3562,49 +3540,70 @@ window.addEventListener("DOMContentLoaded", () => {
     const installmentToggle = form.querySelector("[data-accounting-installment-toggle]");
     const installmentFields = form.querySelector("[data-accounting-installment-fields]");
     const installmentProgressField = form.querySelector("[data-accounting-installment-progress]");
-    const totalAmountField = form.querySelector("[data-accounting-installment-total]");
+    const installmentNumberField = form.querySelector("[data-accounting-installment-number]");
+    const installmentTotalCountField = form.querySelector("[data-accounting-installment-total-count]");
+    const totalAmountField = form.querySelector("[data-accounting-installment-total-amount]");
     const primaryAmountField = form.querySelector("[data-accounting-primary-amount]");
 
     if (!(installmentToggle instanceof HTMLInputElement)) return;
     if (!(installmentFields instanceof HTMLElement)) return;
     if (!(installmentProgressField instanceof HTMLInputElement)) return;
+    if (!(installmentNumberField instanceof HTMLSelectElement)) return;
+    if (!(installmentTotalCountField instanceof HTMLSelectElement)) return;
     if (!(totalAmountField instanceof HTMLInputElement)) return;
     if (!(primaryAmountField instanceof HTMLInputElement)) return;
 
     const isInstallment = installmentToggle.checked;
     installmentFields.hidden = !isInstallment;
     installmentProgressField.disabled = !isInstallment;
-    installmentProgressField.required = isInstallment;
+    installmentNumberField.disabled = !isInstallment;
+    installmentTotalCountField.disabled = !isInstallment;
     totalAmountField.disabled = !isInstallment;
     totalAmountField.required = isInstallment;
     primaryAmountField.readOnly = isInstallment;
 
+    let installmentTotal = Number.parseInt(installmentTotalCountField.value, 10);
+    if (!Number.isFinite(installmentTotal) || installmentTotal < 2) {
+      installmentTotal = 2;
+    }
+
+    let installmentNumber = Number.parseInt(installmentNumberField.value, 10);
+    if (!Number.isFinite(installmentNumber) || installmentNumber < 1) {
+      installmentNumber = 1;
+    }
+    if (installmentNumber > installmentTotal) {
+      installmentNumber = installmentTotal;
+    }
+
+    const nextNumberOptions = [];
+    for (let value = 1; value <= installmentTotal; value += 1) {
+      nextNumberOptions.push(`<option value="${value}">${value}</option>`);
+    }
+    installmentNumberField.innerHTML = nextNumberOptions.join("");
+    installmentNumberField.value = String(installmentNumber);
+    installmentTotalCountField.value = String(installmentTotal);
+
     if (!isInstallment) {
-      installmentProgressField.setCustomValidity("");
+      installmentProgressField.value = "";
       if (String(totalAmountField.value || "").trim() !== "") {
         primaryAmountField.value = totalAmountField.value;
       }
       return;
     }
 
+    installmentProgressField.value = `${installmentNumber}/${installmentTotal}`;
+
     if (String(totalAmountField.value || "").trim() === "") {
       totalAmountField.value = primaryAmountField.value || "";
     }
 
-    const parsedProgress = parseAccountingInstallmentProgress(installmentProgressField.value);
-    if (String(installmentProgressField.value || "").trim() !== "" && !parsedProgress) {
-      installmentProgressField.setCustomValidity("Use o formato 4/12.");
-    } else {
-      installmentProgressField.setCustomValidity("");
-    }
-
     const totalAmountCents = parseAccountingCurrencyToCents(totalAmountField.value);
-    if (parsedProgress && totalAmountCents !== null) {
+    if (totalAmountCents !== null) {
       primaryAmountField.value = formatAccountingCentsToInputValue(
         calculateAccountingInstallmentAmountCents(
           totalAmountCents,
-          parsedProgress.installmentNumber,
-          parsedProgress.installmentTotal
+          installmentNumber,
+          installmentTotal
         )
       );
       return;
@@ -10046,13 +10045,15 @@ window.addEventListener("DOMContentLoaded", () => {
     if (!(target instanceof HTMLElement)) return;
 
     const accountingEntryForm = target.closest(".accounting-entry-form");
+    const isAccountingEntryField =
+      target instanceof HTMLInputElement || target instanceof HTMLSelectElement;
     if (
       accountingEntryForm instanceof HTMLFormElement &&
-      target instanceof HTMLInputElement &&
-      ["label", "amount_value", "is_settled", "is_installment", "installment_progress", "total_amount_value"].includes(target.name)
+      isAccountingEntryField &&
+      ["label", "amount_value", "is_settled"].includes(target.name)
     ) {
       syncAccountingInstallmentForm(accountingEntryForm);
-      scheduleAccountingAutosave(accountingEntryForm, target.type === "checkbox" ? 60 : 140, {
+      scheduleAccountingAutosave(accountingEntryForm, target instanceof HTMLInputElement && target.type === "checkbox" ? 60 : 140, {
         refresh: true,
         fallbackError: "Falha ao atualizar registro.",
       });
@@ -10060,25 +10061,14 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     const accountingCreateForm = target.closest(".accounting-create-form");
+    const isAccountingCreateField =
+      target instanceof HTMLInputElement || target instanceof HTMLSelectElement;
     if (
       accountingCreateForm instanceof HTMLFormElement &&
-      target instanceof HTMLInputElement &&
-      ["is_installment", "installment_progress", "total_amount_value", "amount_value"].includes(target.name)
+      isAccountingCreateField &&
+      ["is_installment", "installment_number", "installment_total", "total_amount_value", "amount_value"].includes(target.name)
     ) {
       syncAccountingInstallmentForm(accountingCreateForm);
-      return;
-    }
-
-    const accountingBalanceForm = target.closest(".accounting-balance-form");
-    if (
-      accountingBalanceForm instanceof HTMLFormElement &&
-      target instanceof HTMLInputElement &&
-      target.name === "opening_balance_value"
-    ) {
-      scheduleAccountingAutosave(accountingBalanceForm, 140, {
-        refresh: true,
-        fallbackError: "Falha ao atualizar saldo.",
-      });
       return;
     }
 
@@ -10102,7 +10092,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if (!(target instanceof HTMLInputElement)) return;
 
     if (
-      !["installment_progress", "total_amount_value"].includes(target.name)
+      !["amount_value", "total_amount_value"].includes(target.name)
     ) {
       return;
     }
@@ -10119,24 +10109,12 @@ window.addEventListener("DOMContentLoaded", () => {
     const accountingEntryForm = target.closest(".accounting-entry-form");
     if (
       accountingEntryForm instanceof HTMLFormElement &&
-      ["label", "amount_value", "installment_progress", "total_amount_value"].includes(target.name)
+      ["label", "amount_value"].includes(target.name)
     ) {
       syncAccountingInstallmentForm(accountingEntryForm);
       scheduleAccountingAutosave(accountingEntryForm, 80, {
         refresh: true,
         fallbackError: "Falha ao atualizar registro.",
-      });
-      return;
-    }
-
-    const accountingBalanceForm = target.closest(".accounting-balance-form");
-    if (
-      accountingBalanceForm instanceof HTMLFormElement &&
-      target.name === "opening_balance_value"
-    ) {
-      scheduleAccountingAutosave(accountingBalanceForm, 80, {
-        refresh: true,
-        fallbackError: "Falha ao atualizar saldo.",
       });
     }
   });
@@ -10187,16 +10165,6 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    if (form.matches(".accounting-balance-form")) {
-      event.preventDefault();
-      if (typeof form.reportValidity === "function" && !form.reportValidity()) {
-        return;
-      }
-      void submitAccountingAutosaveForm(form, {
-        refresh: true,
-        fallbackError: "Falha ao atualizar saldo.",
-      }).catch(() => {});
-    }
   });
 
   document.querySelectorAll("[data-accounting-form]").forEach((form) => {

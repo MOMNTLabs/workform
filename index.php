@@ -117,6 +117,19 @@ function accountingRedirectPathFromRequest(?array $get = null, ?array $post = nu
     return "index.php?{$query}#accounting";
 }
 
+function accountingInstallmentProgressFromRequest(?array $post = null): string
+{
+    $post ??= $_POST;
+    $progressRaw = trim((string) ($post['installment_progress'] ?? ''));
+    if ($progressRaw !== '') {
+        return $progressRaw;
+    }
+
+    $installmentNumber = (int) ($post['installment_number'] ?? 0);
+    $installmentTotal = (int) ($post['installment_total'] ?? 0);
+    return accountingInstallmentProgressLabel($installmentNumber, $installmentTotal);
+}
+
 function workspaceRolesByUserId(array $workspaceMembers): array
 {
     $rolesByUserId = [];
@@ -1370,30 +1383,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirectTo('index.php#inventory');
 
             case 'set_accounting_opening_balance':
-                $authUser = requireAuth();
-                $workspaceId = activeWorkspaceId($authUser);
-                if ($workspaceId === null) {
-                    throw new RuntimeException('Workspace ativo nao encontrado.');
-                }
-
-                $periodKey = normalizeAccountingPeriodKey((string) ($_POST['period_key'] ?? ''));
-                setWorkspaceAccountingOpeningBalance(
-                    $pdo,
-                    $workspaceId,
-                    $periodKey,
-                    $_POST['opening_balance_value'] ?? null,
-                    (int) ($authUser['id'] ?? 0)
-                );
-
-                if (requestExpectsJson()) {
-                    respondJson([
-                        'ok' => true,
-                        'message' => 'Saldo atual atualizado.',
-                    ]);
-                }
-
-                flash('success', 'Saldo atual atualizado.');
-                redirectTo(accountingRedirectPathFromRequest());
+                throw new RuntimeException('O saldo atual e calculado automaticamente pelo fechamento do mes anterior.');
 
             case 'create_accounting_entry':
                 $authUser = requireAuth();
@@ -1405,6 +1395,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $periodKey = normalizeAccountingPeriodKey((string) ($_POST['period_key'] ?? ''));
                 $entryType = normalizeAccountingEntryType((string) ($_POST['entry_type'] ?? 'expense'));
                 $isSettled = array_key_exists('is_settled', $_POST) ? 1 : 0;
+                $isInstallment = $entryType === 'expense' && ((string) ($_POST['is_installment'] ?? '0')) === '1' ? 1 : 0;
 
                 createWorkspaceAccountingEntry(
                     $pdo,
@@ -1415,9 +1406,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_POST['amount_value'] ?? null,
                     $isSettled,
                     (int) ($authUser['id'] ?? 0),
-                    ((string) ($_POST['is_installment'] ?? '0')) === '1' ? 1 : 0,
-                    (string) ($_POST['installment_progress'] ?? ''),
-                    $_POST['total_amount_value'] ?? null
+                    $isInstallment,
+                    accountingInstallmentProgressFromRequest($_POST),
+                    $_POST['total_amount_value'] ?? null,
+                    $_POST['installment_number'] ?? null,
+                    $_POST['installment_total'] ?? null
                 );
 
                 if (requestExpectsJson()) {
@@ -1443,18 +1436,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 $entryWorkspaceStmt = $pdo->prepare(
-                    'SELECT workspace_id
+                    'SELECT workspace_id, entry_type
                      FROM workspace_accounting_entries
                      WHERE id = :id
                      LIMIT 1'
                 );
                 $entryWorkspaceStmt->execute([':id' => $entryId]);
-                $entryWorkspaceId = (int) $entryWorkspaceStmt->fetchColumn();
+                $entryRow = $entryWorkspaceStmt->fetch(PDO::FETCH_ASSOC);
+                $entryWorkspaceId = (int) ($entryRow['workspace_id'] ?? 0);
                 if ($entryWorkspaceId <= 0 || $entryWorkspaceId !== $workspaceId) {
                     throw new RuntimeException('Registro nao encontrado.');
                 }
 
                 $isSettled = array_key_exists('is_settled', $_POST) ? 1 : 0;
+                $entryType = normalizeAccountingEntryType((string) ($entryRow['entry_type'] ?? 'expense'));
+                $isInstallment = $entryType === 'expense' && ((string) ($_POST['is_installment'] ?? '0')) === '1' ? 1 : 0;
                 updateWorkspaceAccountingEntry(
                     $pdo,
                     $workspaceId,
@@ -1462,9 +1458,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     (string) ($_POST['label'] ?? ''),
                     $_POST['amount_value'] ?? null,
                     $isSettled,
-                    ((string) ($_POST['is_installment'] ?? '0')) === '1' ? 1 : 0,
-                    (string) ($_POST['installment_progress'] ?? ''),
-                    $_POST['total_amount_value'] ?? null
+                    $isInstallment,
+                    accountingInstallmentProgressFromRequest($_POST),
+                    $_POST['total_amount_value'] ?? null,
+                    $_POST['installment_number'] ?? null,
+                    $_POST['installment_total'] ?? null
                 );
 
                 if (requestExpectsJson()) {
@@ -2931,7 +2929,6 @@ $accountingIncomeEntries = $accountingEntriesByType['income'] ?? [];
 $accountingOpeningBalanceCents = ($currentUser && $currentWorkspaceId !== null)
     ? workspaceAccountingOpeningBalanceCents($currentWorkspaceId, $accountingPeriod)
     : 0;
-$accountingOpeningBalanceInput = number_format($accountingOpeningBalanceCents / 100, 2, ',', '.');
 $accountingSummary = accountingSummary($accountingEntries, $accountingOpeningBalanceCents);
 $stylesAssetVersion = is_file(__DIR__ . '/assets/styles.css')
     ? (string) filemtime(__DIR__ . '/assets/styles.css')

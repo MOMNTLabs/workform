@@ -1639,6 +1639,7 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                     $accountingEntryIsSettled = ((int) ($accountingEntry['is_settled'] ?? 0)) === 1;
                                     $accountingEntryIsInstallment = ((int) ($accountingEntry['is_installment'] ?? 0)) === 1;
                                     $accountingEntryInstallmentProgress = (string) ($accountingEntry['installment_progress'] ?? '');
+                                    $accountingEntryIsCarried = ((int) ($accountingEntry['is_carried'] ?? 0)) === 1;
                                     ?>
                                     <div class="accounting-entry-row">
                                         <form method="post" class="accounting-entry-form" data-accounting-form>
@@ -1669,6 +1670,9 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                                 <input type="checkbox" name="is_settled" value="1" <?= $accountingEntryIsSettled ? 'checked' : '' ?>>
                                                 <span>Pago</span>
                                             </label>
+                                            <?php if ($accountingEntryIsCarried && !$accountingEntryIsSettled): ?>
+                                                <span class="accounting-entry-badge is-pending">Pendente</span>
+                                            <?php endif; ?>
                                             <input
                                                 type="hidden"
                                                 name="is_installment"
@@ -1737,22 +1741,41 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                         <span>Parcelado</span>
                                     </label>
                                     <div class="accounting-installment-fields" data-accounting-installment-fields hidden>
-                                        <input
-                                            type="text"
-                                            name="installment_progress"
-                                            class="accounting-input accounting-input-installment-progress"
-                                            placeholder="4/12"
-                                            aria-label="Parcela atual"
-                                            data-accounting-installment-progress
-                                            disabled
-                                        >
+                                        <div class="accounting-installment-progress-picker">
+                                            <select
+                                                name="installment_number"
+                                                class="accounting-installment-select"
+                                                aria-label="Parcela atual"
+                                                data-accounting-installment-number
+                                                disabled
+                                            >
+                                                <?php for ($installmentNumberOption = 1; $installmentNumberOption <= 60; $installmentNumberOption++): ?>
+                                                    <option value="<?= e((string) $installmentNumberOption) ?>"><?= e((string) $installmentNumberOption) ?></option>
+                                                <?php endfor; ?>
+                                            </select>
+                                            <span class="accounting-installment-separator">/</span>
+                                            <select
+                                                name="installment_total"
+                                                class="accounting-installment-select"
+                                                aria-label="Total de parcelas"
+                                                data-accounting-installment-total-count
+                                                disabled
+                                            >
+                                                <?php for ($installmentTotalOption = 2; $installmentTotalOption <= 60; $installmentTotalOption++): ?>
+                                                    <option value="<?= e((string) $installmentTotalOption) ?>" <?= $installmentTotalOption === 2 ? 'selected' : '' ?>>
+                                                        <?= e((string) $installmentTotalOption) ?>
+                                                    </option>
+                                                <?php endfor; ?>
+                                            </select>
+                                        </div>
+                                        <input type="hidden" name="installment_progress" value="" data-accounting-installment-progress>
                                         <input
                                             type="text"
                                             name="total_amount_value"
                                             class="accounting-input accounting-input-amount accounting-input-installment-total"
                                             placeholder="Valor total"
                                             aria-label="Valor total"
-                                            data-accounting-installment-total
+                                            data-accounting-installment-total-amount
                                             disabled
                                         >
                                     </div>
@@ -1907,22 +1930,11 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                 </div>
 
                 <section class="accounting-balance-card">
-                    <form method="post" class="accounting-balance-form">
-                        <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
-                        <input type="hidden" name="action" value="set_accounting_opening_balance">
-                        <input type="hidden" name="period_key" value="<?= e($accountingPeriod) ?>">
-                        <span class="accounting-balance-label">Saldo atual</span>
-                        <input
-                            type="text"
-                            name="opening_balance_value"
-                            value="<?= e($accountingOpeningBalanceInput) ?>"
-                            class="accounting-balance-input"
-                            placeholder="R$ 0,00"
-                            required
-                        >
-                    </form>
-
                     <dl class="accounting-balance-values">
+                        <div>
+                            <dt>Saldo atual</dt>
+                            <dd><?= e((string) ($accountingSummary['opening_balance_display'] ?? 'R$ 0,00')) ?></dd>
+                        </div>
                         <div class="is-final">
                             <dt>Saldo final</dt>
                             <dd><?= e((string) ($accountingSummary['final_balance_display'] ?? 'R$ 0,00')) ?></dd>

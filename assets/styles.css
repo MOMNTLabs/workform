@@ -8885,8 +8885,9 @@ select option:checked,
     justify-content: space-between;
     gap: 8px;
     padding: 2px 2px 8px;
-    min-height: 56px;
+    height: 56px;
     border-bottom: 1px solid rgba(142, 183, 224, 0.45);
+    box-sizing: border-box;
 }
 
 .accounting-card-head-text {
@@ -8905,6 +8906,7 @@ select option:checked,
     margin: 0;
     color: #627996;
     font-size: 0.81rem;
+    line-height: 1.25;
 }
 
 .accounting-card-head span {
@@ -8947,7 +8949,7 @@ select option:checked,
 
 .accounting-entry-form {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 116px auto;
+    grid-template-columns: minmax(0, 1fr) 116px auto auto;
     gap: 8px;
     align-items: center;
 }
@@ -9015,17 +9017,41 @@ select option:checked,
     justify-content: flex-start;
 }
 
-.accounting-input-installment-progress {
-    width: 78px;
-    text-align: center;
+.accounting-installment-progress-picker {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.accounting-installment-separator {
+    color: #5f7591;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.accounting-installment-select {
+    min-height: 32px;
+    border-radius: 7px;
+    border: 1px solid rgba(125, 175, 225, 0.8);
+    background: #edf4ff;
+    color: #2f4c6d;
+    padding: 5px 8px;
+    font: inherit;
+    font-size: 0.82rem;
+    min-width: 62px;
+}
+
+.accounting-installment-select:focus {
+    outline: none;
+    border-color: rgba(99, 154, 210, 0.98);
+    box-shadow: 0 0 0 1px rgba(93, 146, 201, 0.25);
 }
 
 .accounting-input-installment-total {
     width: 132px;
 }
 
-.accounting-entry-form.is-saving,
-.accounting-balance-form.is-saving {
+.accounting-entry-form.is-saving {
     opacity: 0.72;
 }
 
@@ -9083,6 +9109,22 @@ select option:checked,
     align-items: center;
 }
 
+.accounting-entry-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(214, 163, 72, 0.62);
+    background: rgba(255, 236, 194, 0.6);
+    color: #91661f;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
 .accounting-totals {
     margin: 0;
     display: grid;
@@ -9094,11 +9136,12 @@ select option:checked,
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    min-height: 40px;
+    height: 40px;
     border-radius: 8px;
     border: 1px solid rgba(137, 179, 223, 0.5);
     background: #fdfefe;
     padding: 8px 10px;
+    box-sizing: border-box;
 }
 
 .accounting-totals div.is-strong {
@@ -9132,57 +9175,12 @@ select option:checked,
     border: 1px solid rgba(133, 178, 225, 0.72);
     background: #f3f8ff;
     padding: 10px;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-    align-items: start;
-}
-
-.accounting-balance-form {
-    margin: 0;
-    border-radius: 8px;
-    border: 1px solid rgba(135, 177, 221, 0.6);
-    background: #fbfdff;
-    padding: 8px 10px;
-    display: grid;
-    gap: 4px;
-}
-
-.accounting-balance-form:focus-within {
-    border-color: rgba(99, 154, 210, 0.98);
-    box-shadow: 0 0 0 1px rgba(93, 146, 201, 0.2);
-}
-
-.accounting-balance-label {
-    color: #5c7390;
-    font-size: 0.8rem;
-}
-
-.accounting-balance-input {
-    width: 100%;
-    border: 0;
-    background: transparent;
-    padding: 0;
-    margin: 0;
-    color: #29486a;
-    font: inherit;
-    font-weight: 700;
-    font-size: 1.04rem;
-    font-variant-numeric: tabular-nums;
-}
-
-.accounting-balance-input::placeholder {
-    color: #6e88a6;
-}
-
-.accounting-balance-input:focus {
-    outline: none;
 }
 
 .accounting-balance-values {
     margin: 0;
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
 }
 
@@ -9260,13 +9258,14 @@ select option:checked,
         align-items: stretch;
     }
 
-    .accounting-input-installment-progress,
+    .accounting-installment-progress-picker,
     .accounting-input-installment-total {
         width: 100%;
     }
 
-    .accounting-balance-card {
-        grid-template-columns: 1fr;
+    .accounting-installment-select {
+        flex: 1;
+        min-width: 0;
     }
 
     .accounting-balance-values {
