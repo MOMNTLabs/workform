@@ -3513,10 +3513,20 @@ window.addEventListener("DOMContentLoaded", () => {
   const formatAccountingCentsToInputValue = (value) => {
     const parsed = Number.parseInt(String(value || "").trim(), 10);
     if (!Number.isFinite(parsed) || parsed < 0) return "";
-    return new Intl.NumberFormat("pt-BR", {
+    return `R$ ${new Intl.NumberFormat("pt-BR", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(parsed / 100);
+    }).format(parsed / 100)}`;
+  };
+
+  const normalizeAccountingCurrencyInputField = (field) => {
+    if (!(field instanceof HTMLInputElement)) return;
+    const rawValue = String(field.value || "").trim();
+    if (!rawValue) return;
+
+    const cents = parseAccountingCurrencyToCents(rawValue);
+    if (cents === null) return;
+    field.value = formatAccountingCentsToInputValue(cents);
   };
 
   const calculateAccountingInstallmentAmountCents = (
@@ -10250,6 +10260,10 @@ window.addEventListener("DOMContentLoaded", () => {
     const target = getEventTargetElement(event);
     if (!(target instanceof HTMLInputElement)) return;
 
+    if (["amount_value", "total_amount_value"].includes(target.name)) {
+      normalizeAccountingCurrencyInputField(target);
+    }
+
     const accountingEntryForm = target.closest(".accounting-entry-form");
     if (
       accountingEntryForm instanceof HTMLFormElement &&
@@ -10365,6 +10379,13 @@ window.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll("[data-accounting-form]").forEach((form) => {
     if (!(form instanceof HTMLFormElement)) return;
     syncAccountingInstallmentForm(form);
+    form
+      .querySelectorAll('input[name="amount_value"], input[name="total_amount_value"]')
+      .forEach((field) => {
+        if (field instanceof HTMLInputElement) {
+          normalizeAccountingCurrencyInputField(field);
+        }
+      });
   });
 
   startTaskNotificationsPolling();

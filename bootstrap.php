@@ -5207,9 +5207,9 @@ function workspaceAccountingNormalizeEntryRow(array $row, string $defaultPeriodK
     }
 
     $row['amount_display'] = dueAmountLabelFromCents($row['amount_cents']);
-    $row['amount_input'] = number_format($row['amount_cents'] / 100, 2, ',', '.');
+    $row['amount_input'] = dueAmountLabelFromCents($row['amount_cents']);
     $row['total_amount_display'] = dueAmountLabelFromCents($row['total_amount_cents']);
-    $row['total_amount_input'] = number_format($row['total_amount_cents'] / 100, 2, ',', '.');
+    $row['total_amount_input'] = dueAmountLabelFromCents($row['total_amount_cents']);
     $row['installment_progress'] = $row['is_installment'] === 1
         ? accountingInstallmentProgressLabel((int) $row['installment_number'], (int) $row['installment_total'])
         : '';
