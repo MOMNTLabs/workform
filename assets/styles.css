@@ -9559,8 +9559,12 @@ select option:checked,
 
     .dashboard-content-nav {
         grid-template-columns: 1fr;
-        gap: 6px;
-        padding: 8px 10px;
+        gap: 0;
+        padding: 4px 10px 6px;
+        border: 0;
+        border-bottom: 1px solid rgba(141, 188, 233, 0.52);
+        background: transparent;
+        box-shadow: none;
     }
 
     .dashboard-content-nav .dashboard-nav-stats {
@@ -9570,15 +9574,13 @@ select option:checked,
     .dashboard-nav-main {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 6px;
+        justify-content: flex-end;
+        gap: 4px;
         min-height: 0;
     }
 
     .dashboard-nav .user-chip {
-        max-width: fit-content;
-        padding: 2px 4px 2px 2px;
-        gap: 4px;
+        display: none;
     }
 
     .dashboard-nav .user-chip > div:last-child {
@@ -9605,19 +9607,20 @@ select option:checked,
     .top-nav-actions {
         flex-wrap: nowrap;
         justify-content: flex-end;
-        gap: 6px;
+        gap: 5px;
+        width: 100%;
     }
 
     .top-nav-actions .header-notification-button,
     .top-nav-actions .icon-gear-button {
-        width: 32px;
-        height: 32px;
+        width: 30px;
+        height: 30px;
     }
 
     .top-nav.dashboard-nav .btn-logout {
-        min-height: 32px;
-        padding-inline: 10px;
-        font-size: 0.9rem;
+        min-height: 30px;
+        padding-inline: 9px;
+        font-size: 0.86rem;
     }
 
     .is-dashboard .tasklist-layout > .tasklist-wrap,
