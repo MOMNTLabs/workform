@@ -9457,6 +9457,7 @@ select option:checked,
     }
 
     .is-dashboard .users-sidebar {
+        flex: 0 0 auto;
         position: static;
         border-right: 0;
         border-bottom: 1px solid rgba(141, 188, 233, 0.62);
@@ -9465,6 +9466,7 @@ select option:checked,
     }
 
     .is-dashboard .users-sidebar-body {
+        flex: 0 0 auto;
         position: relative;
         gap: 4px;
     }
