@@ -44,7 +44,15 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
     <section class="workspace-layout tasklist-layout">
         <aside class="panel users-sidebar" id="team">
             <a href="index.php" class="sidebar-brand" aria-label="WorkForm">
-                <img src="assets/WorkForm - Logo.svg?v=2" alt="WorkForm" class="sidebar-brand-lockup brand-lockup" width="116" height="29">
+                <img
+                    src="assets/WorkForm - Logo.svg?v=2"
+                    data-theme-logo-light="assets/WorkForm - Logo.svg?v=2"
+                    data-theme-logo-dark="assets/WorkForm - Logo (Negativa).svg?v=1"
+                    alt="WorkForm"
+                    class="sidebar-brand-lockup brand-lockup"
+                    width="116"
+                    height="29"
+                >
             </a>
             <div class="users-sidebar-body">
                 <div class="panel-header workspace-sidebar-header">

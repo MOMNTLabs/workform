@@ -41,6 +41,20 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const syncThemeLogos = (theme) => {
+    const normalizedTheme = normalizeThemeValue(theme);
+    document.querySelectorAll("[data-theme-logo-light][data-theme-logo-dark]").forEach((node) => {
+      if (!(node instanceof HTMLImageElement)) return;
+      const lightSrc = String(node.dataset.themeLogoLight || "").trim();
+      const darkSrc = String(node.dataset.themeLogoDark || "").trim();
+      const nextSrc = normalizedTheme === THEME_DARK ? darkSrc : lightSrc;
+      if (!nextSrc) return;
+      if (node.getAttribute("src") !== nextSrc) {
+        node.setAttribute("src", nextSrc);
+      }
+    });
+  };
+
   const syncThemeToggleButton = (theme) => {
     if (!(themeToggleButton instanceof HTMLButtonElement)) return;
     const nextTheme = theme === THEME_DARK ? THEME_LIGHT : THEME_DARK;
@@ -60,6 +74,7 @@ window.addEventListener("DOMContentLoaded", () => {
     document.body.dataset.theme = normalizedTheme;
     document.documentElement.style.colorScheme = normalizedTheme;
     currentTheme = normalizedTheme;
+    syncThemeLogos(currentTheme);
     syncThemeToggleButton(currentTheme);
 
     if (persist) {

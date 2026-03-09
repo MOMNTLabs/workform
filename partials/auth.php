@@ -3,7 +3,15 @@
         <div class="auth-card-glow" aria-hidden="true"></div>
 
         <div class="auth-brand-block">
-            <img src="assets/WorkForm - Logo.svg?v=2" alt="WorkForm" class="auth-brand-lockup" width="196" height="66">
+            <img
+                src="assets/WorkForm - Logo.svg?v=2"
+                data-theme-logo-light="assets/WorkForm - Logo.svg?v=2"
+                data-theme-logo-dark="assets/WorkForm - Logo (Negativa).svg?v=1"
+                alt="WorkForm"
+                class="auth-brand-lockup"
+                width="196"
+                height="66"
+            >
         </div>
 
         <div class="auth-card-head">
