@@ -386,7 +386,7 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                 </div>
             </div>
 
-            <div class="overview-executive-grid">
+            <div class="overview-executive-grid" style="--overview-order: 0;">
                 <section class="overview-executive-strip is-<?= e($overviewExecutiveTone) ?>" aria-label="Prioridades do dia">
                     <div class="overview-executive-main">
                         <span class="overview-executive-kicker">Prioridade do dia</span>
@@ -436,7 +436,13 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                         </div>
                     </div>
                     <?php if (empty($overviewTopWorkspaceSummaries)): ?>
-                        <p class="overview-empty">Nenhum workspace encontrado para comparacao.</p>
+                        <div class="overview-empty-state">
+                            <span class="overview-empty-icon" aria-hidden="true"></span>
+                            <div class="overview-empty-copy">
+                                <strong>Nenhum comparativo disponivel</strong>
+                                <span>Assim que houver workspaces visiveis, o radar aparece aqui.</span>
+                            </div>
+                        </div>
                     <?php else: ?>
                         <ol class="overview-radar-list">
                             <?php foreach ($overviewTopWorkspaceSummaries as $radarIndex => $workspaceSummary): ?>
@@ -451,7 +457,7 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                     )
                                     : 0;
                                 ?>
-                                <li class="overview-radar-item is-<?= e($workspaceAttentionTone) ?>">
+                                <li class="overview-radar-item is-<?= e($workspaceAttentionTone) ?>" style="--overview-item-order: <?= e((string) ($radarIndex + 1)) ?>;">
                                     <div class="overview-radar-item-top">
                                         <span class="overview-radar-rank"><?= e(str_pad((string) ($radarIndex + 1), 2, '0', STR_PAD_LEFT)) ?></span>
                                         <div class="overview-radar-item-main">
@@ -491,7 +497,7 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                 </aside>
             </div>
 
-            <section class="stats-strip overview-stats" aria-label="Resumo geral do usuario">
+            <section class="stats-strip overview-stats" style="--overview-order: 1;" aria-label="Resumo geral do usuario">
                 <article class="stat-cell overview-stat-card is-tasks">
                     <span>Tarefas de hoje</span>
                     <strong><?= e((string) ($globalDashboardOverview['tasks_today_total'] ?? 0)) ?></strong>
@@ -514,7 +520,7 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                 </article>
             </section>
 
-            <div class="overview-panels-grid">
+            <div class="overview-panels-grid" style="--overview-order: 2;">
                 <section class="overview-card overview-card-tasks">
                     <div class="overview-card-top">
                         <header class="overview-card-head">
@@ -530,7 +536,16 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                         <span class="overview-card-inline-chip">Alta prioridade <?= e((string) ($globalDashboardOverview['priority_tasks_today_total'] ?? 0)) ?></span>
                     </div>
                     <?php if (empty($globalDashboardOverview['tasks_today'])): ?>
-                        <p class="overview-empty">Nenhuma tarefa sua para hoje.</p>
+                        <div class="overview-empty-state">
+                            <span class="overview-empty-icon" aria-hidden="true"></span>
+                            <div class="overview-empty-copy">
+                                <strong>Nenhuma tarefa sua para hoje</strong>
+                                <span>Seu foco esta livre neste momento.</span>
+                            </div>
+                            <button type="button" class="overview-empty-action" data-dashboard-view-toggle data-view="tasks">
+                                Abrir tarefas
+                            </button>
+                        </div>
                     <?php else: ?>
                         <ul class="overview-list">
                             <?php foreach ((array) $globalDashboardOverview['tasks_today'] as $taskToday): ?>
@@ -567,7 +582,16 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                         <span class="overview-card-inline-chip is-attention">Amanha <?= e((string) ($globalDashboardOverview['due_tomorrow_total'] ?? 0)) ?></span>
                     </div>
                     <?php if (empty($globalDashboardOverview['due_soon'])): ?>
-                        <p class="overview-empty">Sem vencimentos para os proximos dias.</p>
+                        <div class="overview-empty-state">
+                            <span class="overview-empty-icon" aria-hidden="true"></span>
+                            <div class="overview-empty-copy">
+                                <strong>Sem vencimentos no curto prazo</strong>
+                                <span>Nenhuma conta vence na janela configurada.</span>
+                            </div>
+                            <button type="button" class="overview-empty-action" data-dashboard-view-toggle data-view="dues">
+                                Abrir vencimentos
+                            </button>
+                        </div>
                     <?php else: ?>
                         <ul class="overview-list">
                             <?php foreach ((array) $globalDashboardOverview['due_soon'] as $dueSoonItem): ?>
@@ -618,7 +642,16 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                         <span class="overview-card-inline-chip">Workspaces em foco <?= e((string) (((int) ($globalDashboardOverview['critical_workspace_total'] ?? 0)) + ((int) ($globalDashboardOverview['attention_workspace_total'] ?? 0)))) ?></span>
                     </div>
                     <?php if (empty($globalDashboardOverview['low_stock'])): ?>
-                        <p class="overview-empty">Nenhum item abaixo do minimo.</p>
+                        <div class="overview-empty-state">
+                            <span class="overview-empty-icon" aria-hidden="true"></span>
+                            <div class="overview-empty-copy">
+                                <strong>Nenhum item abaixo do minimo</strong>
+                                <span>Seu estoque visivel esta equilibrado agora.</span>
+                            </div>
+                            <button type="button" class="overview-empty-action" data-dashboard-view-toggle data-view="inventory">
+                                Abrir estoque
+                            </button>
+                        </div>
                     <?php else: ?>
                         <ul class="overview-list">
                             <?php foreach ((array) $globalDashboardOverview['low_stock'] as $lowStockItem): ?>
@@ -640,7 +673,7 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                 </section>
             </div>
 
-            <section class="overview-card overview-workspaces-card">
+            <section class="overview-card overview-workspaces-card" style="--overview-order: 3;">
                 <div class="overview-card-top">
                     <header class="overview-card-head">
                         <h3>Resumo por workspace</h3>
@@ -649,10 +682,16 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                     <p class="overview-card-subtitle">Saldo referente a <?= e((string) ($globalDashboardOverview['accounting_period_label'] ?? '')) ?></p>
                 </div>
                 <?php if (empty($overviewWorkspaceSummaries)): ?>
-                    <p class="overview-empty">Nenhum workspace encontrado para sua conta.</p>
+                    <div class="overview-empty-state">
+                        <span class="overview-empty-icon" aria-hidden="true"></span>
+                        <div class="overview-empty-copy">
+                            <strong>Nenhum workspace encontrado</strong>
+                            <span>Sua conta ainda nao possui workspaces visiveis para resumir.</span>
+                        </div>
+                    </div>
                 <?php else: ?>
                     <div class="overview-workspaces-list">
-                        <?php foreach ($overviewWorkspaceSummaries as $workspaceSummary): ?>
+                        <?php foreach ($overviewWorkspaceSummaries as $workspaceIndex => $workspaceSummary): ?>
                             <?php
                             $workspaceSummaryId = (int) ($workspaceSummary['workspace_id'] ?? 0);
                             $isActiveWorkspaceSummary = $workspaceSummaryId === (int) ($currentWorkspaceId ?? 0);
@@ -665,7 +704,7 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                 )
                                 : 0;
                             ?>
-                            <article class="overview-workspace-item is-<?= e($workspaceAttentionTone) ?><?= $isActiveWorkspaceSummary ? ' is-active-workspace' : '' ?>">
+                            <article class="overview-workspace-item is-<?= e($workspaceAttentionTone) ?><?= $isActiveWorkspaceSummary ? ' is-active-workspace' : '' ?>" style="--overview-item-order: <?= e((string) ($workspaceIndex + 1)) ?>;">
                                 <div class="overview-workspace-meta">
                                     <div class="overview-workspace-title">
                                         <div class="overview-workspace-title-row">
