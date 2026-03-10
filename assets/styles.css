@@ -2642,9 +2642,9 @@ body:not(.theme-dark):not(.theme-light) .theme-toggle-icon-moon {
 
 .overview-executive-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.95fr);
+    grid-template-columns: minmax(0, 1.28fr) minmax(360px, 0.92fr);
     gap: 14px;
-    align-items: stretch;
+    align-items: start;
     animation: overview-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
     animation-delay: calc(var(--overview-order, 0) * 80ms);
 }
@@ -2653,7 +2653,7 @@ body:not(.theme-dark):not(.theme-light) .theme-toggle-icon-moon {
     position: relative;
     overflow: hidden;
     display: grid;
-    grid-template-columns: minmax(0, 1.28fr) minmax(300px, 0.92fr);
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
     gap: 14px;
     padding: 15px;
     border-radius: 20px;
@@ -2664,6 +2664,7 @@ body:not(.theme-dark):not(.theme-light) .theme-toggle-icon-moon {
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.9),
         0 14px 28px rgba(34, 91, 148, 0.1);
+    align-items: start;
     transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
 
@@ -2807,8 +2808,10 @@ body:not(.theme-dark):not(.theme-light) .theme-toggle-icon-moon {
 .overview-executive-focus {
     margin: 0;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    align-content: start;
+    align-self: start;
 }
 
 .overview-focus-card {
@@ -2823,6 +2826,7 @@ body:not(.theme-dark):not(.theme-light) .theme-toggle-icon-moon {
     display: grid;
     gap: 4px;
     align-content: start;
+    min-height: 0;
     transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
 }
 
@@ -3076,6 +3080,8 @@ body:not(.theme-dark):not(.theme-light) .theme-toggle-icon-moon {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
     align-items: start;
+    grid-auto-flow: row;
+    grid-auto-rows: auto;
     animation: overview-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
     animation-delay: calc(var(--overview-order, 0) * 80ms);
 }
@@ -3094,19 +3100,14 @@ body:not(.theme-dark):not(.theme-light) .theme-toggle-icon-moon {
     gap: 12px;
     align-content: start;
     align-self: start;
+    min-height: 0;
     transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background-color 180ms ease;
 }
 
-.overview-card-tasks {
-    grid-area: tasks;
-}
-
-.overview-card-due {
-    grid-area: due;
-}
-
+.overview-card-tasks,
+.overview-card-due,
 .overview-card-stock {
-    grid-area: stock;
+    grid-area: auto;
 }
 
 .overview-card-top {
