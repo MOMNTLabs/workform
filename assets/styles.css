@@ -2649,6 +2649,12 @@ body:not(.theme-dark):not(.theme-light) .theme-toggle-icon-moon {
     animation-delay: calc(var(--overview-order, 0) * 80ms);
 }
 
+.overview-executive-grid > *,
+.overview-panels-grid > *,
+.overview-workspaces-list > * {
+    min-width: 0;
+}
+
 .overview-executive-strip {
     position: relative;
     overflow: hidden;
