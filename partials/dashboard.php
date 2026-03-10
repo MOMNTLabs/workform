@@ -141,8 +141,24 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                         type="button"
                         class="sidebar-view-toggle is-active"
                         data-dashboard-view-toggle
-                        data-view="tasks"
+                        data-view="overview"
                         aria-pressed="true"
+                    >
+                        <span class="sidebar-view-toggle-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <path d="M4 11.5 12 5l8 6.5"></path>
+                                <path d="M6.5 10v9h11v-9"></path>
+                                <path d="M10 19v-5h4v5"></path>
+                            </svg>
+                        </span>
+                        <span class="sidebar-view-toggle-label">Dashboard geral</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="sidebar-view-toggle"
+                        data-dashboard-view-toggle
+                        data-view="tasks"
+                        aria-pressed="false"
                     >
                         <span class="sidebar-view-toggle-icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24" focusable="false">
@@ -338,7 +354,145 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
             </div>
         </header>
 
-        <section class="tasklist-wrap panel" id="tasks" data-dashboard-view-panel="tasks">
+        <section class="overview-wrap panel" id="overview" data-dashboard-view-panel="overview">
+            <div class="panel-header board-header overview-board-header">
+                <div>
+                    <h2>Dashboard geral</h2>
+                    <p>Resumo pessoal de todos os workspaces.</p>
+                </div>
+                <div class="board-summary overview-board-summary">
+                    <span><?= e((string) ($globalDashboardOverview['workspace_count'] ?? 0)) ?> workspace(s)</span>
+                    <span>Vencimentos em <?= e((string) ($globalDashboardOverview['due_window_days'] ?? 7)) ?> dias</span>
+                </div>
+            </div>
+
+            <section class="stats-strip overview-stats" aria-label="Resumo geral do usuario">
+                <div class="stat-cell">
+                    <span>Tarefas de hoje</span>
+                    <strong><?= e((string) ($globalDashboardOverview['tasks_today_total'] ?? 0)) ?></strong>
+                </div>
+                <div class="stat-cell">
+                    <span>Vencimentos proximos</span>
+                    <strong><?= e((string) ($globalDashboardOverview['due_soon_total'] ?? 0)) ?></strong>
+                </div>
+                <div class="stat-cell">
+                    <span>Saldo atual</span>
+                    <strong><?= e((string) ($globalDashboardOverview['balance_total_display'] ?? 'R$ 0,00')) ?></strong>
+                </div>
+                <div class="stat-cell">
+                    <span>Baixo estoque</span>
+                    <strong><?= e((string) ($globalDashboardOverview['low_stock_total'] ?? 0)) ?></strong>
+                </div>
+            </section>
+
+            <div class="overview-panels-grid">
+                <section class="overview-card">
+                    <header class="overview-card-head">
+                        <h3>Tarefas do dia</h3>
+                    </header>
+                    <?php if (empty($globalDashboardOverview['tasks_today'])): ?>
+                        <p class="overview-empty">Nenhuma tarefa sua para hoje.</p>
+                    <?php else: ?>
+                        <ul class="overview-list">
+                            <?php foreach ((array) $globalDashboardOverview['tasks_today'] as $taskToday): ?>
+                                <li class="overview-list-item">
+                                    <div>
+                                        <strong><?= e((string) ($taskToday['title'] ?? 'Tarefa')) ?></strong>
+                                        <span><?= e((string) ($taskToday['workspace_name'] ?? 'Workspace')) ?> - <?= e((string) ($taskToday['group_name'] ?? 'Geral')) ?></span>
+                                    </div>
+                                    <span class="overview-priority priority-<?= e((string) ($taskToday['priority'] ?? 'medium')) ?>">
+                                        <?= e((string) ($taskToday['priority_label'] ?? 'Media')) ?>
+                                    </span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </section>
+
+                <section class="overview-card">
+                    <header class="overview-card-head">
+                        <h3>Contas para vencer</h3>
+                    </header>
+                    <?php if (empty($globalDashboardOverview['due_soon'])): ?>
+                        <p class="overview-empty">Sem vencimentos para os proximos dias.</p>
+                    <?php else: ?>
+                        <ul class="overview-list">
+                            <?php foreach ((array) $globalDashboardOverview['due_soon'] as $dueSoonItem): ?>
+                                <li class="overview-list-item">
+                                    <div>
+                                        <strong><?= e((string) ($dueSoonItem['label'] ?? 'Vencimento')) ?></strong>
+                                        <span><?= e((string) ($dueSoonItem['workspace_name'] ?? 'Workspace')) ?> - <?= e((string) ($dueSoonItem['days_until_label'] ?? '')) ?></span>
+                                    </div>
+                                    <span class="overview-amount"><?= e((string) ($dueSoonItem['amount_display'] ?? 'R$ 0,00')) ?></span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </section>
+
+                <section class="overview-card">
+                    <header class="overview-card-head">
+                        <h3>Itens com baixo estoque</h3>
+                    </header>
+                    <?php if (empty($globalDashboardOverview['low_stock'])): ?>
+                        <p class="overview-empty">Nenhum item abaixo do minimo.</p>
+                    <?php else: ?>
+                        <ul class="overview-list">
+                            <?php foreach ((array) $globalDashboardOverview['low_stock'] as $lowStockItem): ?>
+                                <li class="overview-list-item">
+                                    <div>
+                                        <strong><?= e((string) ($lowStockItem['label'] ?? 'Item')) ?></strong>
+                                        <span><?= e((string) ($lowStockItem['workspace_name'] ?? 'Workspace')) ?> - <?= e((string) ($lowStockItem['group_name'] ?? 'Geral')) ?></span>
+                                    </div>
+                                    <span class="overview-stock-meta"><?= e((string) ($lowStockItem['quantity_display'] ?? '0')) ?>/<?= e((string) ($lowStockItem['min_quantity_display'] ?? '0')) ?> <?= e((string) ($lowStockItem['unit_label'] ?? 'un')) ?></span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </section>
+            </div>
+
+            <section class="overview-card overview-workspaces-card">
+                <header class="overview-card-head">
+                    <h3>Resumo por workspace</h3>
+                    <p>Saldo referente a <?= e((string) ($globalDashboardOverview['accounting_period_label'] ?? '')) ?></p>
+                </header>
+                <?php if (empty($globalDashboardOverview['workspace_summaries'])): ?>
+                    <p class="overview-empty">Nenhum workspace encontrado para sua conta.</p>
+                <?php else: ?>
+                    <div class="overview-workspaces-list">
+                        <?php foreach ((array) $globalDashboardOverview['workspace_summaries'] as $workspaceSummary): ?>
+                            <article class="overview-workspace-item">
+                                <div class="overview-workspace-meta">
+                                    <strong><?= e((string) ($workspaceSummary['workspace_name'] ?? 'Workspace')) ?></strong>
+                                    <span><?= e((string) ($workspaceSummary['workspace_role_label'] ?? 'Usuario')) ?></span>
+                                </div>
+                                <dl class="overview-workspace-kpis">
+                                    <div>
+                                        <dt>Hoje</dt>
+                                        <dd><?= e((string) ($workspaceSummary['tasks_today_count'] ?? 0)) ?></dd>
+                                    </div>
+                                    <div>
+                                        <dt>Vencer</dt>
+                                        <dd><?= e((string) ($workspaceSummary['due_soon_count'] ?? 0)) ?></dd>
+                                    </div>
+                                    <div>
+                                        <dt>Baixo</dt>
+                                        <dd><?= e((string) ($workspaceSummary['low_stock_count'] ?? 0)) ?></dd>
+                                    </div>
+                                    <div>
+                                        <dt>Saldo</dt>
+                                        <dd><?= e((string) ($workspaceSummary['balance_total_display'] ?? 'R$ 0,00')) ?></dd>
+                                    </div>
+                                </dl>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </section>
+        </section>
+
+        <section class="tasklist-wrap panel" id="tasks" data-dashboard-view-panel="tasks" hidden>
             <div class="panel-header board-header">
                 <div>
                     <h2>Lista de tarefas</h2>

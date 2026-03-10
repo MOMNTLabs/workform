@@ -3126,6 +3126,287 @@ $tasksGroupedByGroup = $currentUser ? tasksByGroup($tasks, $groupingSource) : []
 $stats = $currentUser ? dashboardStats($allTasks) : ['total' => 0, 'done' => 0, 'due_today' => 0, 'urgent' => 0];
 $myOpenTasks = $currentUser ? countMyAssignedTasks($allTasks, (int) $currentUser['id']) : 0;
 $completionRate = $stats['total'] > 0 ? (int) round(($stats['done'] / $stats['total']) * 100) : 0;
+
+$globalDashboardOverview = [
+    'workspace_count' => 0,
+    'due_window_days' => 7,
+    'accounting_period_label' => accountingMonthLabel(normalizeAccountingPeriodKey((new DateTimeImmutable('today'))->format('Y-m'))),
+    'tasks_today_total' => 0,
+    'due_soon_total' => 0,
+    'low_stock_total' => 0,
+    'balance_total_cents' => 0,
+    'balance_month_movement_cents' => 0,
+    'balance_total_display' => dueAmountLabelFromSignedCents(0),
+    'balance_month_movement_display' => dueAmountLabelFromSignedCents(0),
+    'tasks_today' => [],
+    'due_soon' => [],
+    'low_stock' => [],
+    'workspace_summaries' => [],
+];
+
+if ($currentUser) {
+    $overviewUserId = (int) ($currentUser['id'] ?? 0);
+    $overviewToday = new DateTimeImmutable('today');
+    $overviewTodayIso = $overviewToday->format('Y-m-d');
+    $overviewDueWindowDays = (int) ($globalDashboardOverview['due_window_days'] ?? 7);
+    $overviewDueLimitIso = $overviewToday->modify('+' . $overviewDueWindowDays . ' days')->format('Y-m-d');
+    $overviewAccountingPeriod = normalizeAccountingPeriodKey($overviewToday->format('Y-m'));
+    $globalDashboardOverview['accounting_period_label'] = accountingMonthLabel($overviewAccountingPeriod);
+    $globalDashboardOverview['workspace_count'] = count($userWorkspaces);
+
+    foreach ($userWorkspaces as $workspaceOption) {
+        $workspaceOptionId = (int) ($workspaceOption['id'] ?? 0);
+        if ($workspaceOptionId <= 0) {
+            continue;
+        }
+
+        $workspaceOptionName = (string) ($workspaceOption['name'] ?? 'Workspace');
+        $workspaceOptionRole = normalizeWorkspaceRole((string) ($workspaceOption['member_role'] ?? 'member'));
+        $workspaceOptionRoleLabel = workspaceRoles()[$workspaceOptionRole] ?? 'Usuario';
+
+        $workspaceTasks = allTasks($workspaceOptionId);
+        $workspaceTasks = array_values(array_filter(
+            $workspaceTasks,
+            static function (array $task) use ($overviewUserId, $workspaceOptionId): bool {
+                $groupName = normalizeTaskGroupName((string) ($task['group_name'] ?? 'Geral'));
+                return userCanViewTaskGroup($overviewUserId, $workspaceOptionId, $groupName);
+            }
+        ));
+
+        $workspaceTasksToday = [];
+        foreach ($workspaceTasks as $workspaceTask) {
+            $dueDate = dueDateForStorage((string) ($workspaceTask['due_date'] ?? ''));
+            if ($dueDate !== $overviewTodayIso) {
+                continue;
+            }
+
+            $statusKey = normalizeTaskStatus((string) ($workspaceTask['status'] ?? 'todo'));
+            if ($statusKey === 'done') {
+                continue;
+            }
+
+            $taskAssigneeIds = is_array($workspaceTask['assignee_ids'] ?? null)
+                ? $workspaceTask['assignee_ids']
+                : [];
+            $isAssignedToCurrentUser = in_array($overviewUserId, $taskAssigneeIds, true);
+            $isOwnedByCurrentUserWithoutAssignee = !$taskAssigneeIds
+                && (int) ($workspaceTask['created_by'] ?? 0) === $overviewUserId;
+            if (!$isAssignedToCurrentUser && !$isOwnedByCurrentUserWithoutAssignee) {
+                continue;
+            }
+
+            $priorityKey = normalizeTaskPriority((string) ($workspaceTask['priority'] ?? 'medium'));
+            $workspaceTasksToday[] = [
+                'workspace_id' => $workspaceOptionId,
+                'workspace_name' => $workspaceOptionName,
+                'task_id' => (int) ($workspaceTask['id'] ?? 0),
+                'title' => (string) ($workspaceTask['title'] ?? ''),
+                'group_name' => normalizeTaskGroupName((string) ($workspaceTask['group_name'] ?? 'Geral')),
+                'priority' => $priorityKey,
+                'priority_label' => taskPriorities()[$priorityKey] ?? 'Media',
+            ];
+        }
+
+        $workspaceDueEntries = workspaceDueEntriesList($workspaceOptionId);
+        $workspaceDueEntries = array_values(array_filter(
+            $workspaceDueEntries,
+            static function (array $entry) use ($overviewUserId, $workspaceOptionId): bool {
+                $groupName = normalizeDueGroupName((string) ($entry['group_name'] ?? 'Geral'));
+                return userCanViewDueGroup($overviewUserId, $workspaceOptionId, $groupName);
+            }
+        ));
+
+        $workspaceDueSoon = [];
+        foreach ($workspaceDueEntries as $workspaceDueEntry) {
+            $nextDueDateIso = dueDateForStorage((string) ($workspaceDueEntry['next_due_date'] ?? ''));
+            if ($nextDueDateIso === null) {
+                continue;
+            }
+            if ($nextDueDateIso < $overviewTodayIso || $nextDueDateIso > $overviewDueLimitIso) {
+                continue;
+            }
+
+            $daysUntil = null;
+            $daysUntilLabel = '';
+            try {
+                $daysUntil = (int) $overviewToday->diff(new DateTimeImmutable($nextDueDateIso))->format('%a');
+            } catch (Throwable $e) {
+                $daysUntil = null;
+            }
+
+            if ($daysUntil === 0) {
+                $daysUntilLabel = 'Hoje';
+            } elseif ($daysUntil === 1) {
+                $daysUntilLabel = 'Amanha';
+            } elseif ($daysUntil !== null) {
+                $daysUntilLabel = 'Em ' . $daysUntil . ' dias';
+            } else {
+                $daysUntilLabel = (new DateTimeImmutable($nextDueDateIso))->format('d/m');
+            }
+
+            $workspaceDueSoon[] = [
+                'workspace_id' => $workspaceOptionId,
+                'workspace_name' => $workspaceOptionName,
+                'label' => (string) ($workspaceDueEntry['label'] ?? ''),
+                'group_name' => normalizeDueGroupName((string) ($workspaceDueEntry['group_name'] ?? 'Geral')),
+                'amount_cents' => (int) ($workspaceDueEntry['amount_cents'] ?? 0),
+                'amount_display' => (string) ($workspaceDueEntry['amount_display'] ?? dueAmountLabelFromCents(0)),
+                'next_due_date' => $nextDueDateIso,
+                'next_due_display' => (new DateTimeImmutable($nextDueDateIso))->format('d/m'),
+                'days_until' => $daysUntil,
+                'days_until_label' => $daysUntilLabel,
+            ];
+        }
+
+        $workspaceInventoryEntries = workspaceInventoryEntriesList($workspaceOptionId);
+        $workspaceLowStockEntries = [];
+        foreach ($workspaceInventoryEntries as $inventoryEntry) {
+            if (((int) ($inventoryEntry['is_low_stock'] ?? 0)) !== 1) {
+                continue;
+            }
+
+            $quantityValue = (float) ($inventoryEntry['quantity_value'] ?? 0);
+            $minQuantityValue = $inventoryEntry['min_quantity_value'] !== null
+                ? (float) $inventoryEntry['min_quantity_value']
+                : null;
+            $deficitQuantity = 0.0;
+            if ($minQuantityValue !== null && $quantityValue <= $minQuantityValue) {
+                $deficitQuantity = $minQuantityValue - $quantityValue;
+            }
+
+            $workspaceLowStockEntries[] = [
+                'workspace_id' => $workspaceOptionId,
+                'workspace_name' => $workspaceOptionName,
+                'label' => (string) ($inventoryEntry['label'] ?? ''),
+                'group_name' => normalizeInventoryGroupName((string) ($inventoryEntry['group_name'] ?? 'Geral')),
+                'quantity_display' => (string) ($inventoryEntry['quantity_display'] ?? '0'),
+                'min_quantity_display' => (string) ($inventoryEntry['min_quantity_display'] ?? '0'),
+                'unit_label' => normalizeInventoryUnitLabel((string) ($inventoryEntry['unit_label'] ?? 'un')),
+                'deficit_quantity' => $deficitQuantity,
+            ];
+        }
+
+        $workspaceAccountingEntries = workspaceAccountingEntriesList($workspaceOptionId, $overviewAccountingPeriod);
+        $workspaceAccountingOpeningBalance = workspaceAccountingOpeningBalanceCents(
+            $workspaceOptionId,
+            $overviewAccountingPeriod
+        );
+        $workspaceAccountingSummary = accountingSummary($workspaceAccountingEntries, $workspaceAccountingOpeningBalance);
+        $workspaceCurrentBalanceCents = (int) ($workspaceAccountingSummary['current_balance_cents'] ?? 0);
+        $workspaceFinalBalanceCents = (int) ($workspaceAccountingSummary['final_balance_cents'] ?? 0);
+
+        $globalDashboardOverview['tasks_today'] = array_merge(
+            $globalDashboardOverview['tasks_today'],
+            $workspaceTasksToday
+        );
+        $globalDashboardOverview['due_soon'] = array_merge(
+            $globalDashboardOverview['due_soon'],
+            $workspaceDueSoon
+        );
+        $globalDashboardOverview['low_stock'] = array_merge(
+            $globalDashboardOverview['low_stock'],
+            $workspaceLowStockEntries
+        );
+        $globalDashboardOverview['balance_month_movement_cents'] += $workspaceCurrentBalanceCents;
+        $globalDashboardOverview['balance_total_cents'] += $workspaceFinalBalanceCents;
+
+        $globalDashboardOverview['workspace_summaries'][] = [
+            'workspace_id' => $workspaceOptionId,
+            'workspace_name' => $workspaceOptionName,
+            'workspace_role' => $workspaceOptionRole,
+            'workspace_role_label' => $workspaceOptionRoleLabel,
+            'tasks_today_count' => count($workspaceTasksToday),
+            'due_soon_count' => count($workspaceDueSoon),
+            'low_stock_count' => count($workspaceLowStockEntries),
+            'month_movement_cents' => $workspaceCurrentBalanceCents,
+            'month_movement_display' => dueAmountLabelFromSignedCents($workspaceCurrentBalanceCents),
+            'balance_total_cents' => $workspaceFinalBalanceCents,
+            'balance_total_display' => dueAmountLabelFromSignedCents($workspaceFinalBalanceCents),
+        ];
+    }
+
+    $priorityOrder = [
+        'urgent' => 0,
+        'high' => 1,
+        'medium' => 2,
+        'low' => 3,
+    ];
+    usort(
+        $globalDashboardOverview['tasks_today'],
+        static function (array $a, array $b) use ($priorityOrder): int {
+            $priorityA = $priorityOrder[normalizeTaskPriority((string) ($a['priority'] ?? 'medium'))] ?? 99;
+            $priorityB = $priorityOrder[normalizeTaskPriority((string) ($b['priority'] ?? 'medium'))] ?? 99;
+            if ($priorityA !== $priorityB) {
+                return $priorityA <=> $priorityB;
+            }
+
+            $workspaceCompare = strcasecmp(
+                (string) ($a['workspace_name'] ?? ''),
+                (string) ($b['workspace_name'] ?? '')
+            );
+            if ($workspaceCompare !== 0) {
+                return $workspaceCompare;
+            }
+
+            return strcasecmp((string) ($a['title'] ?? ''), (string) ($b['title'] ?? ''));
+        }
+    );
+
+    usort(
+        $globalDashboardOverview['due_soon'],
+        static function (array $a, array $b): int {
+            $dueA = dueDateForStorage((string) ($a['next_due_date'] ?? '')) ?? '9999-12-31';
+            $dueB = dueDateForStorage((string) ($b['next_due_date'] ?? '')) ?? '9999-12-31';
+            if ($dueA !== $dueB) {
+                return strcmp($dueA, $dueB);
+            }
+
+            $amountA = (int) ($a['amount_cents'] ?? 0);
+            $amountB = (int) ($b['amount_cents'] ?? 0);
+            if ($amountA !== $amountB) {
+                return $amountB <=> $amountA;
+            }
+
+            return strcasecmp((string) ($a['workspace_name'] ?? ''), (string) ($b['workspace_name'] ?? ''));
+        }
+    );
+
+    usort(
+        $globalDashboardOverview['low_stock'],
+        static function (array $a, array $b): int {
+            $deficitA = (float) ($a['deficit_quantity'] ?? 0);
+            $deficitB = (float) ($b['deficit_quantity'] ?? 0);
+            if ($deficitA !== $deficitB) {
+                return $deficitB <=> $deficitA;
+            }
+
+            $workspaceCompare = strcasecmp(
+                (string) ($a['workspace_name'] ?? ''),
+                (string) ($b['workspace_name'] ?? '')
+            );
+            if ($workspaceCompare !== 0) {
+                return $workspaceCompare;
+            }
+
+            return strcasecmp((string) ($a['label'] ?? ''), (string) ($b['label'] ?? ''));
+        }
+    );
+
+    $globalDashboardOverview['tasks_today_total'] = count($globalDashboardOverview['tasks_today']);
+    $globalDashboardOverview['due_soon_total'] = count($globalDashboardOverview['due_soon']);
+    $globalDashboardOverview['low_stock_total'] = count($globalDashboardOverview['low_stock']);
+    $globalDashboardOverview['balance_total_display'] = dueAmountLabelFromSignedCents(
+        (int) $globalDashboardOverview['balance_total_cents']
+    );
+    $globalDashboardOverview['balance_month_movement_display'] = dueAmountLabelFromSignedCents(
+        (int) $globalDashboardOverview['balance_month_movement_cents']
+    );
+
+    $globalDashboardOverview['tasks_today'] = array_slice($globalDashboardOverview['tasks_today'], 0, 8);
+    $globalDashboardOverview['due_soon'] = array_slice($globalDashboardOverview['due_soon'], 0, 8);
+    $globalDashboardOverview['low_stock'] = array_slice($globalDashboardOverview['low_stock'], 0, 8);
+}
+
 $defaultTaskGroupName = $taskGroups[0] ?? 'Geral';
 ?>
 <!DOCTYPE html>

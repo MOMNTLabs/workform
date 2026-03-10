@@ -4965,7 +4965,8 @@ window.addEventListener("DOMContentLoaded", () => {
 
   const normalizeDashboardViewCandidate = (value) => {
     const normalized = String(value || "").trim().toLowerCase();
-    return normalized === "tasks" ||
+    return normalized === "overview" ||
+      normalized === "tasks" ||
       normalized === "vault" ||
       normalized === "dues" ||
       normalized === "inventory" ||
@@ -4990,9 +4991,11 @@ window.addEventListener("DOMContentLoaded", () => {
     dashboardViews.add("tasks");
   }
 
+  const defaultDashboardView = dashboardViews.has("overview") ? "overview" : "tasks";
+
   const normalizeDashboardView = (value) => {
     const normalized = normalizeDashboardViewCandidate(value);
-    return normalized && dashboardViews.has(normalized) ? normalized : "tasks";
+    return normalized && dashboardViews.has(normalized) ? normalized : defaultDashboardView;
   };
 
   const dashboardViewFromHash = () => {
