@@ -355,6 +355,13 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
         </header>
 
         <section class="overview-wrap panel" id="overview" data-dashboard-view-panel="overview">
+            <?php
+            $overviewExecutiveTone = (string) ($globalDashboardOverview['executive_status_tone'] ?? 'stable');
+            $overviewExecutiveFocusTotal = (int) ($globalDashboardOverview['executive_focus_total'] ?? 0);
+            $overviewExecutiveHeadline = $overviewExecutiveFocusTotal > 0
+                ? $overviewExecutiveFocusTotal . ' ponto(s) pedem atencao hoje'
+                : 'Operacao sob controle hoje';
+            ?>
             <div class="panel-header board-header overview-board-header">
                 <div>
                     <h2>Dashboard geral</h2>
@@ -366,26 +373,62 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                 </div>
             </div>
 
+            <section class="overview-executive-strip is-<?= e($overviewExecutiveTone) ?>" aria-label="Prioridades do dia">
+                <div class="overview-executive-main">
+                    <span class="overview-executive-kicker">Prioridade do dia</span>
+                    <div class="overview-executive-heading">
+                        <h3><?= e($overviewExecutiveHeadline) ?></h3>
+                        <span class="overview-executive-badge is-<?= e($overviewExecutiveTone) ?>">
+                            <?= e((string) ($globalDashboardOverview['executive_status_label'] ?? 'Operacao estavel')) ?>
+                        </span>
+                    </div>
+                    <p><?= e((string) ($globalDashboardOverview['executive_status_note'] ?? '')) ?></p>
+                    <div class="overview-executive-chips" aria-label="Indicadores rapidos">
+                        <span class="overview-executive-chip">Urgentes: <?= e((string) ($globalDashboardOverview['urgent_tasks_today_total'] ?? 0)) ?></span>
+                        <span class="overview-executive-chip">Vence hoje: <?= e((string) ($globalDashboardOverview['due_today_total'] ?? 0)) ?></span>
+                        <span class="overview-executive-chip">Baixo estoque: <?= e((string) ($globalDashboardOverview['low_stock_total'] ?? 0)) ?></span>
+                        <span class="overview-executive-chip">Monitorar: <?= e((string) (((int) ($globalDashboardOverview['critical_workspace_total'] ?? 0)) + ((int) ($globalDashboardOverview['attention_workspace_total'] ?? 0)))) ?> workspace(s)</span>
+                    </div>
+                </div>
+                <dl class="overview-executive-focus">
+                    <div class="overview-focus-card is-critical">
+                        <dt>Urgentes hoje</dt>
+                        <dd><?= e((string) ($globalDashboardOverview['urgent_tasks_today_total'] ?? 0)) ?></dd>
+                        <small>Tarefas com prioridade maxima</small>
+                    </div>
+                    <div class="overview-focus-card is-due">
+                        <dt>Vence hoje</dt>
+                        <dd><?= e((string) ($globalDashboardOverview['due_today_total'] ?? 0)) ?></dd>
+                        <small>Contas com decisao imediata</small>
+                    </div>
+                    <div class="overview-focus-card is-balance">
+                        <dt>Fluxo do mes</dt>
+                        <dd><?= e((string) ($globalDashboardOverview['balance_month_movement_display'] ?? 'R$ 0,00')) ?></dd>
+                        <small>Movimento consolidado atual</small>
+                    </div>
+                </dl>
+            </section>
+
             <section class="stats-strip overview-stats" aria-label="Resumo geral do usuario">
                 <article class="stat-cell overview-stat-card is-tasks">
                     <span>Tarefas de hoje</span>
                     <strong><?= e((string) ($globalDashboardOverview['tasks_today_total'] ?? 0)) ?></strong>
-                    <small class="overview-stat-note">Itens focados no seu dia</small>
+                    <small class="overview-stat-note"><?= e((string) ($globalDashboardOverview['priority_tasks_today_total'] ?? 0)) ?> com alta prioridade</small>
                 </article>
                 <article class="stat-cell overview-stat-card is-due">
                     <span>Vencimentos proximos</span>
                     <strong><?= e((string) ($globalDashboardOverview['due_soon_total'] ?? 0)) ?></strong>
-                    <small class="overview-stat-note">Janela de curto prazo</small>
+                    <small class="overview-stat-note"><?= e((string) ($globalDashboardOverview['due_today_total'] ?? 0)) ?> hoje, <?= e((string) ($globalDashboardOverview['due_tomorrow_total'] ?? 0)) ?> amanha</small>
                 </article>
                 <article class="stat-cell overview-stat-card is-balance">
                     <span>Saldo atual</span>
                     <strong><?= e((string) ($globalDashboardOverview['balance_total_display'] ?? 'R$ 0,00')) ?></strong>
-                    <small class="overview-stat-note">Consolidado por workspace</small>
+                    <small class="overview-stat-note">Mov. mes <?= e((string) ($globalDashboardOverview['balance_month_movement_display'] ?? 'R$ 0,00')) ?></small>
                 </article>
                 <article class="stat-cell overview-stat-card is-stock">
                     <span>Baixo estoque</span>
                     <strong><?= e((string) ($globalDashboardOverview['low_stock_total'] ?? 0)) ?></strong>
-                    <small class="overview-stat-note">Itens abaixo do minimo</small>
+                    <small class="overview-stat-note"><?= e((string) ($globalDashboardOverview['attention_workspace_total'] ?? 0)) ?> workspace(s) em monitoramento</small>
                 </article>
             </section>
 
@@ -409,7 +452,10 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                 <li class="overview-list-item overview-list-item-task priority-<?= e($taskPriorityClass) ?>">
                                     <div class="overview-list-main">
                                         <strong><?= e((string) ($taskToday['title'] ?? 'Tarefa')) ?></strong>
-                                        <span class="overview-list-meta"><?= e((string) ($taskToday['workspace_name'] ?? 'Workspace')) ?> - <?= e((string) ($taskToday['group_name'] ?? 'Geral')) ?></span>
+                                        <div class="overview-list-tags">
+                                            <span class="overview-list-tag"><?= e((string) ($taskToday['workspace_name'] ?? 'Workspace')) ?></span>
+                                            <span class="overview-list-tag is-muted"><?= e((string) ($taskToday['group_name'] ?? 'Geral')) ?></span>
+                                        </div>
                                     </div>
                                     <span class="overview-priority priority-<?= e($taskPriorityClass) ?>">
                                         <?= e((string) ($taskToday['priority_label'] ?? 'Media')) ?>
@@ -441,13 +487,24 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                 $dueWhenLabel = $dueDaysLabel !== '' && $dueDateLabel !== ''
                                     ? $dueDaysLabel . ' (' . $dueDateLabel . ')'
                                     : ($dueDaysLabel !== '' ? $dueDaysLabel : $dueDateLabel);
+                                $dueDaysUntil = $dueSoonItem['days_until'] ?? null;
+                                $dueToneClass = 'calm';
+                                if ($dueDaysUntil === 0) {
+                                    $dueToneClass = 'critical';
+                                } elseif ($dueDaysUntil === 1) {
+                                    $dueToneClass = 'attention';
+                                }
                                 ?>
-                                <li class="overview-list-item overview-list-item-due">
+                                <li class="overview-list-item overview-list-item-due tone-<?= e($dueToneClass) ?>">
                                     <div class="overview-list-main">
                                         <strong><?= e((string) ($dueSoonItem['label'] ?? 'Vencimento')) ?></strong>
-                                        <span class="overview-list-meta"><?= e((string) ($dueSoonItem['workspace_name'] ?? 'Workspace')) ?> - <?= e($dueWhenLabel) ?></span>
+                                        <div class="overview-list-tags">
+                                            <span class="overview-list-tag"><?= e((string) ($dueSoonItem['workspace_name'] ?? 'Workspace')) ?></span>
+                                            <span class="overview-list-tag is-muted"><?= e((string) ($dueSoonItem['group_name'] ?? 'Geral')) ?></span>
+                                        </div>
                                     </div>
                                     <div class="overview-list-aside">
+                                        <span class="overview-when is-<?= e($dueToneClass) ?>"><?= e($dueWhenLabel) ?></span>
                                         <span class="overview-amount"><?= e((string) ($dueSoonItem['amount_display'] ?? 'R$ 0,00')) ?></span>
                                     </div>
                                 </li>
@@ -474,9 +531,14 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                 <li class="overview-list-item overview-list-item-stock">
                                     <div class="overview-list-main">
                                         <strong><?= e((string) ($lowStockItem['label'] ?? 'Item')) ?></strong>
-                                        <span class="overview-list-meta"><?= e((string) ($lowStockItem['workspace_name'] ?? 'Workspace')) ?> - <?= e((string) ($lowStockItem['group_name'] ?? 'Geral')) ?></span>
+                                        <div class="overview-list-tags">
+                                            <span class="overview-list-tag"><?= e((string) ($lowStockItem['workspace_name'] ?? 'Workspace')) ?></span>
+                                            <span class="overview-list-tag is-muted"><?= e((string) ($lowStockItem['group_name'] ?? 'Geral')) ?></span>
+                                        </div>
                                     </div>
-                                    <span class="overview-stock-meta"><?= e((string) ($lowStockItem['quantity_display'] ?? '0')) ?>/<?= e((string) ($lowStockItem['min_quantity_display'] ?? '0')) ?> <?= e((string) ($lowStockItem['unit_label'] ?? 'un')) ?></span>
+                                    <div class="overview-list-aside">
+                                        <span class="overview-stock-meta"><?= e((string) ($lowStockItem['quantity_display'] ?? '0')) ?>/<?= e((string) ($lowStockItem['min_quantity_display'] ?? '0')) ?> <?= e((string) ($lowStockItem['unit_label'] ?? 'un')) ?></span>
+                                    </div>
                                 </li>
                             <?php endforeach; ?>
                         </ul>
@@ -500,12 +562,25 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                             <?php
                             $workspaceSummaryId = (int) ($workspaceSummary['workspace_id'] ?? 0);
                             $isActiveWorkspaceSummary = $workspaceSummaryId === (int) ($currentWorkspaceId ?? 0);
+                            $workspaceAttentionTone = (string) ($workspaceSummary['attention_tone'] ?? 'stable');
                             ?>
-                            <article class="overview-workspace-item<?= $isActiveWorkspaceSummary ? ' is-active-workspace' : '' ?>">
+                            <article class="overview-workspace-item is-<?= e($workspaceAttentionTone) ?><?= $isActiveWorkspaceSummary ? ' is-active-workspace' : '' ?>">
                                 <div class="overview-workspace-meta">
                                     <div class="overview-workspace-title">
-                                        <strong><?= e((string) ($workspaceSummary['workspace_name'] ?? 'Workspace')) ?></strong>
-                                        <span class="overview-workspace-role"><?= e((string) ($workspaceSummary['workspace_role_label'] ?? 'Usuario')) ?></span>
+                                        <div class="overview-workspace-title-row">
+                                            <strong><?= e((string) ($workspaceSummary['workspace_name'] ?? 'Workspace')) ?></strong>
+                                            <span class="overview-workspace-health is-<?= e($workspaceAttentionTone) ?>">
+                                                <?= e((string) ($workspaceSummary['attention_label'] ?? 'Estavel')) ?>
+                                            </span>
+                                        </div>
+                                        <div class="overview-workspace-badges">
+                                            <span class="overview-workspace-role"><?= e((string) ($workspaceSummary['workspace_role_label'] ?? 'Usuario')) ?></span>
+                                            <?php if ((int) ($workspaceSummary['urgent_tasks_today_count'] ?? 0) > 0): ?>
+                                                <span class="overview-workspace-chip is-critical"><?= e((string) ($workspaceSummary['urgent_tasks_today_count'] ?? 0)) ?> urgente(s)</span>
+                                            <?php elseif ((int) ($workspaceSummary['due_today_count'] ?? 0) > 0): ?>
+                                                <span class="overview-workspace-chip is-attention"><?= e((string) ($workspaceSummary['due_today_count'] ?? 0)) ?> vence hoje</span>
+                                            <?php endif; ?>
+                                        </div>
                                     </div>
                                     <div class="overview-workspace-actions">
                                         <?php if ($isActiveWorkspaceSummary): ?>
@@ -520,22 +595,27 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                                         <?php endif; ?>
                                     </div>
                                 </div>
+                                <p class="overview-workspace-note"><?= e((string) ($workspaceSummary['attention_note'] ?? 'Sem pendencias imediatas.')) ?></p>
                                 <dl class="overview-workspace-kpis">
                                     <div class="overview-workspace-kpi is-today">
                                         <dt>Hoje</dt>
                                         <dd><?= e((string) ($workspaceSummary['tasks_today_count'] ?? 0)) ?></dd>
                                     </div>
+                                    <div class="overview-workspace-kpi is-critical">
+                                        <dt>Urgente</dt>
+                                        <dd><?= e((string) ($workspaceSummary['urgent_tasks_today_count'] ?? 0)) ?></dd>
+                                    </div>
                                     <div class="overview-workspace-kpi is-due">
-                                        <dt>Vencer</dt>
-                                        <dd><?= e((string) ($workspaceSummary['due_soon_count'] ?? 0)) ?></dd>
+                                        <dt>Vence hoje</dt>
+                                        <dd><?= e((string) ($workspaceSummary['due_today_count'] ?? 0)) ?></dd>
+                                    </div>
+                                    <div class="overview-workspace-kpi is-tomorrow">
+                                        <dt>Amanha</dt>
+                                        <dd><?= e((string) ($workspaceSummary['due_tomorrow_count'] ?? 0)) ?></dd>
                                     </div>
                                     <div class="overview-workspace-kpi is-stock">
                                         <dt>Baixo</dt>
                                         <dd><?= e((string) ($workspaceSummary['low_stock_count'] ?? 0)) ?></dd>
-                                    </div>
-                                    <div class="overview-workspace-kpi is-movement">
-                                        <dt>Movimento</dt>
-                                        <dd><?= e((string) ($workspaceSummary['month_movement_display'] ?? 'R$ 0,00')) ?></dd>
                                     </div>
                                     <div class="overview-workspace-kpi is-balance">
                                         <dt>Saldo</dt>

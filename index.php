@@ -3132,8 +3132,18 @@ $globalDashboardOverview = [
     'due_window_days' => 7,
     'accounting_period_label' => accountingMonthLabel(normalizeAccountingPeriodKey((new DateTimeImmutable('today'))->format('Y-m'))),
     'tasks_today_total' => 0,
+    'urgent_tasks_today_total' => 0,
+    'priority_tasks_today_total' => 0,
     'due_soon_total' => 0,
+    'due_today_total' => 0,
+    'due_tomorrow_total' => 0,
     'low_stock_total' => 0,
+    'critical_workspace_total' => 0,
+    'attention_workspace_total' => 0,
+    'executive_focus_total' => 0,
+    'executive_status_tone' => 'stable',
+    'executive_status_label' => 'Operacao estavel',
+    'executive_status_note' => 'Nenhum ponto critico no curto prazo.',
     'balance_total_cents' => 0,
     'balance_month_movement_cents' => 0,
     'balance_total_display' => dueAmountLabelFromSignedCents(0),
@@ -3174,6 +3184,8 @@ if ($currentUser) {
         ));
 
         $workspaceTasksToday = [];
+        $workspaceUrgentTasksTodayCount = 0;
+        $workspacePriorityTasksTodayCount = 0;
         foreach ($workspaceTasks as $workspaceTask) {
             $dueDate = dueDateForStorage((string) ($workspaceTask['due_date'] ?? ''));
             if ($dueDate !== $overviewTodayIso) {
@@ -3196,6 +3208,12 @@ if ($currentUser) {
             }
 
             $priorityKey = normalizeTaskPriority((string) ($workspaceTask['priority'] ?? 'medium'));
+            if ($priorityKey === 'urgent') {
+                $workspaceUrgentTasksTodayCount++;
+            }
+            if ($priorityKey === 'urgent' || $priorityKey === 'high') {
+                $workspacePriorityTasksTodayCount++;
+            }
             $workspaceTasksToday[] = [
                 'workspace_id' => $workspaceOptionId,
                 'workspace_name' => $workspaceOptionName,
@@ -3217,6 +3235,8 @@ if ($currentUser) {
         ));
 
         $workspaceDueSoon = [];
+        $workspaceDueTodayCount = 0;
+        $workspaceDueTomorrowCount = 0;
         foreach ($workspaceDueEntries as $workspaceDueEntry) {
             $nextDueDateIso = dueDateForStorage((string) ($workspaceDueEntry['next_due_date'] ?? ''));
             if ($nextDueDateIso === null) {
@@ -3236,8 +3256,10 @@ if ($currentUser) {
 
             if ($daysUntil === 0) {
                 $daysUntilLabel = 'Hoje';
+                $workspaceDueTodayCount++;
             } elseif ($daysUntil === 1) {
                 $daysUntilLabel = 'Amanha';
+                $workspaceDueTomorrowCount++;
             } elseif ($daysUntil !== null) {
                 $daysUntilLabel = 'Em ' . $daysUntil . ' dias';
             } else {
@@ -3310,14 +3332,53 @@ if ($currentUser) {
         $globalDashboardOverview['balance_month_movement_cents'] += $workspaceCurrentBalanceCents;
         $globalDashboardOverview['balance_total_cents'] += $workspaceFinalBalanceCents;
 
+        $workspaceAttentionScore = ($workspaceUrgentTasksTodayCount * 4)
+            + ($workspaceDueTodayCount * 4)
+            + ($workspacePriorityTasksTodayCount * 2)
+            + ($workspaceDueTomorrowCount * 2)
+            + count($workspaceLowStockEntries);
+        $workspaceAttentionTone = 'stable';
+        $workspaceAttentionLabel = 'Estavel';
+        $workspaceAttentionNote = 'Sem pendencias imediatas.';
+
+        if ($workspaceUrgentTasksTodayCount > 0 || $workspaceDueTodayCount > 0) {
+            $workspaceAttentionTone = 'critical';
+            $workspaceAttentionLabel = 'Foco imediato';
+            if ($workspaceUrgentTasksTodayCount > 0 && $workspaceDueTodayCount > 0) {
+                $workspaceAttentionNote = 'Urgencias e vencimentos hoje.';
+            } elseif ($workspaceUrgentTasksTodayCount > 0) {
+                $workspaceAttentionNote = 'Tarefas urgentes para hoje.';
+            } else {
+                $workspaceAttentionNote = 'Contas vencem hoje.';
+            }
+        } elseif ($workspacePriorityTasksTodayCount > 0 || $workspaceDueTomorrowCount > 0 || count($workspaceLowStockEntries) > 0) {
+            $workspaceAttentionTone = 'attention';
+            $workspaceAttentionLabel = 'Monitorar';
+            if ($workspaceDueTomorrowCount > 0) {
+                $workspaceAttentionNote = 'Ha vencimentos previstos para amanha.';
+            } elseif (count($workspaceLowStockEntries) > 0) {
+                $workspaceAttentionNote = 'Itens abaixo do minimo precisam reposicao.';
+            } else {
+                $workspaceAttentionNote = 'Tarefas de alta prioridade para hoje.';
+            }
+        }
+
         $globalDashboardOverview['workspace_summaries'][] = [
             'workspace_id' => $workspaceOptionId,
             'workspace_name' => $workspaceOptionName,
             'workspace_role' => $workspaceOptionRole,
             'workspace_role_label' => $workspaceOptionRoleLabel,
             'tasks_today_count' => count($workspaceTasksToday),
+            'urgent_tasks_today_count' => $workspaceUrgentTasksTodayCount,
+            'priority_tasks_today_count' => $workspacePriorityTasksTodayCount,
             'due_soon_count' => count($workspaceDueSoon),
+            'due_today_count' => $workspaceDueTodayCount,
+            'due_tomorrow_count' => $workspaceDueTomorrowCount,
             'low_stock_count' => count($workspaceLowStockEntries),
+            'attention_score' => $workspaceAttentionScore,
+            'attention_tone' => $workspaceAttentionTone,
+            'attention_label' => $workspaceAttentionLabel,
+            'attention_note' => $workspaceAttentionNote,
             'month_movement_cents' => $workspaceCurrentBalanceCents,
             'month_movement_display' => dueAmountLabelFromSignedCents($workspaceCurrentBalanceCents),
             'balance_total_cents' => $workspaceFinalBalanceCents,
@@ -3392,9 +3453,84 @@ if ($currentUser) {
         }
     );
 
+    usort(
+        $globalDashboardOverview['workspace_summaries'],
+        static function (array $a, array $b): int {
+            $scoreA = (int) ($a['attention_score'] ?? 0);
+            $scoreB = (int) ($b['attention_score'] ?? 0);
+            if ($scoreA !== $scoreB) {
+                return $scoreB <=> $scoreA;
+            }
+
+            $balanceA = abs((int) ($a['balance_total_cents'] ?? 0));
+            $balanceB = abs((int) ($b['balance_total_cents'] ?? 0));
+            if ($balanceA !== $balanceB) {
+                return $balanceB <=> $balanceA;
+            }
+
+            return strcasecmp((string) ($a['workspace_name'] ?? ''), (string) ($b['workspace_name'] ?? ''));
+        }
+    );
+
     $globalDashboardOverview['tasks_today_total'] = count($globalDashboardOverview['tasks_today']);
+    $globalDashboardOverview['urgent_tasks_today_total'] = count(array_filter(
+        $globalDashboardOverview['tasks_today'],
+        static function (array $taskToday): bool {
+            return normalizeTaskPriority((string) ($taskToday['priority'] ?? 'medium')) === 'urgent';
+        }
+    ));
+    $globalDashboardOverview['priority_tasks_today_total'] = count(array_filter(
+        $globalDashboardOverview['tasks_today'],
+        static function (array $taskToday): bool {
+            $priority = normalizeTaskPriority((string) ($taskToday['priority'] ?? 'medium'));
+            return $priority === 'urgent' || $priority === 'high';
+        }
+    ));
     $globalDashboardOverview['due_soon_total'] = count($globalDashboardOverview['due_soon']);
+    $globalDashboardOverview['due_today_total'] = count(array_filter(
+        $globalDashboardOverview['due_soon'],
+        static function (array $dueSoon): bool {
+            return (int) ($dueSoon['days_until'] ?? -1) === 0;
+        }
+    ));
+    $globalDashboardOverview['due_tomorrow_total'] = count(array_filter(
+        $globalDashboardOverview['due_soon'],
+        static function (array $dueSoon): bool {
+            return (int) ($dueSoon['days_until'] ?? -1) === 1;
+        }
+    ));
     $globalDashboardOverview['low_stock_total'] = count($globalDashboardOverview['low_stock']);
+    $globalDashboardOverview['critical_workspace_total'] = count(array_filter(
+        $globalDashboardOverview['workspace_summaries'],
+        static function (array $workspaceSummary): bool {
+            return (string) ($workspaceSummary['attention_tone'] ?? 'stable') === 'critical';
+        }
+    ));
+    $globalDashboardOverview['attention_workspace_total'] = count(array_filter(
+        $globalDashboardOverview['workspace_summaries'],
+        static function (array $workspaceSummary): bool {
+            return (string) ($workspaceSummary['attention_tone'] ?? 'stable') === 'attention';
+        }
+    ));
+    $globalDashboardOverview['executive_focus_total'] = (int) (
+        $globalDashboardOverview['urgent_tasks_today_total']
+        + $globalDashboardOverview['due_today_total']
+        + $globalDashboardOverview['critical_workspace_total']
+    );
+    if ($globalDashboardOverview['executive_focus_total'] > 0) {
+        $globalDashboardOverview['executive_status_tone'] = 'critical';
+        $globalDashboardOverview['executive_status_label'] = 'Foco imediato';
+        $globalDashboardOverview['executive_status_note'] = 'Urgencias do dia e vencimentos de hoje merecem decisao primeiro.';
+    } elseif (
+        (int) ($globalDashboardOverview['priority_tasks_today_total'] ?? 0) > 0
+        || (int) ($globalDashboardOverview['due_tomorrow_total'] ?? 0) > 0
+        || (int) ($globalDashboardOverview['low_stock_total'] ?? 0) > 0
+        || (int) ($globalDashboardOverview['attention_workspace_total'] ?? 0) > 0
+    ) {
+        $globalDashboardOverview['executive_status_tone'] = 'attention';
+        $globalDashboardOverview['executive_status_label'] = 'Monitoramento';
+        $globalDashboardOverview['executive_status_note'] = 'A operacao esta controlada, mas ha itens proximos exigindo acompanhamento.';
+    }
     $globalDashboardOverview['balance_total_display'] = dueAmountLabelFromSignedCents(
         (int) $globalDashboardOverview['balance_total_cents']
     );
