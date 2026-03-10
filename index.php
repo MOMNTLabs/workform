@@ -506,6 +506,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 upsertVaultGroup($pdo, $groupName, (int) $authUser['id'], $workspaceId);
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'group_name' => $groupName,
+                        'message' => 'Grupo do cofre criado.',
+                    ]);
+                }
                 flash('success', 'Grupo do cofre criado.');
                 redirectTo('index.php#vault');
 
@@ -579,6 +586,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'old_group_name' => $existingOldGroupName,
+                        'group_name' => $newGroupName,
+                        'message' => 'Grupo do cofre renomeado.',
+                    ]);
+                }
+
                 flash('success', 'Grupo do cofre renomeado.');
                 redirectTo('index.php#vault');
 
@@ -634,6 +650,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw $e;
                 }
 
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'group_name' => $existingGroupName,
+                        'deleted_entries_count' => $deletedEntriesCount,
+                        'message' => $deletedEntriesCount > 0
+                            ? sprintf('Grupo do cofre removido. %d item(ns) excluido(s).', $deletedEntriesCount)
+                            : 'Grupo do cofre removido.',
+                    ]);
+                }
                 flash(
                     'success',
                     $deletedEntriesCount > 0
@@ -686,7 +712,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!userCanAccessVaultGroup((int) $authUser['id'], $workspaceId, $groupName)) {
                     throw new RuntimeException('Voce nao possui acesso para adicionar itens neste grupo do cofre.');
                 }
-                createWorkspaceVaultEntry(
+                $createdEntryId = createWorkspaceVaultEntry(
                     $pdo,
                     $workspaceId,
                     (string) ($_POST['label'] ?? ''),
@@ -695,6 +721,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $groupName,
                     (int) $authUser['id']
                 );
+
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'entry_id' => $createdEntryId,
+                        'message' => 'Item salvo no cofre.',
+                    ]);
+                }
 
                 flash('success', 'Item salvo no cofre.');
                 redirectTo('index.php#vault');
@@ -780,6 +814,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $groupName
                 );
 
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'entry_id' => $entryId,
+                        'message' => 'Item do cofre atualizado.',
+                    ]);
+                }
+
                 flash('success', 'Item do cofre atualizado.');
                 redirectTo('index.php#vault');
 
@@ -811,6 +853,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 deleteWorkspaceVaultEntry($pdo, $workspaceId, $entryId);
 
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'entry_id' => $entryId,
+                        'message' => 'Item removido do cofre.',
+                    ]);
+                }
+
                 flash('success', 'Item removido do cofre.');
                 redirectTo('index.php#vault');
 
@@ -827,6 +877,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 upsertDueGroup($pdo, $groupName, (int) $authUser['id'], $workspaceId);
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'group_name' => $groupName,
+                        'message' => 'Grupo de vencimentos criado.',
+                    ]);
+                }
                 flash('success', 'Grupo de vencimentos criado.');
                 redirectTo('index.php#dues');
 
@@ -900,6 +957,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'old_group_name' => $existingOldGroupName,
+                        'group_name' => $newGroupName,
+                        'message' => 'Grupo de vencimentos renomeado.',
+                    ]);
+                }
+
                 flash('success', 'Grupo de vencimentos renomeado.');
                 redirectTo('index.php#dues');
 
@@ -955,6 +1021,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw $e;
                 }
 
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'group_name' => $existingGroupName,
+                        'deleted_entries_count' => $deletedEntriesCount,
+                        'message' => $deletedEntriesCount > 0
+                            ? sprintf('Grupo de vencimentos removido. %d item(ns) excluido(s).', $deletedEntriesCount)
+                            : 'Grupo de vencimentos removido.',
+                    ]);
+                }
                 flash(
                     'success',
                     $deletedEntriesCount > 0
@@ -1008,7 +1084,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new RuntimeException('Voce nao possui acesso para adicionar itens neste grupo de vencimentos.');
                 }
 
-                createWorkspaceDueEntry(
+                $createdEntryId = createWorkspaceDueEntry(
                     $pdo,
                     $workspaceId,
                     (string) ($_POST['label'] ?? ''),
@@ -1020,6 +1096,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     (string) ($_POST['recurrence_type'] ?? 'monthly'),
                     $_POST['monthly_day'] ?? null
                 );
+
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'entry_id' => $createdEntryId,
+                        'message' => 'Vencimento criado.',
+                    ]);
+                }
 
                 flash('success', 'Vencimento criado.');
                 redirectTo('index.php#dues');
@@ -1069,6 +1153,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_POST['monthly_day'] ?? null
                 );
 
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'entry_id' => $entryId,
+                        'message' => 'Vencimento atualizado.',
+                    ]);
+                }
+
                 flash('success', 'Vencimento atualizado.');
                 redirectTo('index.php#dues');
 
@@ -1100,6 +1192,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 deleteWorkspaceDueEntry($pdo, $workspaceId, $entryId);
+
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'entry_id' => $entryId,
+                        'message' => 'Vencimento removido.',
+                    ]);
+                }
+
                 flash('success', 'Vencimento removido.');
                 redirectTo('index.php#dues');
 

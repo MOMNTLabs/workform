@@ -3467,6 +3467,108 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const refreshVaultSectionFromServer = async () => {
+    const url = `${window.location.pathname}${window.location.search}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        Accept: "text/html",
+      },
+      credentials: "same-origin",
+    });
+
+    if (!response.ok) {
+      throw new Error("Nao foi possivel atualizar o cofre.");
+    }
+
+    const html = await response.text();
+    const parser = new DOMParser();
+    const nextDoc = parser.parseFromString(html, "text/html");
+
+    const currentGroupsList = document.querySelector("#vault .vault-groups-list");
+    const nextGroupsList = nextDoc.querySelector("#vault .vault-groups-list");
+    if (currentGroupsList instanceof HTMLElement && nextGroupsList instanceof HTMLElement) {
+      currentGroupsList.replaceWith(nextGroupsList);
+    }
+
+    const currentTotal = document.querySelector("[data-vault-total-count]");
+    const nextTotal = nextDoc.querySelector("[data-vault-total-count]");
+    if (currentTotal instanceof HTMLElement) {
+      if (nextTotal instanceof HTMLElement) {
+        currentTotal.textContent = nextTotal.textContent || currentTotal.textContent;
+      } else {
+        const nextEntriesCount = document.querySelectorAll("#vault [data-vault-entry]").length;
+        currentTotal.textContent = `${nextEntriesCount} item(ns)`;
+      }
+    }
+
+    syncSelectOptionsFromSource(vaultEntryGroupField, nextDoc.querySelector("[data-vault-entry-group]"));
+    syncSelectOptionsFromSource(
+      vaultEntryEditGroupField,
+      nextDoc.querySelector("[data-vault-entry-edit-group]")
+    );
+
+    document.querySelectorAll("#vault [data-vault-group]").forEach((section) => {
+      setVaultGroupCollapsed(section, resolveInitialGroupCollapsedState("vault", section), {
+        persist: false,
+      });
+    });
+
+    document.querySelectorAll("#vault [data-vault-password-cell]").forEach((cell) => {
+      syncVaultPasswordCell(cell, false);
+    });
+  };
+
+  const refreshDueSectionFromServer = async () => {
+    const url = `${window.location.pathname}${window.location.search}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        Accept: "text/html",
+      },
+      credentials: "same-origin",
+    });
+
+    if (!response.ok) {
+      throw new Error("Nao foi possivel atualizar os vencimentos.");
+    }
+
+    const html = await response.text();
+    const parser = new DOMParser();
+    const nextDoc = parser.parseFromString(html, "text/html");
+
+    const currentGroupsList = document.querySelector("#dues .due-groups-list");
+    const nextGroupsList = nextDoc.querySelector("#dues .due-groups-list");
+    if (currentGroupsList instanceof HTMLElement && nextGroupsList instanceof HTMLElement) {
+      currentGroupsList.replaceWith(nextGroupsList);
+    }
+
+    const currentTotal = document.querySelector("[data-due-total-count]");
+    const nextTotal = nextDoc.querySelector("[data-due-total-count]");
+    if (currentTotal instanceof HTMLElement) {
+      if (nextTotal instanceof HTMLElement) {
+        currentTotal.textContent = nextTotal.textContent || currentTotal.textContent;
+      } else {
+        const nextEntriesCount = document.querySelectorAll("#dues [data-due-entry]").length;
+        currentTotal.textContent = `${nextEntriesCount} item(ns)`;
+      }
+    }
+
+    syncSelectOptionsFromSource(dueEntryGroupField, nextDoc.querySelector("[data-due-entry-group]"));
+    syncSelectOptionsFromSource(
+      dueEntryEditGroupField,
+      nextDoc.querySelector("[data-due-entry-edit-group]")
+    );
+
+    document.querySelectorAll("#dues [data-due-group]").forEach((section) => {
+      setDueGroupCollapsed(section, resolveInitialGroupCollapsedState("dues", section), {
+        persist: false,
+      });
+    });
+  };
+
   const refreshInventorySectionFromServer = async () => {
     const url = `${window.location.pathname}${window.location.search}`;
     const response = await fetch(url, {
@@ -3517,6 +3619,87 @@ window.addEventListener("DOMContentLoaded", () => {
         persist: false,
       });
     });
+  };
+
+  const submitVaultActionForm = async (
+    form,
+    {
+      onSuccess = null,
+      successMessage = "",
+      showSuccess = true,
+      fallbackError = "Falha ao atualizar dado de acesso.",
+    } = {}
+  ) => {
+    if (!(form instanceof HTMLFormElement)) return false;
+    if (form.dataset.submitting === "1") return false;
+
+    form.dataset.submitting = "1";
+    try {
+      const data = await postFormJson(form);
+      if (typeof onSuccess === "function") {
+        onSuccess(data);
+      }
+
+      await refreshVaultSectionFromServer();
+
+      if (showSuccess) {
+        const message = String(data?.message || "").trim() || successMessage;
+        if (message) {
+          showClientFlash("success", message);
+        }
+      }
+
+      return true;
+    } catch (error) {
+      showClientFlash("error", error instanceof Error ? error.message : fallbackError);
+      throw error;
+    } finally {
+      delete form.dataset.submitting;
+    }
+  };
+
+  const submitDueActionForm = async (
+    form,
+    {
+      onSuccess = null,
+      successMessage = "",
+      showSuccess = true,
+      fallbackError = "Falha ao atualizar vencimento.",
+    } = {}
+  ) => {
+    if (!(form instanceof HTMLFormElement)) return false;
+    if (form.dataset.submitting === "1") return false;
+
+    form.dataset.submitting = "1";
+    try {
+      const data = await postFormJson(form);
+      if (typeof onSuccess === "function") {
+        onSuccess(data);
+      }
+
+      await refreshDueSectionFromServer();
+
+      if (showSuccess) {
+        const message = String(data?.message || "").trim() || successMessage;
+        if (message) {
+          showClientFlash("success", message);
+        }
+      }
+
+      return true;
+    } catch (error) {
+      showClientFlash("error", error instanceof Error ? error.message : fallbackError);
+      throw error;
+    } finally {
+      delete form.dataset.submitting;
+    }
+  };
+
+  const resolvePostActionName = (form) => {
+    if (!(form instanceof HTMLFormElement)) return "";
+    const actionField = form.querySelector('input[name="action"]');
+    if (!(actionField instanceof HTMLInputElement)) return "";
+    return String(actionField.value || "").trim();
   };
 
   const submitInventoryActionForm = async (
@@ -9318,7 +9501,10 @@ window.addEventListener("DOMContentLoaded", () => {
           confirmLabel: "Excluir",
           confirmVariant: "danger",
           onConfirm: async () => {
-            deleteForm.submit();
+            await submitVaultActionForm(deleteForm, {
+              successMessage: "Item removido do cofre.",
+              fallbackError: "Falha ao remover item do cofre.",
+            });
           },
         });
       }
@@ -9339,7 +9525,10 @@ window.addEventListener("DOMContentLoaded", () => {
           confirmLabel: "Excluir",
           confirmVariant: "danger",
           onConfirm: async () => {
-            deleteForm.submit();
+            await submitDueActionForm(deleteForm, {
+              successMessage: "Vencimento removido.",
+              fallbackError: "Falha ao remover vencimento.",
+            });
           },
         });
       }
@@ -10072,20 +10261,34 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   if (vaultGroupForm instanceof HTMLFormElement) {
-    vaultGroupForm.addEventListener("submit", () => {
+    vaultGroupForm.addEventListener("submit", (event) => {
+      event.preventDefault();
       if (vaultGroupNameInput instanceof HTMLInputElement) {
         applyFirstLetterUppercaseToInput(vaultGroupNameInput);
       }
-      syncBodyModalLock();
+      void submitVaultActionForm(vaultGroupForm, {
+        onSuccess: () => {
+          closeVaultGroupModal();
+        },
+        successMessage: "Grupo do cofre criado.",
+        fallbackError: "Falha ao criar grupo do cofre.",
+      }).catch(() => {});
     });
   }
 
   if (dueGroupForm instanceof HTMLFormElement) {
-    dueGroupForm.addEventListener("submit", () => {
+    dueGroupForm.addEventListener("submit", (event) => {
+      event.preventDefault();
       if (dueGroupNameInput instanceof HTMLInputElement) {
         applyFirstLetterUppercaseToInput(dueGroupNameInput);
       }
-      syncBodyModalLock();
+      void submitDueActionForm(dueGroupForm, {
+        onSuccess: () => {
+          closeDueGroupModal();
+        },
+        successMessage: "Grupo de vencimentos criado.",
+        fallbackError: "Falha ao criar grupo de vencimentos.",
+      }).catch(() => {});
     });
   }
 
@@ -10161,16 +10364,24 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   if (vaultEntryForm instanceof HTMLFormElement) {
-    vaultEntryForm.addEventListener("submit", () => {
+    vaultEntryForm.addEventListener("submit", (event) => {
+      event.preventDefault();
       if (vaultEntryLabelField instanceof HTMLInputElement) {
         applyFirstLetterUppercaseToInput(vaultEntryLabelField);
       }
-      syncBodyModalLock();
+      void submitVaultActionForm(vaultEntryForm, {
+        onSuccess: () => {
+          closeVaultEntryModal();
+        },
+        successMessage: "Item salvo no cofre.",
+        fallbackError: "Falha ao salvar item no cofre.",
+      }).catch(() => {});
     });
   }
 
   if (dueEntryForm instanceof HTMLFormElement) {
-    dueEntryForm.addEventListener("submit", () => {
+    dueEntryForm.addEventListener("submit", (event) => {
+      event.preventDefault();
       if (dueEntryLabelField instanceof HTMLInputElement) {
         applyFirstLetterUppercaseToInput(dueEntryLabelField);
       }
@@ -10178,7 +10389,13 @@ window.addEventListener("DOMContentLoaded", () => {
       if (dueEntryMonthlyDayField instanceof HTMLInputElement) {
         dueEntryMonthlyDayField.value = normalizeDueMonthlyDayInput(dueEntryMonthlyDayField.value);
       }
-      syncBodyModalLock();
+      void submitDueActionForm(dueEntryForm, {
+        onSuccess: () => {
+          closeDueEntryModal();
+        },
+        successMessage: "Vencimento criado.",
+        fallbackError: "Falha ao criar vencimento.",
+      }).catch(() => {});
     });
   }
 
@@ -10211,16 +10428,24 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   if (vaultEntryEditForm instanceof HTMLFormElement) {
-    vaultEntryEditForm.addEventListener("submit", () => {
+    vaultEntryEditForm.addEventListener("submit", (event) => {
+      event.preventDefault();
       if (vaultEntryEditLabelField instanceof HTMLInputElement) {
         applyFirstLetterUppercaseToInput(vaultEntryEditLabelField);
       }
-      syncBodyModalLock();
+      void submitVaultActionForm(vaultEntryEditForm, {
+        onSuccess: () => {
+          closeVaultEntryEditModal();
+        },
+        successMessage: "Item do cofre atualizado.",
+        fallbackError: "Falha ao atualizar item do cofre.",
+      }).catch(() => {});
     });
   }
 
   if (dueEntryEditForm instanceof HTMLFormElement) {
-    dueEntryEditForm.addEventListener("submit", () => {
+    dueEntryEditForm.addEventListener("submit", (event) => {
+      event.preventDefault();
       if (dueEntryEditLabelField instanceof HTMLInputElement) {
         applyFirstLetterUppercaseToInput(dueEntryEditLabelField);
       }
@@ -10230,7 +10455,13 @@ window.addEventListener("DOMContentLoaded", () => {
           dueEntryEditMonthlyDayField.value
         );
       }
-      syncBodyModalLock();
+      void submitDueActionForm(dueEntryEditForm, {
+        onSuccess: () => {
+          closeDueEntryEditModal();
+        },
+        successMessage: "Vencimento atualizado.",
+        fallbackError: "Falha ao atualizar vencimento.",
+      }).catch(() => {});
     });
   }
 
@@ -10262,11 +10493,85 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  document.querySelectorAll("[data-vault-entry-name-form]").forEach((form) => {
+  document.addEventListener("submit", (event) => {
+    const form = event.target;
     if (!(form instanceof HTMLFormElement)) return;
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      void submitVaultEntryNameForm(form);
+    if (!form.matches("[data-vault-entry-name-form]")) return;
+    event.preventDefault();
+    void submitVaultEntryNameForm(form);
+  });
+
+  document.addEventListener("submit", (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement)) return;
+
+    const action = resolvePostActionName(form);
+    if (
+      action !== "rename_vault_group" &&
+      action !== "rename_due_group" &&
+      action !== "delete_vault_group" &&
+      action !== "delete_due_group"
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (action === "rename_vault_group") {
+      const nameInput = form.querySelector('input[name="new_group_name"]');
+      if (nameInput instanceof HTMLInputElement) {
+        applyFirstLetterUppercaseToInput(nameInput);
+      }
+      void submitVaultActionForm(form, {
+        successMessage: "Grupo do cofre renomeado.",
+        fallbackError: "Falha ao renomear grupo do cofre.",
+      }).catch(() => {});
+      return;
+    }
+
+    if (action === "rename_due_group") {
+      const nameInput = form.querySelector('input[name="new_group_name"]');
+      if (nameInput instanceof HTMLInputElement) {
+        applyFirstLetterUppercaseToInput(nameInput);
+      }
+      void submitDueActionForm(form, {
+        successMessage: "Grupo de vencimentos renomeado.",
+        fallbackError: "Falha ao renomear grupo de vencimentos.",
+      }).catch(() => {});
+      return;
+    }
+
+    const isVaultGroupDelete = action === "delete_vault_group";
+    const groupSection = form.closest(isVaultGroupDelete ? "[data-vault-group]" : "[data-due-group]");
+    const groupName =
+      groupSection?.dataset?.groupName?.trim() ||
+      form.querySelector('input[name="group_name"]')?.value?.trim() ||
+      "este grupo";
+    const groupCountText = groupSection?.querySelector(".task-group-count")?.textContent?.trim() || "0";
+    const groupItemCount = Number.parseInt(groupCountText, 10) || 0;
+    const message =
+      groupItemCount > 0
+        ? `Remover o grupo ${groupName}? Os itens desse grupo tambem serao excluidos.`
+        : `Remover o grupo ${groupName}?`;
+
+    openConfirmModal({
+      title: isVaultGroupDelete ? "Excluir grupo do cofre" : "Excluir grupo de vencimentos",
+      message,
+      confirmLabel: "Excluir",
+      confirmVariant: "danger",
+      onConfirm: async () => {
+        if (isVaultGroupDelete) {
+          await submitVaultActionForm(form, {
+            successMessage: "Grupo do cofre removido.",
+            fallbackError: "Falha ao remover grupo do cofre.",
+          });
+          return;
+        }
+        await submitDueActionForm(form, {
+          successMessage: "Grupo de vencimentos removido.",
+          fallbackError: "Falha ao remover grupo de vencimentos.",
+        });
+      },
     });
   });
 

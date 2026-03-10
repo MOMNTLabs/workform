@@ -940,7 +940,7 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                         </span>
                         <span class="vault-summary-button-label">Novo acesso</span>
                     </button>
-                    <span><?= e((string) count($vaultEntries)) ?> item(ns)</span>
+                    <span data-vault-total-count><?= e((string) count($vaultEntries)) ?> item(ns)</span>
                 </div>
             </div>
 
@@ -1198,7 +1198,7 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                         </span>
                         <span class="vault-summary-button-label">Novo vencimento</span>
                     </button>
-                    <span><?= e((string) count($dueEntries)) ?> item(ns)</span>
+                    <span data-due-total-count><?= e((string) count($dueEntries)) ?> item(ns)</span>
                 </div>
             </div>
 
