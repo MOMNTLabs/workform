@@ -10549,3 +10549,147 @@ body.theme-dark .task-status-subgroup-divider {
             rgba(var(--wf-divider-rgb), 0) 100%
         );
 }
+
+/* Mobile optimization for workspace users settings */
+@media (max-width: 768px) {
+    .is-dashboard .users-wrap {
+        height: auto;
+        overflow: visible;
+        padding-bottom: 10px;
+    }
+
+    .is-dashboard .users-wrap .users-settings-grid {
+        flex: none;
+        min-height: 0;
+        overflow: visible;
+        padding-right: 0;
+        gap: 12px;
+    }
+
+    .is-dashboard .users-wrap .workspace-settings-card {
+        border-radius: 14px;
+        padding: 14px;
+        gap: 10px;
+    }
+
+    .is-dashboard .users-wrap .workspace-settings-form {
+        gap: 10px;
+    }
+
+    .is-dashboard .users-wrap .workspace-settings-form input,
+    .is-dashboard .users-wrap .workspace-settings-form .btn {
+        min-height: 42px;
+    }
+
+    .is-dashboard .users-wrap .workspace-settings-form.is-saving {
+        opacity: 0.72;
+        pointer-events: none;
+    }
+
+    .is-dashboard .users-wrap .workspace-settings-members {
+        flex: none;
+        max-height: none;
+        overflow: visible;
+        padding-right: 0;
+        gap: 10px;
+    }
+
+    .is-dashboard .users-wrap .workspace-settings-member-item {
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: start;
+        gap: 8px;
+        padding: 10px;
+    }
+
+    .is-dashboard .users-wrap .workspace-settings-member-actions {
+        grid-column: 1 / -1;
+        justify-self: stretch;
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    .is-dashboard .users-wrap .workspace-settings-member-remove {
+        width: 100%;
+    }
+
+    .is-dashboard .users-wrap .workspace-settings-member-remove .btn {
+        width: 100%;
+        min-height: 34px;
+        padding-inline: 8px;
+    }
+
+    .is-dashboard .users-wrap .workspace-settings-member-actions .workspace-settings-member-remove:last-child {
+        grid-column: 1 / -1;
+    }
+
+    body.is-dashboard.dashboard-header-actions-inline .workspace-sidebar-heading-row {
+        grid-template-columns: 32px minmax(0, 1fr) auto;
+        gap: 6px;
+    }
+
+    body.is-dashboard.dashboard-header-actions-inline .workspace-sidebar-heading-actions .top-nav-actions {
+        gap: 4px;
+    }
+
+    body.is-dashboard.dashboard-header-actions-inline .workspace-sidebar-heading-actions .top-nav-actions .header-notification-button,
+    body.is-dashboard.dashboard-header-actions-inline .workspace-sidebar-heading-actions .top-nav-actions .icon-gear-button {
+        width: 32px;
+        height: 32px;
+    }
+
+    body.is-dashboard.dashboard-header-actions-inline .workspace-sidebar-heading-actions .top-nav-actions .btn-logout {
+        min-height: 32px;
+        padding-inline: 8px;
+        font-size: 0.84rem;
+    }
+
+    body.is-dashboard.dashboard-header-actions-inline .workspace-sidebar-picker > summary {
+        min-height: 34px;
+        padding-inline: 9px;
+        font-size: 0.96rem;
+    }
+}
+
+@media (max-width: 420px) {
+    body.is-dashboard.dashboard-header-actions-inline .workspace-sidebar-heading-row {
+        grid-template-columns: 30px minmax(0, 1fr) auto;
+        gap: 5px;
+    }
+
+    body.is-dashboard.dashboard-header-actions-inline .workspace-sidebar-heading-actions .top-nav-actions .header-notification-button,
+    body.is-dashboard.dashboard-header-actions-inline .workspace-sidebar-heading-actions .top-nav-actions .icon-gear-button,
+    body.is-dashboard.dashboard-header-actions-inline .workspace-sidebar-heading-actions .sidebar-view-toggle {
+        width: 30px;
+        height: 30px;
+        min-width: 30px;
+        min-height: 30px;
+        border-radius: 9px;
+    }
+
+    body.is-dashboard.dashboard-header-actions-inline .workspace-sidebar-heading-actions .top-nav-actions .btn-logout {
+        width: 30px;
+        min-width: 30px;
+        min-height: 30px;
+        padding: 0;
+        justify-content: center;
+        font-size: 0;
+    }
+
+    body.is-dashboard.dashboard-header-actions-inline .workspace-sidebar-heading-actions .top-nav-actions .btn-logout > span {
+        display: none;
+    }
+
+    body.is-dashboard.dashboard-header-actions-inline .workspace-sidebar-heading-actions .top-nav-actions .btn-logout::before {
+        margin-right: 0;
+    }
+
+    .is-dashboard .users-wrap .workspace-settings-member-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .is-dashboard .users-wrap .workspace-settings-member-actions .workspace-settings-member-remove:last-child {
+        grid-column: auto;
+    }
+}

@@ -3621,6 +3621,54 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   };
 
+  const refreshWorkspaceUsersSectionFromServer = async () => {
+    const url = `${window.location.pathname}${window.location.search}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        Accept: "text/html",
+      },
+      credentials: "same-origin",
+    });
+
+    if (!response.ok) {
+      throw new Error("Nao foi possivel atualizar os usuarios do workspace.");
+    }
+
+    const html = await response.text();
+    const parser = new DOMParser();
+    const nextDoc = parser.parseFromString(html, "text/html");
+
+    const currentUsersGrid = document.querySelector("#users .users-settings-grid");
+    const nextUsersGrid = nextDoc.querySelector("#users .users-settings-grid");
+    if (!(currentUsersGrid instanceof HTMLElement) || !(nextUsersGrid instanceof HTMLElement)) {
+      throw new Error("Nao foi possivel atualizar os usuarios do workspace.");
+    }
+    currentUsersGrid.replaceWith(nextUsersGrid);
+
+    const currentWorkspacePickerList = document.querySelector(".workspace-sidebar-picker-list");
+    const nextWorkspacePickerList = nextDoc.querySelector(".workspace-sidebar-picker-list");
+    if (
+      currentWorkspacePickerList instanceof HTMLElement &&
+      nextWorkspacePickerList instanceof HTMLElement
+    ) {
+      currentWorkspacePickerList.innerHTML = nextWorkspacePickerList.innerHTML;
+    }
+
+    const currentWorkspacePickerTitle = document.querySelector(".workspace-sidebar-picker-title");
+    const nextWorkspacePickerTitle = nextDoc.querySelector(".workspace-sidebar-picker-title");
+    if (
+      currentWorkspacePickerTitle instanceof HTMLElement &&
+      nextWorkspacePickerTitle instanceof HTMLElement
+    ) {
+      const nextTitle = String(nextWorkspacePickerTitle.textContent || "").trim();
+      if (nextTitle) {
+        currentWorkspacePickerTitle.textContent = nextTitle;
+      }
+    }
+  };
+
   const submitVaultActionForm = async (
     form,
     {
@@ -3700,6 +3748,64 @@ window.addEventListener("DOMContentLoaded", () => {
     const actionField = form.querySelector('input[name="action"]');
     if (!(actionField instanceof HTMLInputElement)) return "";
     return String(actionField.value || "").trim();
+  };
+
+  const workspaceUsersActionNames = new Set([
+    "workspace_update_name",
+    "workspace_add_member",
+    "add_workspace_member",
+    "workspace_promote_member",
+    "workspace_demote_member",
+    "workspace_remove_member",
+  ]);
+
+  const submitWorkspaceUsersActionForm = async (
+    form,
+    {
+      successMessage = "",
+      fallbackError = "Falha ao atualizar usuarios do workspace.",
+    } = {}
+  ) => {
+    if (!(form instanceof HTMLFormElement)) return false;
+    if (form.dataset.submitting === "1") return false;
+
+    const submitButtons = Array.from(form.querySelectorAll('button[type="submit"], input[type="submit"]'));
+    form.dataset.submitting = "1";
+    form.classList.add("is-saving");
+    submitButtons.forEach((button) => {
+      if (
+        button instanceof HTMLButtonElement ||
+        button instanceof HTMLInputElement
+      ) {
+        button.disabled = true;
+      }
+    });
+
+    try {
+      const data = await postFormJson(form);
+      await refreshWorkspaceUsersSectionFromServer();
+      const message = String(data?.message || "").trim() || successMessage;
+      if (message) {
+        showClientFlash("success", message);
+      }
+      return true;
+    } catch (error) {
+      showClientFlash("error", error instanceof Error ? error.message : fallbackError);
+      throw error;
+    } finally {
+      form.classList.remove("is-saving");
+      delete form.dataset.submitting;
+      if (form.isConnected) {
+        submitButtons.forEach((button) => {
+          if (
+            button instanceof HTMLButtonElement ||
+            button instanceof HTMLInputElement
+          ) {
+            button.disabled = false;
+          }
+        });
+      }
+    }
   };
 
   const submitInventoryActionForm = async (
@@ -10573,6 +10679,49 @@ window.addEventListener("DOMContentLoaded", () => {
         });
       },
     });
+  });
+
+  document.addEventListener("submit", (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement)) return;
+
+    const action = resolvePostActionName(form);
+    if (!workspaceUsersActionNames.has(action)) return;
+
+    const usersPanel = form.closest("#users.users-wrap");
+    if (!(usersPanel instanceof HTMLElement)) return;
+
+    event.preventDefault();
+
+    if (action === "workspace_update_name") {
+      const workspaceNameInput = form.querySelector('input[name="workspace_name"]');
+      if (workspaceNameInput instanceof HTMLInputElement) {
+        applyFirstLetterUppercaseToInput(workspaceNameInput);
+      }
+    }
+
+    const successMessageByAction = {
+      workspace_update_name: "Nome do workspace atualizado.",
+      workspace_add_member: "Usuario adicionado ao workspace.",
+      add_workspace_member: "Usuario adicionado ao workspace.",
+      workspace_promote_member: "Permissao de administrador concedida.",
+      workspace_demote_member: "Permissao alterada para usuario.",
+      workspace_remove_member: "Usuario removido do workspace.",
+    };
+
+    const fallbackErrorByAction = {
+      workspace_update_name: "Falha ao atualizar o nome do workspace.",
+      workspace_add_member: "Falha ao adicionar usuario ao workspace.",
+      add_workspace_member: "Falha ao adicionar usuario ao workspace.",
+      workspace_promote_member: "Falha ao promover usuario.",
+      workspace_demote_member: "Falha ao alterar permissao do usuario.",
+      workspace_remove_member: "Falha ao remover usuario do workspace.",
+    };
+
+    void submitWorkspaceUsersActionForm(form, {
+      successMessage: successMessageByAction[action] || "",
+      fallbackError: fallbackErrorByAction[action] || "Falha ao atualizar usuarios do workspace.",
+    }).catch(() => {});
   });
 
   document.addEventListener("change", (event) => {

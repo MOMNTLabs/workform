@@ -371,8 +371,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new RuntimeException('Somente administradores podem alterar o workspace.');
                 }
 
-                updateWorkspaceName($pdo, $workspaceId, (string) ($_POST['workspace_name'] ?? ''));
-                flash('success', 'Nome do workspace atualizado.');
+                $workspaceNameInput = (string) ($_POST['workspace_name'] ?? '');
+                updateWorkspaceName($pdo, $workspaceId, $workspaceNameInput);
+
+                $workspaceUpdatedMessage = 'Nome do workspace atualizado.';
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'message' => $workspaceUpdatedMessage,
+                        'workspace_name' => normalizeWorkspaceName($workspaceNameInput),
+                    ]);
+                }
+
+                flash('success', $workspaceUpdatedMessage);
                 redirectTo('index.php#users');
 
             case 'workspace_add_member':
@@ -407,7 +418,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 upsertWorkspaceMember($pdo, $workspaceId, $memberId, 'member');
-                flash('success', 'Usuario adicionado ao workspace.');
+
+                $workspaceAddMemberMessage = 'Usuario adicionado ao workspace.';
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'message' => $workspaceAddMemberMessage,
+                        'member_id' => $memberId,
+                        'member_email' => $memberEmail,
+                        'member_role' => 'member',
+                    ]);
+                }
+
+                flash('success', $workspaceAddMemberMessage);
                 redirectTo('index.php#users');
 
             case 'workspace_promote_member':
@@ -435,7 +458,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 upsertWorkspaceMember($pdo, $workspaceId, $memberId, 'admin');
-                flash('success', 'Permissao de administrador concedida.');
+
+                $workspacePromoteMemberMessage = 'Permissao de administrador concedida.';
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'message' => $workspacePromoteMemberMessage,
+                        'member_id' => $memberId,
+                        'member_role' => 'admin',
+                    ]);
+                }
+
+                flash('success', $workspacePromoteMemberMessage);
                 redirectTo('index.php#users');
 
             case 'workspace_demote_member':
@@ -465,7 +499,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 updateWorkspaceMemberRole($pdo, $workspaceId, $memberId, 'member');
-                flash('success', 'Permissao alterada para usuario.');
+
+                $workspaceDemoteMemberMessage = 'Permissao alterada para usuario.';
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'message' => $workspaceDemoteMemberMessage,
+                        'member_id' => $memberId,
+                        'member_role' => 'member',
+                    ]);
+                }
+
+                flash('success', $workspaceDemoteMemberMessage);
                 redirectTo('index.php#users');
 
             case 'workspace_remove_member':
@@ -490,7 +535,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 removeWorkspaceMember($pdo, $workspaceId, $memberId);
-                flash('success', 'Usuario removido do workspace.');
+
+                $workspaceRemoveMemberMessage = 'Usuario removido do workspace.';
+                if (requestExpectsJson()) {
+                    respondJson([
+                        'ok' => true,
+                        'message' => $workspaceRemoveMemberMessage,
+                        'member_id' => $memberId,
+                    ]);
+                }
+
+                flash('success', $workspaceRemoveMemberMessage);
                 redirectTo('index.php#users');
 
             case 'create_vault_group':
