@@ -212,8 +212,37 @@ function submittedGroupPermissionsByUserId(array $workspaceRolesByUserId, array 
     return $permissionsByUserId;
 }
 
+$forceAuthScreen = false;
+$authInitialPanel = 'login';
+$passwordResetRequest = null;
+$requestedAuthPanel = trim((string) ($_GET['auth'] ?? ''));
+if (in_array($requestedAuthPanel, ['login', 'register', 'forgot-password', 'reset-password'], true)) {
+    $authInitialPanel = $requestedAuthPanel;
+    $forceAuthScreen = true;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $getAction = trim((string) ($_GET['action'] ?? ''));
+
+    if ($getAction === 'reset_password') {
+        $selector = trim((string) ($_GET['selector'] ?? ''));
+        $token = trim((string) ($_GET['token'] ?? ''));
+        if ($selector === '' || $token === '') {
+            flash('error', 'Link de redefinicao invalido.');
+            redirectTo('index.php?auth=forgot-password#forgot-password');
+        }
+
+        $passwordResetRequest = validPasswordResetRequest($selector, $token);
+        if (!$passwordResetRequest) {
+            flash('error', 'Este link de redefinicao e invalido ou expirou.');
+            redirectTo('index.php?auth=forgot-password#forgot-password');
+        }
+
+        $passwordResetRequest['selector'] = $selector;
+        $passwordResetRequest['token'] = $token;
+        $authInitialPanel = 'reset-password';
+        $forceAuthScreen = true;
+    }
 
     if ($getAction === 'task_notifications_feed') {
         try {
@@ -268,6 +297,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? '');
+    $redirectPathOnError = 'index.php';
 
     try {
         verifyCsrf();
@@ -331,6 +361,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 logoutUser();
                 flash('success', 'Sessão encerrada.');
                 redirectTo('index.php');
+
+            case 'request_password_reset':
+                $redirectPathOnError = 'index.php?auth=forgot-password#forgot-password';
+                $email = strtolower(trim((string) ($_POST['email'] ?? '')));
+                if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    throw new RuntimeException('Informe um e-mail valido.');
+                }
+
+                $delivery = ['logged_to_file' => false];
+                $stmt = $pdo->prepare('SELECT id, name, email FROM users WHERE email = :email LIMIT 1');
+                $stmt->execute([':email' => $email]);
+                $userRow = $stmt->fetch();
+
+                if ($userRow) {
+                    $passwordResetToken = issuePasswordResetToken((int) $userRow['id']);
+                    $delivery = sendPasswordResetEmail(
+                        (string) ($userRow['email'] ?? ''),
+                        (string) ($userRow['name'] ?? ''),
+                        (string) ($passwordResetToken['url'] ?? ''),
+                        (string) ($passwordResetToken['expires_at'] ?? '')
+                    );
+                }
+
+                $requestPasswordResetMessage = 'Se o e-mail estiver cadastrado, enviamos as instrucoes para redefinir a senha.';
+                if (!empty($delivery['logged_to_file'])) {
+                    $requestPasswordResetMessage .= ' Se o envio nao estiver configurado neste ambiente, confira o arquivo storage/password-reset-mails.log.';
+                }
+
+                flash('success', $requestPasswordResetMessage);
+                redirectTo('index.php?auth=login#login');
+
+            case 'perform_password_reset':
+                $selector = trim((string) ($_POST['selector'] ?? ''));
+                $token = trim((string) ($_POST['token'] ?? ''));
+                $redirectPathOnError = ($selector !== '' && $token !== '')
+                    ? passwordResetPath($selector, $token, false)
+                    : 'index.php?auth=forgot-password#forgot-password';
+
+                $newPassword = (string) ($_POST['new_password'] ?? '');
+                $newPasswordConfirm = (string) ($_POST['new_password_confirm'] ?? '');
+                if ($selector === '' || $token === '') {
+                    throw new RuntimeException('Link de redefinicao invalido.');
+                }
+                if ($newPassword === '' || $newPasswordConfirm === '') {
+                    throw new RuntimeException('Preencha os campos de senha.');
+                }
+                if (mb_strlen($newPassword) < 6) {
+                    throw new RuntimeException('A nova senha deve ter pelo menos 6 caracteres.');
+                }
+                if ($newPassword !== $newPasswordConfirm) {
+                    throw new RuntimeException('A confirmacao da nova senha nao confere.');
+                }
+
+                $passwordResetRow = validPasswordResetRequest($selector, $token);
+                if (!$passwordResetRow) {
+                    throw new RuntimeException('Este link de redefinicao e invalido ou expirou.');
+                }
+
+                $userId = (int) ($passwordResetRow['user_id'] ?? 0);
+                if ($userId <= 0) {
+                    throw new RuntimeException('Usuario invalido para redefinicao de senha.');
+                }
+
+                $stmt = $pdo->prepare(
+                    'UPDATE users
+                     SET password_hash = :password_hash
+                     WHERE id = :id'
+                );
+                $stmt->execute([
+                    ':password_hash' => password_hash($newPassword, PASSWORD_DEFAULT),
+                    ':id' => $userId,
+                ]);
+
+                deletePasswordResetTokensForUser($userId);
+                deleteRememberTokensForUser($userId);
+
+                $sessionUser = currentUser();
+                if ($sessionUser && (int) ($sessionUser['id'] ?? 0) === $userId) {
+                    logoutUser();
+                }
+
+                flash('success', 'Senha redefinida com sucesso. Entre com a nova senha.');
+                redirectTo('index.php?auth=login#login');
 
             case 'switch_workspace':
                 $authUser = requireAuth();
@@ -2931,11 +3044,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ], 422);
         }
         flash('error', $e->getMessage());
-        redirectTo('index.php');
+        redirectTo($redirectPathOnError);
     }
 }
 
 $currentUser = currentUser();
+$renderAuthScreen = !$currentUser || $forceAuthScreen;
 $currentWorkspaceId = $currentUser ? activeWorkspaceId($currentUser) : null;
 $currentWorkspace = ($currentUser && $currentWorkspaceId !== null) ? activeWorkspace($currentUser) : null;
 if ($currentUser && $currentWorkspaceId !== null) {
@@ -3560,10 +3674,10 @@ $defaultTaskGroupName = $taskGroups[0] ?? 'Geral';
     <script src="assets/app.js?v=<?= e($appAssetVersion) ?>" defer></script>
 </head>
 <body
-    class="<?= $currentUser ? 'is-dashboard' : 'is-auth' ?>"
+    class="<?= $renderAuthScreen ? 'is-auth' : 'is-dashboard' ?>"
     data-default-group-name="<?= e((string) $defaultTaskGroupName) ?>"
-    data-workspace-id="<?= e((string) ($currentWorkspaceId ?? '')) ?>"
-    data-user-id="<?= e((string) ($currentUser['id'] ?? '')) ?>"
+    data-workspace-id="<?= e((string) ($renderAuthScreen ? '' : ($currentWorkspaceId ?? ''))) ?>"
+    data-user-id="<?= e((string) ($renderAuthScreen ? '' : ($currentUser['id'] ?? ''))) ?>"
 >
     <div class="bg-layer bg-layer-one" aria-hidden="true"></div>
     <div class="bg-layer bg-layer-two" aria-hidden="true"></div>
@@ -3581,7 +3695,7 @@ $defaultTaskGroupName = $taskGroups[0] ?? 'Geral';
             </div>
         <?php endif; ?>
 
-        <?php if (!$currentUser): ?>
+        <?php if ($renderAuthScreen): ?>
             <?php include __DIR__ . '/partials/auth.php'; ?>
         <?php else: ?>
             <?php include __DIR__ . '/partials/dashboard.php'; ?>

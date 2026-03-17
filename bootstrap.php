@@ -9,6 +9,8 @@ const APP_NAME = 'WorkForm';
 const DB_PATH = __DIR__ . '/storage/app.sqlite';
 const REMEMBER_COOKIE_NAME = 'wf_remember';
 const REMEMBER_TOKEN_DAYS = 30;
+const PASSWORD_RESET_TOKEN_HOURS = 1;
+const PASSWORD_RESET_LOG_PATH = __DIR__ . '/storage/password-reset-mails.log';
 const LAST_WORKSPACE_COOKIE_NAME = 'wf_last_workspace';
 const LAST_WORKSPACE_COOKIE_DAYS = 365;
 
@@ -236,6 +238,18 @@ function migrateSqlite(PDO $pdo): void
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )'
     );
+
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS password_reset_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            selector TEXT NOT NULL UNIQUE,
+            token_hash TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )'
+    );
 }
 
 function migratePostgres(PDO $pdo): void
@@ -296,6 +310,17 @@ function migratePostgres(PDO $pdo): void
 
     $pdo->exec(
         'CREATE TABLE IF NOT EXISTS remember_tokens (
+            id BIGSERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            selector TEXT NOT NULL UNIQUE,
+            token_hash TEXT NOT NULL,
+            expires_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+            created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL
+        )'
+    );
+
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS password_reset_tokens (
             id BIGSERIAL PRIMARY KEY,
             user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             selector TEXT NOT NULL UNIQUE,
@@ -2123,6 +2148,198 @@ function restoreRememberedSession(): void
     $delete = db()->prepare('DELETE FROM remember_tokens WHERE selector = :selector');
     $delete->execute([':selector' => $selector]);
     loginUser((int) $row['user_id'], true);
+}
+
+function deleteRememberTokensForUser(int $userId): void
+{
+    if ($userId <= 0) {
+        return;
+    }
+
+    $stmt = db()->prepare('DELETE FROM remember_tokens WHERE user_id = :user_id');
+    $stmt->execute([':user_id' => $userId]);
+}
+
+function appEntryUrl(): string
+{
+    $configuredAppUrl = trim((string) envValue('APP_URL', ''));
+    if ($configuredAppUrl !== '') {
+        if (preg_match('~/index\.php/?$~i', $configuredAppUrl)) {
+            return rtrim($configuredAppUrl, '/');
+        }
+
+        return rtrim($configuredAppUrl, '/') . '/index.php';
+    }
+
+    $scheme = requestIsHttps() ? 'https' : 'http';
+    $host = trim((string) ($_SERVER['HTTP_HOST'] ?? 'localhost'));
+    $scriptName = (string) ($_SERVER['SCRIPT_NAME'] ?? '/index.php');
+
+    return $scheme . '://' . $host . $scriptName;
+}
+
+function passwordResetPath(string $selector, string $token, bool $absolute = false): string
+{
+    $query = http_build_query([
+        'action' => 'reset_password',
+        'selector' => $selector,
+        'token' => $token,
+    ]);
+
+    $path = 'index.php?' . $query . '#reset-password';
+    if (!$absolute) {
+        return $path;
+    }
+
+    return appEntryUrl() . '?' . $query . '#reset-password';
+}
+
+function pruneExpiredPasswordResetTokens(): void
+{
+    $stmt = db()->prepare(
+        'DELETE FROM password_reset_tokens
+         WHERE expires_at <= :expires_at'
+    );
+    $stmt->execute([':expires_at' => nowIso()]);
+}
+
+function deletePasswordResetTokensForUser(int $userId): void
+{
+    if ($userId <= 0) {
+        return;
+    }
+
+    $stmt = db()->prepare('DELETE FROM password_reset_tokens WHERE user_id = :user_id');
+    $stmt->execute([':user_id' => $userId]);
+}
+
+function issuePasswordResetToken(int $userId): array
+{
+    if ($userId <= 0) {
+        throw new RuntimeException('Usuario invalido para redefinicao de senha.');
+    }
+
+    $pdo = db();
+    pruneExpiredPasswordResetTokens();
+    deletePasswordResetTokensForUser($userId);
+
+    $selector = bin2hex(random_bytes(9));
+    $token = bin2hex(random_bytes(32));
+    $tokenHash = hash('sha256', $token);
+    $expiresAt = (new DateTimeImmutable('+' . PASSWORD_RESET_TOKEN_HOURS . ' hour'))->format('Y-m-d H:i:s');
+    $createdAt = nowIso();
+
+    $stmt = $pdo->prepare(
+        'INSERT INTO password_reset_tokens (user_id, selector, token_hash, expires_at, created_at)
+         VALUES (:user_id, :selector, :token_hash, :expires_at, :created_at)'
+    );
+    $stmt->execute([
+        ':user_id' => $userId,
+        ':selector' => $selector,
+        ':token_hash' => $tokenHash,
+        ':expires_at' => $expiresAt,
+        ':created_at' => $createdAt,
+    ]);
+
+    return [
+        'selector' => $selector,
+        'token' => $token,
+        'expires_at' => $expiresAt,
+        'path' => passwordResetPath($selector, $token, false),
+        'url' => passwordResetPath($selector, $token, true),
+    ];
+}
+
+function validPasswordResetRequest(string $selector, string $plainToken): ?array
+{
+    $selector = trim($selector);
+    $plainToken = trim($plainToken);
+    if (
+        $selector === ''
+        || $plainToken === ''
+        || !preg_match('/^[a-f0-9]+$/i', $selector)
+        || !preg_match('/^[a-f0-9]+$/i', $plainToken)
+    ) {
+        return null;
+    }
+
+    pruneExpiredPasswordResetTokens();
+
+    $stmt = db()->prepare(
+        'SELECT prt.user_id, prt.token_hash, prt.expires_at, u.email, u.name
+         FROM password_reset_tokens prt
+         INNER JOIN users u ON u.id = prt.user_id
+         WHERE prt.selector = :selector
+         LIMIT 1'
+    );
+    $stmt->execute([':selector' => $selector]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        return null;
+    }
+
+    $expectedHash = (string) ($row['token_hash'] ?? '');
+    $actualHash = hash('sha256', $plainToken);
+    if (!hash_equals($expectedHash, $actualHash)) {
+        $delete = db()->prepare('DELETE FROM password_reset_tokens WHERE selector = :selector');
+        $delete->execute([':selector' => $selector]);
+        return null;
+    }
+
+    return $row;
+}
+
+function sendPasswordResetEmail(string $email, string $name, string $resetUrl, string $expiresAt): array
+{
+    $email = strtolower(trim($email));
+    $name = trim($name);
+    if ($email === '') {
+        return ['sent' => false, 'logged_to_file' => false];
+    }
+
+    $subject = APP_NAME . ' | Redefinicao de senha';
+    $body = implode("\n", [
+        'Oi' . ($name !== '' ? ' ' . $name : '') . ',',
+        '',
+        'Recebemos um pedido para redefinir a senha da sua conta no ' . APP_NAME . '.',
+        'Use o link abaixo para cadastrar uma nova senha:',
+        $resetUrl,
+        '',
+        'Este link expira em ' . $expiresAt . '.',
+        'Se voce nao fez esse pedido, pode ignorar esta mensagem.',
+    ]);
+
+    $fromAddress = trim((string) envValue('MAIL_FROM_ADDRESS', 'no-reply@workform.local'));
+    $fromName = trim((string) envValue('MAIL_FROM_NAME', APP_NAME));
+    $headers = [
+        'MIME-Version: 1.0',
+        'Content-Type: text/plain; charset=UTF-8',
+        'From: ' . $fromName . ' <' . $fromAddress . '>',
+    ];
+
+    $sent = @mail($email, $subject, $body, implode("\r\n", $headers));
+    if ($sent) {
+        return ['sent' => true, 'logged_to_file' => false];
+    }
+
+    ensureStorage();
+    $logEntry = implode("\n", [
+        str_repeat('=', 72),
+        'Timestamp: ' . nowIso(),
+        'To: ' . $email,
+        'Subject: ' . $subject,
+        'Expires At: ' . $expiresAt,
+        '',
+        $body,
+        '',
+    ]);
+    file_put_contents(PASSWORD_RESET_LOG_PATH, $logEntry, FILE_APPEND | LOCK_EX);
+
+    return [
+        'sent' => false,
+        'logged_to_file' => true,
+        'log_path' => PASSWORD_RESET_LOG_PATH,
+    ];
 }
 
 function e(?string $value): string

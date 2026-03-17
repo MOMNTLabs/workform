@@ -98,9 +98,30 @@ window.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll('[data-auth-target]:not([role="tab"])')
   );
   const authPanels = Array.from(document.querySelectorAll("[data-auth-panel]"));
+  const authPanelsRoot = document.querySelector("#auth-panels");
 
   if (authPanels.length) {
-    const setAuthTab = (target) => {
+    const readAuthTargetFromHash = () =>
+      String(window.location.hash || "").replace(/^#/, "").trim();
+    const initialAuthPanel =
+      authPanelsRoot instanceof HTMLElement
+        ? String(authPanelsRoot.dataset.authInitialPanel || "").trim()
+        : "";
+
+    const syncAuthHash = (target) => {
+      if (!target) return;
+      const nextHash = `#${target}`;
+      if (window.location.hash === nextHash) return;
+
+      if (window.history && typeof window.history.replaceState === "function") {
+        window.history.replaceState(null, "", nextHash);
+        return;
+      }
+
+      window.location.hash = target;
+    };
+
+    const setAuthTab = (target, { updateHash = true } = {}) => {
       const exists = authPanels.some((panel) => panel.dataset.authPanel === target);
       const next = exists ? target : "login";
 
@@ -115,9 +136,15 @@ window.addEventListener("DOMContentLoaded", () => {
         panel.classList.toggle("is-active", active);
         panel.hidden = !active;
       });
+
+      if (updateHash) {
+        syncAuthHash(next);
+      }
     };
 
-    setAuthTab(window.location.hash === "#register" ? "register" : "login");
+    setAuthTab(readAuthTargetFromHash() || initialAuthPanel || "login", {
+      updateHash: false,
+    });
 
     authTabs.forEach((tab) => {
       tab.addEventListener("click", () => {
@@ -129,6 +156,10 @@ window.addEventListener("DOMContentLoaded", () => {
       trigger.addEventListener("click", () => {
         setAuthTab(trigger.dataset.authTarget);
       });
+    });
+
+    window.addEventListener("hashchange", () => {
+      setAuthTab(readAuthTargetFromHash(), { updateHash: false });
     });
   }
 
