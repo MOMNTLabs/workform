@@ -2289,6 +2289,132 @@ function validPasswordResetRequest(string $selector, string $plainToken): ?array
     return $row;
 }
 
+function httpPostJson(string $url, array $headers, array $payload, int $timeoutSeconds = 15): array
+{
+    $body = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if (!is_string($body)) {
+        throw new RuntimeException('Falha ao serializar payload JSON.');
+    }
+
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        if ($ch === false) {
+            throw new RuntimeException('Falha ao inicializar cliente HTTP.');
+        }
+
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_HTTPHEADER => array_merge(
+                ['Content-Type: application/json', 'Content-Length: ' . strlen($body)],
+                $headers
+            ),
+            CURLOPT_POSTFIELDS => $body,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => $timeoutSeconds,
+        ]);
+
+        $responseBody = curl_exec($ch);
+        if ($responseBody === false) {
+            $error = curl_error($ch);
+            curl_close($ch);
+            throw new RuntimeException($error !== '' ? $error : 'Falha desconhecida ao enviar requisicao HTTP.');
+        }
+
+        $statusCode = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        curl_close($ch);
+
+        return [
+            'status_code' => $statusCode,
+            'body' => (string) $responseBody,
+        ];
+    }
+
+    $headerLines = array_merge(
+        ['Content-Type: application/json', 'Content-Length: ' . strlen($body)],
+        $headers
+    );
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'POST',
+            'header' => implode("\r\n", $headerLines),
+            'content' => $body,
+            'timeout' => $timeoutSeconds,
+            'ignore_errors' => true,
+        ],
+    ]);
+
+    $responseBody = @file_get_contents($url, false, $context);
+    $responseHeaders = $http_response_header ?? [];
+    $statusCode = 0;
+    foreach ($responseHeaders as $headerLine) {
+        if (preg_match('/\s(\d{3})\s/', (string) $headerLine, $matches)) {
+            $statusCode = (int) ($matches[1] ?? 0);
+            break;
+        }
+    }
+
+    if ($responseBody === false && $statusCode === 0) {
+        throw new RuntimeException('Falha ao enviar requisicao HTTP.');
+    }
+
+    return [
+        'status_code' => $statusCode,
+        'body' => (string) $responseBody,
+    ];
+}
+
+function sendTextEmailViaResend(
+    string $toEmail,
+    string $subject,
+    string $textBody,
+    string $fromAddress,
+    string $fromName
+): array {
+    $apiKey = trim((string) envValue('RESEND_API_KEY', ''));
+    if ($apiKey === '' || $fromAddress === '') {
+        return ['sent' => false, 'provider' => 'resend', 'configured' => false];
+    }
+
+    $replyTo = trim((string) envValue('MAIL_REPLY_TO', ''));
+    $payload = [
+        'from' => $fromName !== '' ? ($fromName . ' <' . $fromAddress . '>') : $fromAddress,
+        'to' => [$toEmail],
+        'subject' => $subject,
+        'text' => $textBody,
+    ];
+    if ($replyTo !== '') {
+        $payload['reply_to'] = $replyTo;
+    }
+
+    try {
+        $response = httpPostJson(
+            'https://api.resend.com/emails',
+            ['Authorization: Bearer ' . $apiKey],
+            $payload
+        );
+    } catch (Throwable $e) {
+        return [
+            'sent' => false,
+            'provider' => 'resend',
+            'configured' => true,
+            'error' => $e->getMessage(),
+        ];
+    }
+
+    $statusCode = (int) ($response['status_code'] ?? 0);
+    if ($statusCode >= 200 && $statusCode < 300) {
+        return ['sent' => true, 'logged_to_file' => false, 'provider' => 'resend'];
+    }
+
+    return [
+        'sent' => false,
+        'provider' => 'resend',
+        'configured' => true,
+        'status_code' => $statusCode,
+        'response_body' => (string) ($response['body'] ?? ''),
+    ];
+}
+
 function sendPasswordResetEmail(string $email, string $name, string $resetUrl, string $expiresAt): array
 {
     $email = strtolower(trim($email));
@@ -2309,8 +2435,14 @@ function sendPasswordResetEmail(string $email, string $name, string $resetUrl, s
         'Se voce nao fez esse pedido, pode ignorar esta mensagem.',
     ]);
 
-    $fromAddress = trim((string) envValue('MAIL_FROM_ADDRESS', 'no-reply@workform.local'));
+    $configuredFromAddress = trim((string) envValue('MAIL_FROM_ADDRESS', ''));
+    $fromAddress = $configuredFromAddress !== '' ? $configuredFromAddress : 'no-reply@workform.local';
     $fromName = trim((string) envValue('MAIL_FROM_NAME', APP_NAME));
+    $resendResult = sendTextEmailViaResend($email, $subject, $body, $configuredFromAddress, $fromName);
+    if (!empty($resendResult['sent'])) {
+        return $resendResult;
+    }
+
     $headers = [
         'MIME-Version: 1.0',
         'Content-Type: text/plain; charset=UTF-8',
@@ -2329,6 +2461,8 @@ function sendPasswordResetEmail(string $email, string $name, string $resetUrl, s
         'To: ' . $email,
         'Subject: ' . $subject,
         'Expires At: ' . $expiresAt,
+        'Provider: ' . (string) ($resendResult['provider'] ?? 'mail'),
+        'Provider Error: ' . (string) ($resendResult['error'] ?? ($resendResult['response_body'] ?? '')),
         '',
         $body,
         '',
