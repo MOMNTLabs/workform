@@ -2114,6 +2114,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     )
                     : null;
                 $submittedHasActiveRevision = ((int) ($_POST['has_active_revision'] ?? 0)) === 1;
+                $expectedUpdatedAt = trim((string) ($_POST['expected_updated_at'] ?? ''));
+                $enforceTaskRevisionCheck = $action === 'update_task' && $expectedUpdatedAt !== '';
                 $overdueFlagPosted = array_key_exists('overdue_flag', $_POST);
                 $overdueFlag = $overdueFlagPosted
                     ? (((int) ($_POST['overdue_flag'] ?? 0)) === 1 ? 1 : 0)
@@ -2252,7 +2254,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new RuntimeException('Tarefa invalida.');
                 }
                 $existingTaskStmt = $pdo->prepare(
-                    'SELECT title, title_tag, description, status, priority, due_date, overdue_flag, overdue_since_date, assignee_ids_json, group_name, reference_links_json, reference_images_json, subtasks_json, subtasks_dependency_enabled
+                    'SELECT title, title_tag, description, status, priority, due_date, overdue_flag, overdue_since_date, assignee_ids_json, group_name, reference_links_json, reference_images_json, subtasks_json, subtasks_dependency_enabled, updated_at
                      FROM tasks
                      WHERE id = :id
                        AND workspace_id = :workspace_id
@@ -2336,10 +2338,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                          group_name = :g,
                          updated_at = :u
                      WHERE id = :id
-                       AND workspace_id = :workspace_id'
+                       AND workspace_id = :workspace_id' . ($enforceTaskRevisionCheck ? '
+                       AND updated_at = :expected_updated_at' : '')
                 );
                 $updatedAt = nowIso();
-                $stmt->execute([
+                $updateParams = [
                     ':t' => $title,
                     ':tt' => $titleTag,
                     ':d' => $description,
@@ -2358,7 +2361,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ':u' => $updatedAt,
                     ':id' => $taskId,
                     ':workspace_id' => $workspaceId,
-                ]);
+                ];
+                if ($enforceTaskRevisionCheck) {
+                    $updateParams[':expected_updated_at'] = $expectedUpdatedAt;
+                }
+                $stmt->execute($updateParams);
+
+                if ($enforceTaskRevisionCheck && $stmt->rowCount() === 0) {
+                    $currentVersionStmt = $pdo->prepare(
+                        'SELECT updated_at
+                         FROM tasks
+                         WHERE id = :id
+                           AND workspace_id = :workspace_id
+                         LIMIT 1'
+                    );
+                    $currentVersionStmt->execute([
+                        ':id' => $taskId,
+                        ':workspace_id' => $workspaceId,
+                    ]);
+                    $latestUpdatedAt = trim((string) ($currentVersionStmt->fetchColumn() ?: ''));
+                    if ($latestUpdatedAt === '') {
+                        throw new RuntimeException('Tarefa invalida.');
+                    }
+
+                    if ($latestUpdatedAt !== $expectedUpdatedAt) {
+                        $conflictMessage = 'Esta tarefa foi atualizada em outra sessao. Atualize os dados antes de salvar novamente.';
+                        if (requestExpectsJson()) {
+                            $latestUpdatedAtLabel = (new DateTimeImmutable($latestUpdatedAt))->format('d/m H:i');
+                            respondJson([
+                                'ok' => false,
+                                'error' => $conflictMessage,
+                                'code' => 'task_conflict',
+                                'task' => [
+                                    'id' => $taskId,
+                                    'updated_at' => $latestUpdatedAt,
+                                    'updated_at_label' => $latestUpdatedAtLabel,
+                                ],
+                            ], 409);
+                        }
+
+                        throw new RuntimeException($conflictMessage);
+                    }
+
+                    $updatedAt = $latestUpdatedAt;
+                }
 
                 $existingStatus = normalizeTaskStatus((string) ($existingTaskRow['status'] ?? 'todo'));
                 $existingPriority = normalizeTaskPriority((string) ($existingTaskRow['priority'] ?? 'medium'));
@@ -2933,7 +2979,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 $taskStmt = $pdo->prepare(
-                    'SELECT id, group_name, description, reference_links_json, reference_images_json, subtasks_json, subtasks_dependency_enabled
+                    'SELECT id, group_name, description, reference_links_json, reference_images_json, subtasks_json, subtasks_dependency_enabled, updated_at
                      FROM tasks
                      WHERE id = :id
                        AND workspace_id = :workspace_id
@@ -2981,6 +3027,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'subtasks_dependency_enabled' => $subtasksDependencyEnabled,
                             'history' => $taskHistory,
                             'has_active_revision' => $hasActiveRevision ? 1 : 0,
+                            'updated_at' => (string) ($taskRow['updated_at'] ?? ''),
+                            'updated_at_label' => !empty($taskRow['updated_at'])
+                                ? (new DateTimeImmutable((string) $taskRow['updated_at']))->format('d/m H:i')
+                                : '',
                         ],
                     ]);
                 }

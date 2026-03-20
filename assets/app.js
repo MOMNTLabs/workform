@@ -2359,33 +2359,9 @@ window.addEventListener("DOMContentLoaded", () => {
     const dropzone = groupSection.querySelector("[data-task-dropzone]");
     if (!(dropzone instanceof HTMLElement)) return;
 
-    sortGroupTaskItemsByStatus(dropzone);
-
     const { totalTaskCount, visibleTaskCount, hiddenDoneCount } =
       syncTaskGroupDoneVisibility(groupSection);
-
-    // Re-sort after toggling hidden/visible states to keep auto ordering stable.
     sortGroupTaskItemsByStatus(dropzone);
-    const orderedTaskItems = Array.from(dropzone.children).filter(
-      (child) => child instanceof HTMLElement && child.matches("[data-task-item]")
-    );
-    if (orderedTaskItems.length > 1) {
-      const doneItems = [];
-      const nonDoneItems = [];
-      orderedTaskItems.forEach((taskItem) => {
-        const isDoneTask = isDoneTaskItem(taskItem);
-        if (isDoneTask) {
-          doneItems.push(taskItem);
-        } else {
-          nonDoneItems.push(taskItem);
-        }
-      });
-      if (doneItems.length > 0 && nonDoneItems.length > 0) {
-        [...nonDoneItems, ...doneItems].forEach((taskItem) => {
-          dropzone.append(taskItem);
-        });
-      }
-    }
 
     const countEl = groupSection.querySelector(".task-group-count");
     if (countEl) countEl.textContent = String(totalTaskCount);
@@ -2736,32 +2712,90 @@ window.addEventListener("DOMContentLoaded", () => {
     el.textContent = `Atualizado em ${updatedAtLabel}`;
   };
 
-  const postFormJson = async (form) => {
-    const response = await fetch(form.getAttribute("action") || window.location.href, {
-      method: "POST",
-      body: new FormData(form),
-      headers: {
-        "X-Requested-With": "XMLHttpRequest",
-        Accept: "application/json",
-      },
-      credentials: "same-origin",
-    });
+  const syncTaskExpectedUpdatedAt = (form, updatedAtValue) => {
+    if (!(form instanceof HTMLFormElement)) return;
+    const expectedUpdatedAtField = form.querySelector("[data-task-expected-updated-at]");
+    if (!(expectedUpdatedAtField instanceof HTMLInputElement)) return;
+    expectedUpdatedAtField.value = String(updatedAtValue || "").trim();
+  };
 
-    let data = null;
+  const isDatabaseLockedMessage = (message) => {
+    const normalized = String(message || "").trim().toLowerCase();
+    if (!normalized) return false;
+    return (
+      normalized.includes("database is locked") ||
+      normalized.includes("database table is locked") ||
+      (normalized.includes("sqlstate[hy000]") && normalized.includes("locked")) ||
+      normalized.includes("banco de dados bloqueado") ||
+      normalized.includes("base de dados bloqueada")
+    );
+  };
+
+  const parseJsonSafely = async (response) => {
     try {
-      data = await response.json();
-    } catch (e) {
-      data = null;
+      return await response.json();
+    } catch (_error) {
+      return null;
     }
+  };
 
-    if (!response.ok || !data || data.ok !== true) {
+  const createRequestError = (message, response = null, data = null) => {
+    const error = new Error(message);
+    if (response && Number.isFinite(response.status)) {
+      error.status = response.status;
+    }
+    if (data && typeof data === "object") {
+      error.payload = data;
+    }
+    return error;
+  };
+
+  const isTaskConflictError = (error) => {
+    if (!(error instanceof Error)) return false;
+    const status = Number.parseInt(String(error.status || "0"), 10) || 0;
+    const payload = error.payload && typeof error.payload === "object" ? error.payload : {};
+    const code = typeof payload.code === "string" ? payload.code.trim().toLowerCase() : "";
+    return status === 409 || code === "task_conflict";
+  };
+
+  const postFormJson = async (form) => {
+    const runAttempt = async () => {
+      const response = await fetch(form.getAttribute("action") || window.location.href, {
+        method: "POST",
+        body: new FormData(form),
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          Accept: "application/json",
+        },
+        credentials: "same-origin",
+      });
+
+      const data = await parseJsonSafely(response);
+      return { response, data };
+    };
+
+    let lastMessage = "Nao foi possivel concluir a operacao.";
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const { response, data } = await runAttempt();
+      if (response.ok && data && data.ok === true) {
+        return data;
+      }
+
       const message =
         (data && (data.error || data.message)) ||
         "Nao foi possivel concluir a operacao.";
-      throw new Error(message);
+      lastMessage = message;
+
+      const shouldRetry = attempt === 0 && isDatabaseLockedMessage(message);
+      if (!shouldRetry) {
+        throw createRequestError(message, response, data);
+      }
+
+      await new Promise((resolve) => window.setTimeout(resolve, 180));
     }
 
-    return data;
+    throw new Error(lastMessage);
   };
 
   const postActionJson = async (action, payload = {}) => {
@@ -4099,6 +4133,7 @@ window.addEventListener("DOMContentLoaded", () => {
       return await submitAccountingActionForm(form, {
         ...options,
         showSuccess: false,
+        refresh: false,
       });
     } finally {
       if (form.isConnected && form.dataset.accountingPending === "1") {
@@ -4142,6 +4177,7 @@ window.addEventListener("DOMContentLoaded", () => {
     form.dataset.autosaveSubmitting = "1";
     form.classList.add("is-saving");
     let success = false;
+    let shouldProcessPendingAutosave = true;
 
     try {
       const data = await postFormJson(form);
@@ -4307,6 +4343,9 @@ window.addEventListener("DOMContentLoaded", () => {
         moveTaskItemToGroupDom(taskItem, task.group_name);
       }
 
+      if (typeof task.updated_at === "string") {
+        syncTaskExpectedUpdatedAt(form, task.updated_at);
+      }
       refreshTaskUpdatedAtMeta(form, task.updated_at_label || "");
       renderDashboardSummary(data.dashboard);
       if (taskDetailContext && taskDetailContext.form === form && taskDetailModal && !taskDetailModal.hidden) {
@@ -4316,6 +4355,18 @@ window.addEventListener("DOMContentLoaded", () => {
       delete form.dataset.autosaveError;
       success = true;
     } catch (error) {
+      if (isTaskConflictError(error)) {
+        const payload = error.payload && typeof error.payload === "object" ? error.payload : {};
+        const conflictTask = payload.task && typeof payload.task === "object" ? payload.task : {};
+        if (typeof conflictTask.updated_at === "string") {
+          syncTaskExpectedUpdatedAt(form, conflictTask.updated_at);
+        }
+        if (typeof conflictTask.updated_at_label === "string") {
+          refreshTaskUpdatedAtMeta(form, conflictTask.updated_at_label);
+        }
+        shouldProcessPendingAutosave = false;
+        delete form.dataset.autosavePending;
+      }
       form.dataset.autosaveError = "1";
       showClientFlash("error", error instanceof Error ? error.message : "Falha ao salvar tarefa.");
     } finally {
@@ -4327,7 +4378,7 @@ window.addEventListener("DOMContentLoaded", () => {
       }
       form.classList.remove("is-saving");
       delete form.dataset.autosaveSubmitting;
-      if (form.dataset.autosavePending === "1") {
+      if (shouldProcessPendingAutosave && form.dataset.autosavePending === "1") {
         delete form.dataset.autosavePending;
         scheduleTaskAutosave(form, 80);
       }
@@ -4360,6 +4411,72 @@ window.addEventListener("DOMContentLoaded", () => {
 
     autosaveTimers.set(form, nextTimer);
   };
+
+  const flushTaskAutosaveNow = (form) => {
+    if (!(form instanceof HTMLFormElement) || !form.isConnected) return;
+    const pendingTimer = autosaveTimers.get(form);
+    if (pendingTimer) {
+      window.clearTimeout(pendingTimer);
+      autosaveTimers.delete(form);
+    }
+
+    if (form.dataset.autosaveSubmitting === "1") {
+      form.dataset.autosavePending = "1";
+      return;
+    }
+
+    if (typeof form.reportValidity === "function" && !form.reportValidity()) {
+      return;
+    }
+
+    void submitTaskAutosave(form).catch(() => {});
+  };
+
+  const flushAccountingAutosaveNow = (form, options = {}) => {
+    if (!(form instanceof HTMLFormElement) || !form.isConnected) return;
+    const pendingTimer = accountingAutosaveTimers.get(form);
+    if (pendingTimer) {
+      window.clearTimeout(pendingTimer);
+      accountingAutosaveTimers.delete(form);
+    }
+
+    if (form.dataset.submitting === "1") {
+      form.dataset.accountingPending = "1";
+      return;
+    }
+
+    if (typeof form.reportValidity === "function" && !form.reportValidity()) {
+      return;
+    }
+
+    void submitAccountingAutosaveForm(form, options).catch(() => {});
+  };
+
+  const flushFocusedAutosaveForms = () => {
+    const activeElement = document.activeElement;
+    if (!(activeElement instanceof Element)) return;
+
+    const taskAutosaveForm = activeElement.closest("[data-task-autosave-form]");
+    if (taskAutosaveForm instanceof HTMLFormElement) {
+      flushTaskAutosaveNow(taskAutosaveForm);
+    }
+
+    const accountingEntryForm = activeElement.closest(".accounting-entry-form");
+    if (accountingEntryForm instanceof HTMLFormElement) {
+      flushAccountingAutosaveNow(accountingEntryForm, {
+        fallbackError: "Falha ao atualizar registro.",
+      });
+    }
+  };
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "hidden") return;
+    flushFocusedAutosaveForms();
+  });
+
+  window.addEventListener("pagehide", () => {
+    flushFocusedAutosaveForms();
+  });
 
   document.addEventListener("change", (event) => {
     const target = event.target;
@@ -7524,6 +7641,13 @@ window.addEventListener("DOMContentLoaded", () => {
         context.revisionStateField = revisionStateField;
       }
 
+      if (typeof task.updated_at === "string") {
+        syncTaskExpectedUpdatedAt(context.form, task.updated_at);
+      }
+      if (typeof task.updated_at_label === "string") {
+        refreshTaskUpdatedAtMeta(context.form, task.updated_at_label);
+      }
+
       context.form.dataset.taskDetailHydrated = "1";
       if (taskDetailContext === context && taskDetailModal instanceof HTMLElement && !taskDetailModal.hidden) {
         populateTaskDetailModalFromRow(context);
@@ -8037,6 +8161,9 @@ window.addEventListener("DOMContentLoaded", () => {
           taskDetailContext.revisionStateField = revisionStateField;
         }
       }
+      if (typeof task.updated_at === "string") {
+        syncTaskExpectedUpdatedAt(taskDetailContext.form, task.updated_at);
+      }
       if (typeof task.updated_at_label === "string") {
         refreshTaskUpdatedAtMeta(taskDetailContext.form, task.updated_at_label);
       }
@@ -8133,6 +8260,9 @@ window.addEventListener("DOMContentLoaded", () => {
           taskDetailContext.historyField = historyField instanceof HTMLInputElement ? historyField : null;
           taskDetailContext.revisionStateField =
             revisionStateField instanceof HTMLInputElement ? revisionStateField : null;
+        }
+        if (typeof task.updated_at === "string") {
+          syncTaskExpectedUpdatedAt(form, task.updated_at);
         }
         if (typeof task.updated_at_label === "string") {
           refreshTaskUpdatedAtMeta(form, task.updated_at_label);
@@ -8250,6 +8380,9 @@ window.addEventListener("DOMContentLoaded", () => {
         taskDetailContext.historyField = historyField instanceof HTMLInputElement ? historyField : null;
         taskDetailContext.revisionStateField =
           revisionStateField instanceof HTMLInputElement ? revisionStateField : null;
+      }
+      if (typeof task.updated_at === "string") {
+        syncTaskExpectedUpdatedAt(form, task.updated_at);
       }
       if (typeof task.updated_at_label === "string") {
         refreshTaskUpdatedAtMeta(form, task.updated_at_label);
@@ -10771,8 +10904,7 @@ window.addEventListener("DOMContentLoaded", () => {
       ["label", "amount_value", "is_settled"].includes(target.name)
     ) {
       syncAccountingInstallmentForm(accountingEntryForm);
-      scheduleAccountingAutosave(accountingEntryForm, target instanceof HTMLInputElement && target.type === "checkbox" ? 60 : 140, {
-        refresh: true,
+      scheduleAccountingAutosave(accountingEntryForm, target instanceof HTMLInputElement && target.type === "checkbox" ? 120 : 240, {
         fallbackError: "Falha ao atualizar registro.",
       });
       return;
@@ -10834,8 +10966,7 @@ window.addEventListener("DOMContentLoaded", () => {
       ["label", "amount_value"].includes(target.name)
     ) {
       syncAccountingInstallmentForm(accountingEntryForm);
-      scheduleAccountingAutosave(accountingEntryForm, 80, {
-        refresh: true,
+      scheduleAccountingAutosave(accountingEntryForm, 160, {
         fallbackError: "Falha ao atualizar registro.",
       });
     }
@@ -10903,7 +11034,6 @@ window.addEventListener("DOMContentLoaded", () => {
         return;
       }
       void submitAccountingAutosaveForm(form, {
-        refresh: true,
         fallbackError: "Falha ao atualizar registro.",
       }).catch(() => {});
       return;
