@@ -2724,10 +2724,61 @@ function personalWorkspaceForUserId(int $userId): ?array
     return $workspace;
 }
 
+function workspaceRoleCacheKey(int $workspaceId, int $userId): string
+{
+    return $workspaceId . ':' . $userId;
+}
+
+function invalidateWorkspaceRoleCache(?int $workspaceId = null, ?int $userId = null): void
+{
+    if (!isset($GLOBALS['workspace_role_cache']) || !is_array($GLOBALS['workspace_role_cache'])) {
+        return;
+    }
+
+    if ($workspaceId === null && $userId === null) {
+        $GLOBALS['workspace_role_cache'] = [];
+        return;
+    }
+
+    $cache = &$GLOBALS['workspace_role_cache'];
+    if ($workspaceId !== null && $workspaceId > 0 && $userId !== null && $userId > 0) {
+        unset($cache[workspaceRoleCacheKey($workspaceId, $userId)]);
+        return;
+    }
+
+    if ($workspaceId !== null && $workspaceId > 0) {
+        $prefix = $workspaceId . ':';
+        foreach (array_keys($cache) as $cacheKey) {
+            if (str_starts_with((string) $cacheKey, $prefix)) {
+                unset($cache[$cacheKey]);
+            }
+        }
+        return;
+    }
+
+    if ($userId !== null && $userId > 0) {
+        $suffix = ':' . $userId;
+        foreach (array_keys($cache) as $cacheKey) {
+            if (str_ends_with((string) $cacheKey, $suffix)) {
+                unset($cache[$cacheKey]);
+            }
+        }
+    }
+}
+
 function workspaceRoleForUser(int $userId, int $workspaceId): ?string
 {
     if ($userId <= 0 || $workspaceId <= 0) {
         return null;
+    }
+
+    if (!isset($GLOBALS['workspace_role_cache']) || !is_array($GLOBALS['workspace_role_cache'])) {
+        $GLOBALS['workspace_role_cache'] = [];
+    }
+    $cache = &$GLOBALS['workspace_role_cache'];
+    $cacheKey = workspaceRoleCacheKey($workspaceId, $userId);
+    if (array_key_exists($cacheKey, $cache)) {
+        return $cache[$cacheKey];
     }
 
     $stmt = db()->prepare(
@@ -2743,10 +2794,13 @@ function workspaceRoleForUser(int $userId, int $workspaceId): ?string
     ]);
     $role = $stmt->fetchColumn();
     if (!is_string($role) || trim($role) === '') {
+        $cache[$cacheKey] = null;
         return null;
     }
 
-    return normalizeWorkspaceRole($role);
+    $normalizedRole = normalizeWorkspaceRole($role);
+    $cache[$cacheKey] = $normalizedRole;
+    return $normalizedRole;
 }
 
 function userHasWorkspaceAccess(int $userId, int $workspaceId): bool
@@ -2798,6 +2852,7 @@ function upsertWorkspaceMember(PDO $pdo, int $workspaceId, int $userId, string $
                 ':workspace_id' => $workspaceId,
                 ':user_id' => $userId,
             ]);
+            invalidateWorkspaceRoleCache($workspaceId, $userId);
         }
 
         return;
@@ -2813,6 +2868,7 @@ function upsertWorkspaceMember(PDO $pdo, int $workspaceId, int $userId, string $
         ':role' => $normalizedRole,
         ':created_at' => nowIso(),
     ]);
+    invalidateWorkspaceRoleCache($workspaceId, $userId);
 }
 
 function createWorkspace(PDO $pdo, string $workspaceName, int $createdBy, bool $isPersonal = false): int
@@ -2939,6 +2995,7 @@ function updateWorkspaceMemberRole(PDO $pdo, int $workspaceId, int $userId, stri
         ':workspace_id' => $workspaceId,
         ':user_id' => $userId,
     ]);
+    invalidateWorkspaceRoleCache($workspaceId, $userId);
 }
 
 function removeWorkspaceMember(PDO $pdo, int $workspaceId, int $userId): void
@@ -2965,6 +3022,7 @@ function removeWorkspaceMember(PDO $pdo, int $workspaceId, int $userId): void
         ':workspace_id' => $workspaceId,
         ':user_id' => $userId,
     ]);
+    invalidateWorkspaceRoleCache($workspaceId, $userId);
 }
 
 function normalizeUserDisplayName(string $value): string
@@ -3114,6 +3172,7 @@ function deleteWorkspaceOwnedByUser(PDO $pdo, int $workspaceId, int $ownerUserId
              WHERE workspace_id = :workspace_id'
         );
         $deleteMembersStmt->execute([':workspace_id' => $workspaceId]);
+        invalidateWorkspaceRoleCache($workspaceId);
 
         $deleteWorkspaceStmt = $pdo->prepare(
             'DELETE FROM workspaces
@@ -3192,6 +3251,7 @@ function leaveWorkspace(PDO $pdo, int $workspaceId, int $userId): void
                 ':workspace_id' => $workspaceId,
                 ':user_id' => $nextAdminUserId,
             ]);
+            invalidateWorkspaceRoleCache($workspaceId, $nextAdminUserId);
         }
 
         $removeStmt = $pdo->prepare(
@@ -3203,6 +3263,7 @@ function leaveWorkspace(PDO $pdo, int $workspaceId, int $userId): void
             ':workspace_id' => $workspaceId,
             ':user_id' => $userId,
         ]);
+        invalidateWorkspaceRoleCache($workspaceId, $userId);
 
         $pdo->commit();
     } catch (Throwable $e) {
@@ -7997,6 +8058,141 @@ function dueGroupPermissionsByUser(int $workspaceId, string $groupName): array
     }
 
     return $map;
+}
+
+function taskGroupPermissionsByUserMapByGroup(int $workspaceId): array
+{
+    if ($workspaceId <= 0) {
+        return [];
+    }
+
+    static $cache = [];
+    if (array_key_exists($workspaceId, $cache)) {
+        return $cache[$workspaceId];
+    }
+
+    $stmt = db()->prepare(
+        'SELECT group_name, user_id, can_view, can_access
+         FROM task_group_permissions
+         WHERE workspace_id = :workspace_id'
+    );
+    $stmt->execute([
+        ':workspace_id' => $workspaceId,
+    ]);
+    $rows = $stmt->fetchAll();
+
+    $grouped = [];
+    foreach ($rows as $row) {
+        $userId = (int) ($row['user_id'] ?? 0);
+        if ($userId <= 0) {
+            continue;
+        }
+
+        $groupName = normalizeTaskGroupName((string) ($row['group_name'] ?? 'Geral'));
+        $canView = normalizePermissionFlag($row['can_view'] ?? 1);
+        $canAccess = $canView === 1 ? normalizePermissionFlag($row['can_access'] ?? 1) : 0;
+
+        if (!isset($grouped[$groupName])) {
+            $grouped[$groupName] = [];
+        }
+        $grouped[$groupName][$userId] = [
+            'can_view' => $canView === 1,
+            'can_access' => $canAccess === 1,
+        ];
+    }
+
+    $cache[$workspaceId] = $grouped;
+    return $grouped;
+}
+
+function vaultGroupPermissionsByUserMapByGroup(int $workspaceId): array
+{
+    if ($workspaceId <= 0) {
+        return [];
+    }
+
+    static $cache = [];
+    if (array_key_exists($workspaceId, $cache)) {
+        return $cache[$workspaceId];
+    }
+
+    $stmt = db()->prepare(
+        'SELECT group_name, user_id, can_view, can_access
+         FROM workspace_vault_group_permissions
+         WHERE workspace_id = :workspace_id'
+    );
+    $stmt->execute([
+        ':workspace_id' => $workspaceId,
+    ]);
+    $rows = $stmt->fetchAll();
+
+    $grouped = [];
+    foreach ($rows as $row) {
+        $userId = (int) ($row['user_id'] ?? 0);
+        if ($userId <= 0) {
+            continue;
+        }
+
+        $groupName = normalizeVaultGroupName((string) ($row['group_name'] ?? 'Geral'));
+        $canView = normalizePermissionFlag($row['can_view'] ?? 1);
+        $canAccess = $canView === 1 ? normalizePermissionFlag($row['can_access'] ?? 1) : 0;
+
+        if (!isset($grouped[$groupName])) {
+            $grouped[$groupName] = [];
+        }
+        $grouped[$groupName][$userId] = [
+            'can_view' => $canView === 1,
+            'can_access' => $canAccess === 1,
+        ];
+    }
+
+    $cache[$workspaceId] = $grouped;
+    return $grouped;
+}
+
+function dueGroupPermissionsByUserMapByGroup(int $workspaceId): array
+{
+    if ($workspaceId <= 0) {
+        return [];
+    }
+
+    static $cache = [];
+    if (array_key_exists($workspaceId, $cache)) {
+        return $cache[$workspaceId];
+    }
+
+    $stmt = db()->prepare(
+        'SELECT group_name, user_id, can_view, can_access
+         FROM workspace_due_group_permissions
+         WHERE workspace_id = :workspace_id'
+    );
+    $stmt->execute([
+        ':workspace_id' => $workspaceId,
+    ]);
+    $rows = $stmt->fetchAll();
+
+    $grouped = [];
+    foreach ($rows as $row) {
+        $userId = (int) ($row['user_id'] ?? 0);
+        if ($userId <= 0) {
+            continue;
+        }
+
+        $groupName = normalizeDueGroupName((string) ($row['group_name'] ?? 'Geral'));
+        $canView = normalizePermissionFlag($row['can_view'] ?? 1);
+        $canAccess = $canView === 1 ? normalizePermissionFlag($row['can_access'] ?? 1) : 0;
+
+        if (!isset($grouped[$groupName])) {
+            $grouped[$groupName] = [];
+        }
+        $grouped[$groupName][$userId] = [
+            'can_view' => $canView === 1,
+            'can_access' => $canAccess === 1,
+        ];
+    }
+
+    $cache[$workspaceId] = $grouped;
+    return $grouped;
 }
 
 function saveTaskGroupPermissions(

@@ -201,6 +201,14 @@ $inventoryGroupsWithAccess = [];
 
 if ($currentUser && $currentWorkspaceId !== null) {
     $currentUserId = (int) $currentUser['id'];
+    $taskPermissionsByGroupMap = [];
+    $vaultPermissionsByGroupMap = [];
+    $duePermissionsByGroupMap = [];
+    if ($canManageWorkspace) {
+        $taskPermissionsByGroupMap = taskGroupPermissionsByUserMapByGroup($currentWorkspaceId);
+        $vaultPermissionsByGroupMap = vaultGroupPermissionsByUserMapByGroup($currentWorkspaceId);
+        $duePermissionsByGroupMap = dueGroupPermissionsByUserMapByGroup($currentWorkspaceId);
+    }
 
     foreach ($taskGroupsAll as $taskGroupName) {
         $taskGroupName = normalizeTaskGroupName((string) $taskGroupName);
@@ -215,7 +223,7 @@ if ($currentUser && $currentWorkspaceId !== null) {
         }
 
         if ($canManageWorkspace) {
-            $taskGroupPermissionsByUserMap[$taskGroupName] = taskGroupPermissionsByUser($currentWorkspaceId, $taskGroupName);
+            $taskGroupPermissionsByUserMap[$taskGroupName] = $taskPermissionsByGroupMap[$taskGroupName] ?? [];
         }
     }
 
@@ -232,7 +240,7 @@ if ($currentUser && $currentWorkspaceId !== null) {
         }
 
         if ($canManageWorkspace) {
-            $vaultGroupPermissionsByUserMap[$vaultGroupName] = vaultGroupPermissionsByUser($currentWorkspaceId, $vaultGroupName);
+            $vaultGroupPermissionsByUserMap[$vaultGroupName] = $vaultPermissionsByGroupMap[$vaultGroupName] ?? [];
         }
     }
 
@@ -249,7 +257,7 @@ if ($currentUser && $currentWorkspaceId !== null) {
         }
 
         if ($canManageWorkspace) {
-            $dueGroupPermissionsByUserMap[$dueGroupName] = dueGroupPermissionsByUser($currentWorkspaceId, $dueGroupName);
+            $dueGroupPermissionsByUserMap[$dueGroupName] = $duePermissionsByGroupMap[$dueGroupName] ?? [];
         }
     }
 } else {
