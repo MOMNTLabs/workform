@@ -1,0 +1,27 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <polygon id="wfHex" points="-14,-12.124 14,-12.124 28,0 14,12.124 -14,12.124 -28,0" />
+  </defs>
+
+  <g fill="#000">
+    <g transform="translate(64 18)">
+      <use href="#wfHex" />
+    </g>
+    <g transform="translate(32 38)">
+      <use href="#wfHex" />
+    </g>
+    <g transform="translate(96 38)">
+      <use href="#wfHex" />
+    </g>
+
+    <g transform="translate(32 90)">
+      <use href="#wfHex" />
+    </g>
+    <g transform="translate(64 110)">
+      <use href="#wfHex" />
+    </g>
+    <g transform="translate(96 90)">
+      <use href="#wfHex" />
+    </g>
+  </g>
+</svg>
