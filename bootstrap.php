@@ -1921,34 +1921,56 @@ function pgConstraintExists(PDO $pdo, string $constraintName): bool
     return (bool) $stmt->fetchColumn();
 }
 
+function generateUuidV4(): string
+{
+    $bytes = random_bytes(16);
+    $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
+    $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
+    $hex = bin2hex($bytes);
+
+    return sprintf(
+        '%s-%s-%s-%s-%s',
+        substr($hex, 0, 8),
+        substr($hex, 8, 4),
+        substr($hex, 12, 4),
+        substr($hex, 16, 4),
+        substr($hex, 20, 12)
+    );
+}
+
 function createUser(PDO $pdo, string $name, string $email, string $passwordHash, string $createdAt): int
 {
+    $columnsSql = 'name, email, password_hash, created_at';
+    $valuesSql = ':n, :e, :p, :c';
+    $params = [
+        ':n' => $name,
+        ':e' => $email,
+        ':p' => $passwordHash,
+        ':c' => $createdAt,
+    ];
+
+    if (columnExists($pdo, 'users', 'uuid')) {
+        $columnsSql .= ', uuid';
+        $valuesSql .= ', :u';
+        $params[':u'] = generateUuidV4();
+    }
+
     if (dbDriverName($pdo) === 'pgsql') {
         $stmt = $pdo->prepare(
-            'INSERT INTO users (name, email, password_hash, created_at)
-             VALUES (:n, :e, :p, :c)
+            'INSERT INTO users (' . $columnsSql . ')
+             VALUES (' . $valuesSql . ')
              RETURNING id'
         );
-        $stmt->execute([
-            ':n' => $name,
-            ':e' => $email,
-            ':p' => $passwordHash,
-            ':c' => $createdAt,
-        ]);
+        $stmt->execute($params);
 
         return (int) $stmt->fetchColumn();
     }
 
     $stmt = $pdo->prepare(
-        'INSERT INTO users (name, email, password_hash, created_at)
-         VALUES (:n, :e, :p, :c)'
+        'INSERT INTO users (' . $columnsSql . ')
+         VALUES (' . $valuesSql . ')'
     );
-    $stmt->execute([
-        ':n' => $name,
-        ':e' => $email,
-        ':p' => $passwordHash,
-        ':c' => $createdAt,
-    ]);
+    $stmt->execute($params);
 
     return (int) $pdo->lastInsertId();
 }
