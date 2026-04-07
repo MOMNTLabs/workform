@@ -2607,6 +2607,13 @@ body:not(.theme-dark):not(.theme-light) .theme-toggle-icon-moon {
 .overview-stats {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 10px;
+    border: 0;
+    background: transparent;
+    border-radius: 0;
+    overflow: visible;
+    backdrop-filter: none;
+    box-shadow: none;
+    align-items: stretch;
 }
 
 .overview-wrap {
@@ -3262,13 +3269,13 @@ body:not(.theme-dark):not(.theme-light) .theme-toggle-icon-moon {
 
 .overview-stat-card {
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     border-radius: 14px;
     border: 1px solid rgba(128, 168, 211, 0.48);
     background:
         linear-gradient(180deg, rgba(246, 251, 255, 0.95), rgba(237, 247, 255, 0.92));
-    min-height: 108px;
-    padding: 12px;
+    min-height: 120px;
+    padding: 12px 12px 14px;
     display: grid;
     gap: 6px;
     align-content: start;
@@ -3300,13 +3307,14 @@ body:not(.theme-dark):not(.theme-light) .theme-toggle-icon-moon {
     font-family: var(--overview-metric-font);
     font-size: 1.56rem;
     color: #284a70;
-    line-height: 0.98;
+    line-height: 1.08;
     font-variant-numeric: tabular-nums;
 }
 
 .overview-stat-note {
+    display: block;
     font-size: 0.73rem;
-    line-height: 1.4;
+    line-height: 1.48;
     color: #6b85a5;
 }
 
@@ -11947,7 +11955,7 @@ body.theme-dark .task-status-subgroup-divider {
     }
 
     .overview-stat-card {
-        min-height: 92px;
+        min-height: 106px;
         padding: 10px;
     }
 
