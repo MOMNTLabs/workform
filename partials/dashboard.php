@@ -151,7 +151,6 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                             <?php endif; ?>
                         </div>
                     </div>
-                    <p>Menu</p>
                 </div>
                 <nav class="sidebar-view-menu" id="workspace-sidebar-menu" aria-label="Menu do workspace">
                     <button
