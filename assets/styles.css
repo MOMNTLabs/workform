@@ -877,14 +877,40 @@ select optgroup {
 }
 
 .workspace-sidebar-header .workspace-sidebar-overview-toggle {
-    width: 38px;
-    min-width: 38px;
-    min-height: 38px;
+    width: 48px;
+    min-width: 48px;
+    min-height: 48px;
     padding: 0;
-    border-radius: 10px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: rgba(68, 94, 130, 0.95);
     justify-content: center;
-    align-self: flex-start;
+    justify-self: center;
+    align-self: center;
+    margin-inline: auto;
     margin-bottom: 2px;
+}
+
+.workspace-sidebar-header .workspace-sidebar-overview-toggle:hover,
+.workspace-sidebar-header .workspace-sidebar-overview-toggle:focus-visible,
+.workspace-sidebar-header .workspace-sidebar-overview-toggle.is-active {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+}
+
+.workspace-sidebar-header .workspace-sidebar-overview-toggle .sidebar-view-toggle-icon {
+    width: 24px;
+    height: 24px;
+}
+
+.workspace-sidebar-header .workspace-sidebar-overview-toggle .sidebar-view-toggle-icon svg {
+    width: 24px;
+    height: 24px;
+    stroke-width: 2.1;
 }
 
 .workspace-sidebar-heading-row {
