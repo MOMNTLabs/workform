@@ -56,6 +56,23 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
             </a>
             <div class="users-sidebar-body">
                 <div class="panel-header workspace-sidebar-header">
+                    <button
+                        type="button"
+                        class="sidebar-view-toggle workspace-sidebar-overview-toggle is-active"
+                        data-dashboard-view-toggle
+                        data-view="overview"
+                        aria-pressed="true"
+                        aria-label="Dashboard geral"
+                        title="Dashboard geral"
+                    >
+                        <span class="sidebar-view-toggle-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <path d="M4 11.5 12 5l8 6.5"></path>
+                                <path d="M6.5 10v9h11v-9"></path>
+                                <path d="M10 19v-5h4v5"></path>
+                            </svg>
+                        </span>
+                    </button>
                     <div class="workspace-sidebar-heading-row">
                         <button
                             type="button"
@@ -137,22 +154,6 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                     <p>Menu</p>
                 </div>
                 <nav class="sidebar-view-menu" id="workspace-sidebar-menu" aria-label="Menu do workspace">
-                    <button
-                        type="button"
-                        class="sidebar-view-toggle is-active"
-                        data-dashboard-view-toggle
-                        data-view="overview"
-                        aria-pressed="true"
-                    >
-                        <span class="sidebar-view-toggle-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" focusable="false">
-                                <path d="M4 11.5 12 5l8 6.5"></path>
-                                <path d="M6.5 10v9h11v-9"></path>
-                                <path d="M10 19v-5h4v5"></path>
-                            </svg>
-                        </span>
-                        <span class="sidebar-view-toggle-label">Dashboard geral</span>
-                    </button>
                     <button
                         type="button"
                         class="sidebar-view-toggle"
