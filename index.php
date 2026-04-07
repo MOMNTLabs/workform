@@ -106,6 +106,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
     }
 
+    if ($getAction === 'accounting_panel_snapshot') {
+        try {
+            respondAccountingPanelSnapshot();
+        } catch (Throwable $e) {
+            respondJson([
+                'ok' => false,
+                'error' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
     if ($getAction === 'users_panel_snapshot') {
         try {
             respondUsersPanelSnapshot();

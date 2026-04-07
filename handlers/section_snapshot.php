@@ -175,6 +175,28 @@ function respondInventoryPanelSnapshot(): void
     ]);
 }
 
+function respondAccountingPanelSnapshot(): void
+{
+    $ctx = requireSnapshotWorkspaceContext();
+    $workspaceId = (int) $ctx['workspace_id'];
+    $accountingPeriod = normalizeAccountingPeriodKey((string) ($_GET['accounting_period'] ?? ''));
+    $accountingEntries = workspaceAccountingEntriesList($workspaceId, $accountingPeriod);
+    $accountingEntriesByType = workspaceAccountingEntriesByType($accountingEntries);
+    $accountingExpenseEntries = $accountingEntriesByType['expense'] ?? [];
+    $accountingIncomeEntries = $accountingEntriesByType['income'] ?? [];
+    $accountingOpeningBalanceCents = workspaceAccountingOpeningBalanceCents($workspaceId, $accountingPeriod);
+    $accountingSummary = accountingSummary($accountingEntries, $accountingOpeningBalanceCents);
+
+    ob_start();
+    include __DIR__ . '/../partials/accounting_sheet.php';
+    $accountingSheetHtml = (string) ob_get_clean();
+
+    respondJson([
+        'ok' => true,
+        'accounting_sheet_html' => $accountingSheetHtml,
+    ]);
+}
+
 function respondUsersPanelSnapshot(): void
 {
     $ctx = requireSnapshotWorkspaceContext();

@@ -4201,26 +4201,31 @@ window.addEventListener("DOMContentLoaded", () => {
   };
 
   const refreshAccountingSectionFromServer = async () => {
-    const url = `${window.location.pathname}${window.location.search}`;
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        "X-Requested-With": "XMLHttpRequest",
-        Accept: "text/html",
-      },
-      credentials: "same-origin",
-    });
+    let snapshotData = null;
+    let nextDoc = null;
 
-    if (!response.ok) {
-      throw new Error("Nao foi possivel atualizar a contabilidade.");
+    try {
+      snapshotData = await fetchPanelSnapshot(
+        "accounting_panel_snapshot",
+        "Nao foi possivel atualizar a contabilidade."
+      );
+      const sheetHtml = String(snapshotData.accounting_sheet_html || "").trim();
+      if (!sheetHtml) {
+        throw new Error("Snapshot de contabilidade vazio.");
+      }
+      const parser = new DOMParser();
+      nextDoc = parser.parseFromString(sheetHtml, "text/html");
+    } catch (_snapshotError) {
+      snapshotData = null;
+      nextDoc = await fetchDashboardDocumentLegacy(
+        "Nao foi possivel atualizar a contabilidade."
+      );
     }
 
-    const html = await response.text();
-    const parser = new DOMParser();
-    const nextDoc = parser.parseFromString(html, "text/html");
-
     const currentSheet = document.querySelector("#accounting .accounting-sheet");
-    const nextSheet = nextDoc.querySelector("#accounting .accounting-sheet");
+    const nextSheet =
+      nextDoc.querySelector(".accounting-sheet") ||
+      nextDoc.querySelector("#accounting .accounting-sheet");
     if (!(currentSheet instanceof HTMLElement) || !(nextSheet instanceof HTMLElement)) {
       throw new Error("Nao foi possivel atualizar a contabilidade.");
     }
