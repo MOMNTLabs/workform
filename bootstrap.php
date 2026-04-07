@@ -46,7 +46,9 @@ function db(): PDO
     if (dbDriverName($pdo) === 'sqlite') {
         $pdo->exec('PRAGMA foreign_keys = ON;');
     }
-    migrate($pdo);
+    if (shouldAutoRunMigrations()) {
+        migrate($pdo);
+    }
 
     return $pdo;
 }
@@ -109,6 +111,39 @@ function envValue(string $key, ?string $default = null): ?string
     }
 
     return (string) $value;
+}
+
+function envFlag(string $key, bool $default = false): bool
+{
+    $value = envValue($key);
+    if ($value === null) {
+        return $default;
+    }
+
+    $normalized = strtolower(trim($value));
+    if (in_array($normalized, ['1', 'true', 'yes', 'on'], true)) {
+        return true;
+    }
+
+    if (in_array($normalized, ['0', 'false', 'no', 'off'], true)) {
+        return false;
+    }
+
+    return $default;
+}
+
+function shouldAutoRunMigrations(): bool
+{
+    if (PHP_SAPI === 'cli') {
+        return true;
+    }
+
+    return envFlag('APP_AUTO_MIGRATE', false);
+}
+
+function shouldApplyOverduePolicyDuringRequests(): bool
+{
+    return envFlag('APP_AUTO_OVERDUE_POLICY', false);
 }
 
 function postgresConfigFromUrl(string $databaseUrl): array
@@ -664,6 +699,11 @@ function ensureTaskExtendedSchema(PDO $pdo): void
         $pdo->exec("ALTER TABLE tasks ADD COLUMN title_tag TEXT NOT NULL DEFAULT ''");
         $needsBackfill = true;
     }
+
+    $pdo->exec(
+        'CREATE INDEX IF NOT EXISTS idx_tasks_workspace_assigned_to
+         ON tasks(workspace_id, assigned_to)'
+    );
 
     if (!$needsBackfill && appMetaGet($pdo, $backfillMetaKey) === '1') {
         return;
@@ -6977,45 +7017,57 @@ function taskHistoryByTaskIds(array $taskIds, int $limitPerTask = 30): array
 
     $limitPerTask = max(1, min($limitPerTask, 300));
     $grouped = [];
-    $sql = dbDriverName(db()) === 'pgsql'
-        ? 'SELECT
-               h.id,
-               h.task_id,
-               h.event_type,
-               h.payload_json,
-               h.created_at,
-               u.name AS actor_name
-           FROM task_history h
-           LEFT JOIN users u ON u.id = h.actor_user_id
-           WHERE h.task_id = :task_id
-           ORDER BY h.created_at DESC, h.id DESC
-           LIMIT ' . $limitPerTask
-        : 'SELECT
-               h.id,
-               h.task_id,
-               h.event_type,
-               h.payload_json,
-               h.created_at,
-               u.name AS actor_name
-           FROM task_history h
-           LEFT JOIN users u ON u.id = h.actor_user_id
-           WHERE h.task_id = :task_id
-           ORDER BY h.created_at DESC, h.id DESC
-           LIMIT ' . $limitPerTask;
-    $stmt = db()->prepare($sql);
+    $countsByTaskId = [];
+    $pdo = db();
+    $chunkSize = 220;
 
-    foreach ($ids as $taskId) {
-        $stmt->execute([':task_id' => $taskId]);
-        $rows = $stmt->fetchAll();
-        if (!$rows) {
+    foreach (array_chunk($ids, $chunkSize) as $taskIdChunk) {
+        if (!$taskIdChunk) {
             continue;
         }
 
-        $grouped[$taskId] = [];
+        $params = [];
+        $placeholders = [];
+        foreach (array_values($taskIdChunk) as $index => $taskId) {
+            $paramName = ':task_id_' . $index;
+            $placeholders[] = $paramName;
+            $params[$paramName] = (int) $taskId;
+        }
+
+        $sql = 'SELECT
+                    h.id,
+                    h.task_id,
+                    h.event_type,
+                    h.payload_json,
+                    h.created_at,
+                    u.name AS actor_name
+                FROM task_history h
+                LEFT JOIN users u ON u.id = h.actor_user_id
+                WHERE h.task_id IN (' . implode(', ', $placeholders) . ')
+                ORDER BY h.task_id ASC, h.created_at DESC, h.id DESC';
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll();
+
         foreach ($rows as $row) {
+            $taskId = (int) ($row['task_id'] ?? 0);
+            if ($taskId <= 0) {
+                continue;
+            }
+
+            $currentCount = $countsByTaskId[$taskId] ?? 0;
+            if ($currentCount >= $limitPerTask) {
+                continue;
+            }
+
+            if (!isset($grouped[$taskId])) {
+                $grouped[$taskId] = [];
+            }
+
             $row['payload'] = decodeTaskHistoryPayload($row['payload_json'] ?? null);
             unset($row['payload_json']);
             $grouped[$taskId][] = $row;
+            $countsByTaskId[$taskId] = $currentCount + 1;
         }
     }
 
@@ -7200,13 +7252,76 @@ function taskIdsAssignedToUser(int $workspaceId, int $userId): array
         return [];
     }
 
-    $stmt = db()->prepare(
+    $pdo = db();
+    $driver = dbDriverName($pdo);
+
+    try {
+        if ($driver === 'pgsql') {
+            $stmt = $pdo->prepare(
+                'SELECT DISTINCT t.id
+                 FROM tasks t
+                 LEFT JOIN LATERAL jsonb_array_elements_text(
+                    CASE
+                        WHEN t.assignee_ids_json IS NULL OR BTRIM(t.assignee_ids_json) = \'\' THEN \'[]\'::jsonb
+                        ELSE t.assignee_ids_json::jsonb
+                    END
+                 ) assignee(value) ON true
+                 WHERE t.workspace_id = :workspace_id
+                   AND (
+                        t.assigned_to = :user_id
+                        OR assignee.value = :user_id_text
+                   )'
+            );
+            $stmt->execute([
+                ':workspace_id' => $workspaceId,
+                ':user_id' => $userId,
+                ':user_id_text' => (string) $userId,
+            ]);
+        } else {
+            $stmt = $pdo->prepare(
+                'SELECT DISTINCT t.id
+                 FROM tasks t
+                 LEFT JOIN json_each(
+                    CASE
+                        WHEN t.assignee_ids_json IS NULL OR TRIM(t.assignee_ids_json) = \'\' THEN \'[]\'
+                        ELSE t.assignee_ids_json
+                    END
+                 ) j ON 1 = 1
+                 WHERE t.workspace_id = :workspace_id
+                   AND (
+                        t.assigned_to = :user_id
+                        OR CAST(j.value AS INTEGER) = :user_id
+                   )'
+            );
+            $stmt->execute([
+                ':workspace_id' => $workspaceId,
+                ':user_id' => $userId,
+            ]);
+        }
+
+        $rows = $stmt->fetchAll();
+        $taskIds = [];
+        foreach ($rows as $row) {
+            $taskId = (int) ($row['id'] ?? 0);
+            if ($taskId > 0) {
+                $taskIds[$taskId] = $taskId;
+            }
+        }
+
+        if ($taskIds) {
+            return array_values($taskIds);
+        }
+    } catch (Throwable $e) {
+        // Fallback below keeps compatibility for environments without JSON SQL helpers.
+    }
+
+    $fallbackStmt = $pdo->prepare(
         'SELECT id, assigned_to, assignee_ids_json
          FROM tasks
          WHERE workspace_id = :workspace_id'
     );
-    $stmt->execute([':workspace_id' => $workspaceId]);
-    $rows = $stmt->fetchAll();
+    $fallbackStmt->execute([':workspace_id' => $workspaceId]);
+    $rows = $fallbackStmt->fetchAll();
 
     $taskIds = [];
     foreach ($rows as $row) {
@@ -7220,11 +7335,9 @@ function taskIdsAssignedToUser(int $workspaceId, int $userId): array
             isset($row['assigned_to']) ? (int) $row['assigned_to'] : null
         );
 
-        if (!in_array($userId, $assigneeIds, true)) {
-            continue;
+        if (in_array($userId, $assigneeIds, true)) {
+            $taskIds[$taskId] = $taskId;
         }
-
-        $taskIds[$taskId] = $taskId;
     }
 
     return array_values($taskIds);

@@ -22,7 +22,11 @@ function respondJson(array $payload, int $status = 200): void
 
 function dashboardSummaryPayloadForUser(int $userId, ?int $workspaceId = null): array
 {
-    if ($workspaceId !== null && $workspaceId > 0) {
+    if (
+        $workspaceId !== null &&
+        $workspaceId > 0 &&
+        shouldApplyOverduePolicyDuringRequests()
+    ) {
         applyOverdueTaskPolicyIfNeeded($workspaceId);
     }
 

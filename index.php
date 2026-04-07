@@ -18,6 +18,8 @@ if (
 }
 
 require_once __DIR__ . '/handlers/post_common.php';
+require_once __DIR__ . '/handlers/task_snapshot.php';
+require_once __DIR__ . '/handlers/section_snapshot.php';
 require_once __DIR__ . '/handlers/post_auth.php';
 require_once __DIR__ . '/handlers/post_workspace.php';
 require_once __DIR__ . '/handlers/post_tasks.php';
@@ -60,6 +62,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $forceAuthScreen = true;
     }
 
+    if ($getAction === 'task_panel_snapshot') {
+        try {
+            respondTaskPanelSnapshot();
+        } catch (Throwable $e) {
+            respondJson([
+                'ok' => false,
+                'error' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    if ($getAction === 'vault_panel_snapshot') {
+        try {
+            respondVaultPanelSnapshot();
+        } catch (Throwable $e) {
+            respondJson([
+                'ok' => false,
+                'error' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    if ($getAction === 'due_panel_snapshot') {
+        try {
+            respondDuePanelSnapshot();
+        } catch (Throwable $e) {
+            respondJson([
+                'ok' => false,
+                'error' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    if ($getAction === 'inventory_panel_snapshot') {
+        try {
+            respondInventoryPanelSnapshot();
+        } catch (Throwable $e) {
+            respondJson([
+                'ok' => false,
+                'error' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    if ($getAction === 'users_panel_snapshot') {
+        try {
+            respondUsersPanelSnapshot();
+        } catch (Throwable $e) {
+            respondJson([
+                'ok' => false,
+                'error' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
     if ($getAction === 'task_notifications_feed') {
         try {
             $authUser = currentUser();
@@ -75,7 +132,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 throw new RuntimeException('Workspace ativo nao encontrado.');
             }
 
-            applyOverdueTaskPolicyIfNeeded($workspaceId);
+            if (shouldApplyOverduePolicyDuringRequests()) {
+                applyOverdueTaskPolicyIfNeeded($workspaceId);
+            }
 
             $initialize = ((int) ($_GET['initialize'] ?? 0)) === 1;
             $sinceHistoryId = max(0, (int) ($_GET['since_id'] ?? 0));
@@ -163,7 +222,7 @@ $currentUser = currentUser();
 $renderAuthScreen = !$currentUser || $forceAuthScreen;
 $currentWorkspaceId = $currentUser ? activeWorkspaceId($currentUser) : null;
 $currentWorkspace = ($currentUser && $currentWorkspaceId !== null) ? activeWorkspace($currentUser) : null;
-if ($currentUser && $currentWorkspaceId !== null) {
+if ($currentUser && $currentWorkspaceId !== null && shouldApplyOverduePolicyDuringRequests()) {
     applyOverdueTaskPolicyIfNeeded($currentWorkspaceId);
 }
 $userWorkspaces = $currentUser ? workspacesForUser((int) $currentUser['id']) : [];

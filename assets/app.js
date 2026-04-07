@@ -3374,6 +3374,22 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const syncSelectOptionsFromHtml = (targetSelect, optionsHtml, { disabled = null } = {}) => {
+    if (!(targetSelect instanceof HTMLSelectElement)) return;
+    const nextOptionsHtml = String(optionsHtml || "").trim();
+    if (!nextOptionsHtml) return;
+
+    const previousValue = String(targetSelect.value || "").trim();
+    targetSelect.innerHTML = nextOptionsHtml;
+    if (previousValue && Array.from(targetSelect.options).some((option) => option.value === previousValue)) {
+      targetSelect.value = previousValue;
+    }
+
+    if (typeof disabled === "boolean") {
+      targetSelect.disabled = disabled;
+    }
+  };
+
   const parseLeadingIntegerFromText = (value) => {
     const match = String(value || "").match(/(\d+)/);
     if (!match) return null;
@@ -3428,7 +3444,39 @@ window.addEventListener("DOMContentLoaded", () => {
     };
   };
 
-  const refreshTasksSectionFromServer = async () => {
+  const fetchPanelSnapshot = async (action, fallbackErrorMessage) => {
+    const params = new URLSearchParams(window.location.search || "");
+    params.set("action", String(action || "").trim());
+    const url = `${window.location.pathname}?${params.toString()}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        Accept: "application/json",
+      },
+      credentials: "same-origin",
+    });
+
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (_error) {
+      data = null;
+    }
+
+    if (!response.ok || !data || data.ok !== true) {
+      throw new Error(
+        (data && (data.error || data.message)) || fallbackErrorMessage
+      );
+    }
+
+    return data;
+  };
+
+  const fetchTaskPanelSnapshot = async () =>
+    fetchPanelSnapshot("task_panel_snapshot", "Nao foi possivel atualizar tarefas.");
+
+  const fetchDashboardDocumentLegacy = async (fallbackErrorMessage) => {
     const url = `${window.location.pathname}${window.location.search}`;
     const response = await fetch(url, {
       method: "GET",
@@ -3440,12 +3488,30 @@ window.addEventListener("DOMContentLoaded", () => {
     });
 
     if (!response.ok) {
-      throw new Error("Nao foi possivel atualizar tarefas.");
+      throw new Error(fallbackErrorMessage);
     }
 
     const html = await response.text();
     const parser = new DOMParser();
-    const nextDoc = parser.parseFromString(html, "text/html");
+    return parser.parseFromString(html, "text/html");
+  };
+
+  const refreshTasksSectionFromServer = async () => {
+    let snapshotData = null;
+    let nextDoc = null;
+
+    try {
+      snapshotData = await fetchTaskPanelSnapshot();
+      const panelHtml = String(snapshotData.tasks_panel_html || "").trim();
+      if (!panelHtml) {
+        throw new Error("Snapshot de tarefas vazio.");
+      }
+      const parser = new DOMParser();
+      nextDoc = parser.parseFromString(panelHtml, "text/html");
+    } catch (_snapshotError) {
+      snapshotData = null;
+      nextDoc = await fetchDashboardDocumentLegacy("Nao foi possivel atualizar tarefas.");
+    }
 
     const currentGroupsList =
       taskGroupsListElement instanceof HTMLElement
@@ -3462,15 +3528,40 @@ window.addEventListener("DOMContentLoaded", () => {
       currentVisible.textContent = nextVisible.textContent || currentVisible.textContent;
     }
 
-    const summary = parseDashboardSummaryFromDocument(nextDoc);
-    if (summary) {
-      renderDashboardSummary(summary);
+    if (snapshotData && snapshotData.summary && typeof snapshotData.summary === "object") {
+      renderDashboardSummary(snapshotData.summary);
+    } else {
+      const summary = parseDashboardSummaryFromDocument(nextDoc);
+      if (summary) {
+        renderDashboardSummary(summary);
+      }
     }
 
-    syncSelectOptionsFromSource(
-      createTaskGroupInput,
-      nextDoc.querySelector("[data-create-task-group-input]")
-    );
+    if (createTaskGroupInput instanceof HTMLSelectElement) {
+      const createTaskGroupOptionsHtml = String(
+        snapshotData?.create_task_group_options_html || ""
+      ).trim();
+      if (createTaskGroupOptionsHtml) {
+        const previousValue = createTaskGroupInput.value;
+        createTaskGroupInput.innerHTML = createTaskGroupOptionsHtml;
+        if (
+          previousValue &&
+          Array.from(createTaskGroupInput.options).some(
+            (option) => option.value === previousValue
+          )
+        ) {
+          createTaskGroupInput.value = previousValue;
+        }
+        if (typeof snapshotData?.has_task_group_access === "boolean") {
+          createTaskGroupInput.disabled = !snapshotData.has_task_group_access;
+        }
+      } else {
+        syncSelectOptionsFromSource(
+          createTaskGroupInput,
+          nextDoc.querySelector("[data-create-task-group-input]")
+        );
+      }
+    }
 
     const currentGroupFilterSelect = taskFilterForm?.querySelector('select[name="group"]');
     const nextGroupFilterSelect = nextDoc.querySelector('[data-task-filter-form] select[name="group"]');
@@ -3533,23 +3624,25 @@ window.addEventListener("DOMContentLoaded", () => {
   };
 
   const refreshVaultSectionFromServer = async () => {
-    const url = `${window.location.pathname}${window.location.search}`;
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        "X-Requested-With": "XMLHttpRequest",
-        Accept: "text/html",
-      },
-      credentials: "same-origin",
-    });
+    let snapshotData = null;
+    let nextDoc = null;
 
-    if (!response.ok) {
-      throw new Error("Nao foi possivel atualizar o cofre.");
+    try {
+      snapshotData = await fetchPanelSnapshot(
+        "vault_panel_snapshot",
+        "Nao foi possivel atualizar o cofre."
+      );
+      const panelHtml = String(snapshotData.panel_html || "").trim();
+      if (!panelHtml) {
+        throw new Error("Snapshot de cofre vazio.");
+      }
+
+      const parser = new DOMParser();
+      nextDoc = parser.parseFromString(panelHtml, "text/html");
+    } catch (_snapshotError) {
+      snapshotData = null;
+      nextDoc = await fetchDashboardDocumentLegacy("Nao foi possivel atualizar o cofre.");
     }
-
-    const html = await response.text();
-    const parser = new DOMParser();
-    const nextDoc = parser.parseFromString(html, "text/html");
 
     const currentGroupsList = document.querySelector("#vault .vault-groups-list");
     const nextGroupsList = nextDoc.querySelector("#vault .vault-groups-list");
@@ -3568,11 +3661,22 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    syncSelectOptionsFromSource(vaultEntryGroupField, nextDoc.querySelector("[data-vault-entry-group]"));
-    syncSelectOptionsFromSource(
-      vaultEntryEditGroupField,
-      nextDoc.querySelector("[data-vault-entry-edit-group]")
-    );
+    const vaultOptionsHtml = String(snapshotData?.group_options_html || "").trim();
+    if (vaultOptionsHtml) {
+      const hasGroupAccess = snapshotData?.has_group_access === true;
+      syncSelectOptionsFromHtml(vaultEntryGroupField, vaultOptionsHtml, {
+        disabled: !hasGroupAccess,
+      });
+      syncSelectOptionsFromHtml(vaultEntryEditGroupField, vaultOptionsHtml, {
+        disabled: !hasGroupAccess,
+      });
+    } else {
+      syncSelectOptionsFromSource(vaultEntryGroupField, nextDoc.querySelector("[data-vault-entry-group]"));
+      syncSelectOptionsFromSource(
+        vaultEntryEditGroupField,
+        nextDoc.querySelector("[data-vault-entry-edit-group]")
+      );
+    }
 
     document.querySelectorAll("#vault [data-vault-group]").forEach((section) => {
       setVaultGroupCollapsed(section, resolveInitialGroupCollapsedState("vault", section), {
@@ -3586,23 +3690,25 @@ window.addEventListener("DOMContentLoaded", () => {
   };
 
   const refreshDueSectionFromServer = async () => {
-    const url = `${window.location.pathname}${window.location.search}`;
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        "X-Requested-With": "XMLHttpRequest",
-        Accept: "text/html",
-      },
-      credentials: "same-origin",
-    });
+    let snapshotData = null;
+    let nextDoc = null;
 
-    if (!response.ok) {
-      throw new Error("Nao foi possivel atualizar os vencimentos.");
+    try {
+      snapshotData = await fetchPanelSnapshot(
+        "due_panel_snapshot",
+        "Nao foi possivel atualizar os vencimentos."
+      );
+      const panelHtml = String(snapshotData.panel_html || "").trim();
+      if (!panelHtml) {
+        throw new Error("Snapshot de vencimentos vazio.");
+      }
+
+      const parser = new DOMParser();
+      nextDoc = parser.parseFromString(panelHtml, "text/html");
+    } catch (_snapshotError) {
+      snapshotData = null;
+      nextDoc = await fetchDashboardDocumentLegacy("Nao foi possivel atualizar os vencimentos.");
     }
-
-    const html = await response.text();
-    const parser = new DOMParser();
-    const nextDoc = parser.parseFromString(html, "text/html");
 
     const currentGroupsList = document.querySelector("#dues .due-groups-list");
     const nextGroupsList = nextDoc.querySelector("#dues .due-groups-list");
@@ -3621,11 +3727,22 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    syncSelectOptionsFromSource(dueEntryGroupField, nextDoc.querySelector("[data-due-entry-group]"));
-    syncSelectOptionsFromSource(
-      dueEntryEditGroupField,
-      nextDoc.querySelector("[data-due-entry-edit-group]")
-    );
+    const dueOptionsHtml = String(snapshotData?.group_options_html || "").trim();
+    if (dueOptionsHtml) {
+      const hasGroupAccess = snapshotData?.has_group_access === true;
+      syncSelectOptionsFromHtml(dueEntryGroupField, dueOptionsHtml, {
+        disabled: !hasGroupAccess,
+      });
+      syncSelectOptionsFromHtml(dueEntryEditGroupField, dueOptionsHtml, {
+        disabled: !hasGroupAccess,
+      });
+    } else {
+      syncSelectOptionsFromSource(dueEntryGroupField, nextDoc.querySelector("[data-due-entry-group]"));
+      syncSelectOptionsFromSource(
+        dueEntryEditGroupField,
+        nextDoc.querySelector("[data-due-entry-edit-group]")
+      );
+    }
 
     document.querySelectorAll("#dues [data-due-group]").forEach((section) => {
       setDueGroupCollapsed(section, resolveInitialGroupCollapsedState("dues", section), {
@@ -3635,23 +3752,25 @@ window.addEventListener("DOMContentLoaded", () => {
   };
 
   const refreshInventorySectionFromServer = async () => {
-    const url = `${window.location.pathname}${window.location.search}`;
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        "X-Requested-With": "XMLHttpRequest",
-        Accept: "text/html",
-      },
-      credentials: "same-origin",
-    });
+    let snapshotData = null;
+    let nextDoc = null;
 
-    if (!response.ok) {
-      throw new Error("Nao foi possivel atualizar o estoque.");
+    try {
+      snapshotData = await fetchPanelSnapshot(
+        "inventory_panel_snapshot",
+        "Nao foi possivel atualizar o estoque."
+      );
+      const panelHtml = String(snapshotData.panel_html || "").trim();
+      if (!panelHtml) {
+        throw new Error("Snapshot de estoque vazio.");
+      }
+
+      const parser = new DOMParser();
+      nextDoc = parser.parseFromString(panelHtml, "text/html");
+    } catch (_snapshotError) {
+      snapshotData = null;
+      nextDoc = await fetchDashboardDocumentLegacy("Nao foi possivel atualizar o estoque.");
     }
-
-    const html = await response.text();
-    const parser = new DOMParser();
-    const nextDoc = parser.parseFromString(html, "text/html");
 
     const currentGroupsList = document.querySelector("#inventory .inventory-groups-list");
     const nextGroupsList = nextDoc.querySelector("#inventory .inventory-groups-list");
@@ -3670,14 +3789,25 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    syncSelectOptionsFromSource(
-      inventoryEntryGroupField,
-      nextDoc.querySelector("[data-inventory-entry-group]")
-    );
-    syncSelectOptionsFromSource(
-      inventoryEntryEditGroupField,
-      nextDoc.querySelector("[data-inventory-entry-edit-group]")
-    );
+    const inventoryOptionsHtml = String(snapshotData?.group_options_html || "").trim();
+    if (inventoryOptionsHtml) {
+      const hasGroupAccess = snapshotData?.has_group_access === true;
+      syncSelectOptionsFromHtml(inventoryEntryGroupField, inventoryOptionsHtml, {
+        disabled: !hasGroupAccess,
+      });
+      syncSelectOptionsFromHtml(inventoryEntryEditGroupField, inventoryOptionsHtml, {
+        disabled: !hasGroupAccess,
+      });
+    } else {
+      syncSelectOptionsFromSource(
+        inventoryEntryGroupField,
+        nextDoc.querySelector("[data-inventory-entry-group]")
+      );
+      syncSelectOptionsFromSource(
+        inventoryEntryEditGroupField,
+        nextDoc.querySelector("[data-inventory-entry-edit-group]")
+      );
+    }
 
     document.querySelectorAll("#inventory [data-inventory-group]").forEach((section) => {
       setInventoryGroupCollapsed(section, resolveInitialGroupCollapsedState("inventory", section), {
@@ -3687,23 +3817,27 @@ window.addEventListener("DOMContentLoaded", () => {
   };
 
   const refreshWorkspaceUsersSectionFromServer = async () => {
-    const url = `${window.location.pathname}${window.location.search}`;
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        "X-Requested-With": "XMLHttpRequest",
-        Accept: "text/html",
-      },
-      credentials: "same-origin",
-    });
+    let snapshotData = null;
+    let nextDoc = null;
 
-    if (!response.ok) {
-      throw new Error("Nao foi possivel atualizar os usuarios do workspace.");
+    try {
+      snapshotData = await fetchPanelSnapshot(
+        "users_panel_snapshot",
+        "Nao foi possivel atualizar os usuarios do workspace."
+      );
+      const panelHtml = String(snapshotData.panel_html || "").trim();
+      if (!panelHtml) {
+        throw new Error("Snapshot de usuarios vazio.");
+      }
+
+      const parser = new DOMParser();
+      nextDoc = parser.parseFromString(panelHtml, "text/html");
+    } catch (_snapshotError) {
+      snapshotData = null;
+      nextDoc = await fetchDashboardDocumentLegacy(
+        "Nao foi possivel atualizar os usuarios do workspace."
+      );
     }
-
-    const html = await response.text();
-    const parser = new DOMParser();
-    const nextDoc = parser.parseFromString(html, "text/html");
 
     const currentUsersGrid = document.querySelector("#users .users-settings-grid");
     const nextUsersGrid = nextDoc.querySelector("#users .users-settings-grid");
@@ -3712,24 +3846,38 @@ window.addEventListener("DOMContentLoaded", () => {
     }
     currentUsersGrid.replaceWith(nextUsersGrid);
 
-    const currentWorkspacePickerList = document.querySelector(".workspace-sidebar-picker-list");
-    const nextWorkspacePickerList = nextDoc.querySelector(".workspace-sidebar-picker-list");
-    if (
-      currentWorkspacePickerList instanceof HTMLElement &&
-      nextWorkspacePickerList instanceof HTMLElement
-    ) {
-      currentWorkspacePickerList.innerHTML = nextWorkspacePickerList.innerHTML;
+    const currentWorkspacePickerList = document.querySelector(
+      ".workspace-sidebar-picker-list"
+    );
+    const workspacePickerListHtml = String(
+      snapshotData?.workspace_picker_list_html || ""
+    ).trim();
+    if (currentWorkspacePickerList instanceof HTMLElement) {
+      if (workspacePickerListHtml) {
+        currentWorkspacePickerList.innerHTML = workspacePickerListHtml;
+      } else {
+        const nextWorkspacePickerList = nextDoc.querySelector(
+          ".workspace-sidebar-picker-list"
+        );
+        if (nextWorkspacePickerList instanceof HTMLElement) {
+          currentWorkspacePickerList.innerHTML = nextWorkspacePickerList.innerHTML;
+        }
+      }
     }
 
     const currentWorkspacePickerTitle = document.querySelector(".workspace-sidebar-picker-title");
-    const nextWorkspacePickerTitle = nextDoc.querySelector(".workspace-sidebar-picker-title");
-    if (
-      currentWorkspacePickerTitle instanceof HTMLElement &&
-      nextWorkspacePickerTitle instanceof HTMLElement
-    ) {
-      const nextTitle = String(nextWorkspacePickerTitle.textContent || "").trim();
-      if (nextTitle) {
-        currentWorkspacePickerTitle.textContent = nextTitle;
+    if (currentWorkspacePickerTitle instanceof HTMLElement) {
+      const workspacePickerTitle = String(snapshotData?.workspace_picker_title || "").trim();
+      if (workspacePickerTitle) {
+        currentWorkspacePickerTitle.textContent = workspacePickerTitle;
+      } else {
+        const nextWorkspacePickerTitle = nextDoc.querySelector(".workspace-sidebar-picker-title");
+        if (nextWorkspacePickerTitle instanceof HTMLElement) {
+          const nextTitle = String(nextWorkspacePickerTitle.textContent || "").trim();
+          if (nextTitle) {
+            currentWorkspacePickerTitle.textContent = nextTitle;
+          }
+        }
       }
     }
   };
