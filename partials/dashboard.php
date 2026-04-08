@@ -407,6 +407,15 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                     'value' => $overviewLowStockTotal,
                 ];
             }
+            $overviewPriorityTasksTodayTotal = (int) ($globalDashboardOverview['priority_tasks_today_total'] ?? 0);
+            $overviewDueTodayTotal = (int) ($globalDashboardOverview['due_today_total'] ?? 0);
+            $overviewDueTomorrowTotal = (int) ($globalDashboardOverview['due_tomorrow_total'] ?? 0);
+            $overviewAttentionWorkspaceTotal = (int) ($globalDashboardOverview['attention_workspace_total'] ?? 0);
+            $overviewBalanceTotalCents = (int) ($globalDashboardOverview['balance_total_cents'] ?? 0);
+            $showOverviewTasksStatCard = $overviewTasksTodayTotal > 0;
+            $showOverviewDueStatCard = $overviewDueSoonTotal > 0 || $overviewDueTodayTotal > 0 || $overviewDueTomorrowTotal > 0;
+            $showOverviewBalanceStatCard = $overviewBalanceTotalCents !== 0;
+            $showOverviewLowStockStatCard = $overviewLowStockTotal > 0;
             ?>
             <div class="panel-header board-header overview-board-header">
                 <div>
@@ -538,28 +547,38 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
                 </aside>
             </div>
 
-            <section class="stats-strip overview-stats" style="--overview-order: 1;" aria-label="Resumo geral do usuario">
-                <article class="stat-cell overview-stat-card is-tasks">
-                    <span>Tarefas de hoje</span>
-                    <strong><?= e((string) ($globalDashboardOverview['tasks_today_total'] ?? 0)) ?></strong>
-                    <small class="overview-stat-note"><?= e((string) ($globalDashboardOverview['priority_tasks_today_total'] ?? 0)) ?> com alta prioridade</small>
-                </article>
-                <article class="stat-cell overview-stat-card is-due">
-                    <span>Vencimentos proximos</span>
-                    <strong><?= e((string) ($globalDashboardOverview['due_soon_total'] ?? 0)) ?></strong>
-                    <small class="overview-stat-note"><?= e((string) ($globalDashboardOverview['due_today_total'] ?? 0)) ?> hoje, <?= e((string) ($globalDashboardOverview['due_tomorrow_total'] ?? 0)) ?> amanha</small>
-                </article>
-                <article class="stat-cell overview-stat-card is-balance">
-                    <span>Saldo atual</span>
-                    <strong><?= e((string) ($globalDashboardOverview['balance_total_display'] ?? 'R$ 0,00')) ?></strong>
-                    <small class="overview-stat-note">Mov. mes <?= e((string) ($globalDashboardOverview['balance_month_movement_display'] ?? 'R$ 0,00')) ?></small>
-                </article>
-                <article class="stat-cell overview-stat-card is-stock">
-                    <span>Baixo estoque</span>
-                    <strong><?= e((string) ($globalDashboardOverview['low_stock_total'] ?? 0)) ?></strong>
-                    <small class="overview-stat-note"><?= e((string) ($globalDashboardOverview['attention_workspace_total'] ?? 0)) ?> workspace(s) em monitoramento</small>
-                </article>
-            </section>
+            <?php if ($showOverviewTasksStatCard || $showOverviewDueStatCard || $showOverviewBalanceStatCard || $showOverviewLowStockStatCard): ?>
+                <section class="stats-strip overview-stats" style="--overview-order: 1;" aria-label="Resumo geral do usuario">
+                    <?php if ($showOverviewTasksStatCard): ?>
+                        <article class="stat-cell overview-stat-card is-tasks">
+                            <span>Tarefas de hoje</span>
+                            <strong><?= e((string) $overviewTasksTodayTotal) ?></strong>
+                            <small class="overview-stat-note"><?= e((string) $overviewPriorityTasksTodayTotal) ?> com alta prioridade</small>
+                        </article>
+                    <?php endif; ?>
+                    <?php if ($showOverviewDueStatCard): ?>
+                        <article class="stat-cell overview-stat-card is-due">
+                            <span>Vencimentos proximos</span>
+                            <strong><?= e((string) $overviewDueSoonTotal) ?></strong>
+                            <small class="overview-stat-note"><?= e((string) $overviewDueTodayTotal) ?> hoje, <?= e((string) $overviewDueTomorrowTotal) ?> amanha</small>
+                        </article>
+                    <?php endif; ?>
+                    <?php if ($showOverviewBalanceStatCard): ?>
+                        <article class="stat-cell overview-stat-card is-balance">
+                            <span>Saldo atual</span>
+                            <strong><?= e((string) ($globalDashboardOverview['balance_total_display'] ?? 'R$ 0,00')) ?></strong>
+                            <small class="overview-stat-note">Mov. mes <?= e((string) ($globalDashboardOverview['balance_month_movement_display'] ?? 'R$ 0,00')) ?></small>
+                        </article>
+                    <?php endif; ?>
+                    <?php if ($showOverviewLowStockStatCard): ?>
+                        <article class="stat-cell overview-stat-card is-stock">
+                            <span>Baixo estoque</span>
+                            <strong><?= e((string) $overviewLowStockTotal) ?></strong>
+                            <small class="overview-stat-note"><?= e((string) $overviewAttentionWorkspaceTotal) ?> workspace(s) em monitoramento</small>
+                        </article>
+                    <?php endif; ?>
+                </section>
+            <?php endif; ?>
 
             <div class="overview-panels-grid" style="--overview-order: 2;">
                 <section class="overview-card overview-card-tasks">
