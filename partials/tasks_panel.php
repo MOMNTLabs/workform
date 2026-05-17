@@ -520,7 +520,7 @@ $statusMetaByKey = is_array($statusConfig['meta_by_key'] ?? null) ? $statusConfi
                                                             <summary aria-label="Status da tarefa">
                                                                 <span class="row-inline-picker-summary-text" data-inline-select-text><?= e($statusLabel) ?></span>
                                                             </summary>
-                                                            <div class="assignee-picker-menu row-inline-picker-menu" role="listbox" aria-label="Selecionar status">
+                                                            <div class="assignee-picker-menu row-inline-picker-menu" role="listbox" aria-label="Selecionar status" data-sheet-title="Status">
                                                                 <?php foreach ($statusOptions as $optionKey => $optionLabel): ?>
                                                                     <?php
                                                                     $optionMeta = $statusMetaByKey[$optionKey] ?? taskStatusMeta($optionKey);
@@ -595,7 +595,7 @@ $statusMetaByKey = is_array($statusConfig['meta_by_key'] ?? null) ? $statusConfi
                                                             <span class="row-inline-picker-summary-icon" aria-hidden="true">&#9873;</span>
                                                             <span class="row-inline-picker-summary-text sr-only" data-inline-select-text><?= e((string) ($priorityOptions[$priorityKey] ?? 'Media')) ?></span>
                                                         </summary>
-                                                        <div class="assignee-picker-menu row-inline-picker-menu" role="listbox" aria-label="Selecionar prioridade">
+                                                        <div class="assignee-picker-menu row-inline-picker-menu" role="listbox" aria-label="Selecionar prioridade" data-sheet-title="Prioridade">
                                                             <?php foreach ($priorityOptions as $optionKey => $optionLabel): ?>
                                                                 <button
                                                                     type="button"
@@ -624,7 +624,7 @@ $statusMetaByKey = is_array($statusConfig['meta_by_key'] ?? null) ? $statusConfi
                                                 <div class="tag-field assignee-tag-field">
                                                     <details class="assignee-picker row-assignee-picker">
                                                         <summary><?= e($assigneeSummary) ?></summary>
-                                                        <div class="assignee-picker-menu">
+                                                        <div class="assignee-picker-menu" aria-label="Selecionar responsáveis" data-sheet-title="Responsáveis">
                                                             <?php foreach ($users as $user): ?>
                                                             <label class="assignee-option">
                                                                 <input

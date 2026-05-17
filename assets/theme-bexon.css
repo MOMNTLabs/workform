@@ -7198,6 +7198,15 @@ body.is-dashboard .top-nav.dashboard-nav .btn-logout::after {
         box-shadow: 0 0 0 1px rgba(var(--color-accent-500-rgb), 0.1);
     }
 
+    body.is-dashboard .task-group.has-open-overlay,
+    body.is-dashboard .task-group:has(.task-list-item.has-open-overlay),
+    body.is-dashboard .task-group:has(.row-inline-picker[open]),
+    body.is-dashboard .task-group:has(.assignee-picker[open]) {
+        position: relative;
+        z-index: 35;
+        overflow: visible;
+    }
+
     body.is-dashboard .task-group-head h3,
     body.is-dashboard .task-group-readonly .task-group-name-input {
         color: var(--mobile-text);
@@ -7237,12 +7246,23 @@ body.is-dashboard .top-nav.dashboard-nav .btn-logout::after {
         box-shadow: none;
     }
 
-    body.is-dashboard .group-add-button {
+    body.is-dashboard .group-add-button,
+    body.is-dashboard .task-group-head-actions .group-add-button.task-group-add-button {
         width: 32px;
         height: 32px;
         border-color: rgba(var(--color-accent-500-rgb), 0.28);
         background: rgba(var(--color-accent-500-rgb), 0.1);
+        background-image: none;
         color: #f1c879;
+        box-shadow: none;
+    }
+
+    body.is-dashboard .task-group-head-actions .group-add-button.task-group-add-button:hover,
+    body.is-dashboard .task-group-head-actions .group-add-button.task-group-add-button:focus-visible {
+        border-color: rgba(var(--color-accent-500-rgb), 0.34);
+        background: rgba(var(--color-accent-500-rgb), 0.14);
+        background-image: none;
+        color: #ffe1a2;
         box-shadow: none;
     }
 
@@ -7281,9 +7301,12 @@ body.is-dashboard .top-nav.dashboard-nav .btn-logout::after {
     body.is-dashboard .task-list-item.has-open-overlay,
     body.is-dashboard .task-list-item:has(.row-inline-picker[open]),
     body.is-dashboard .task-list-item:has(.assignee-picker[open]) {
+        position: relative;
+        z-index: 45;
         border-color: rgba(255, 255, 255, 0.14);
         border-left-color: rgb(var(--task-status-rgb));
         box-shadow: 0 14px 32px rgba(0, 0, 0, 0.24);
+        overflow: visible;
     }
 
     body.is-dashboard .task-list-form {
@@ -7500,6 +7523,172 @@ body.is-dashboard .top-nav.dashboard-nav .btn-logout::after {
     body.is-dashboard .assignee-option:focus-within {
         background: rgba(255, 255, 255, 0.055);
         color: var(--mobile-text);
+    }
+
+    body.is-dashboard .task-list-item :is(.row-inline-picker[open] > .row-inline-picker-menu, .row-assignee-picker[open] > .assignee-picker-menu) {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        top: auto;
+        width: auto;
+        min-width: 0;
+        max-width: none;
+        max-height: min(62vh, 420px);
+        transform: none;
+        display: grid;
+        align-content: start;
+        gap: 8px;
+        padding: 52px 10px calc(10px + env(safe-area-inset-bottom));
+        border-radius: 24px;
+        border-color: var(--mobile-border-strong);
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+            #1b1f23;
+        box-shadow:
+            0 -18px 48px rgba(0, 0, 0, 0.36),
+            0 0 0 200vh rgba(7, 9, 14, 0.68);
+        z-index: 90;
+        color: var(--mobile-text);
+        overflow-x: hidden;
+        overflow-y: auto;
+    }
+
+    body.is-dashboard .task-list-item :is(.row-inline-picker[open] > .row-inline-picker-menu, .row-assignee-picker[open] > .assignee-picker-menu)::before {
+        content: "";
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        width: 42px;
+        height: 5px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.18);
+        transform: translateX(-50%);
+    }
+
+    body.is-dashboard .task-list-item :is(.row-inline-picker[open] > .row-inline-picker-menu, .row-assignee-picker[open] > .assignee-picker-menu)::after {
+        content: attr(data-sheet-title);
+        position: absolute;
+        top: 24px;
+        left: 16px;
+        right: 16px;
+        color: var(--mobile-text);
+        font-size: 0.92rem;
+        font-weight: 820;
+        letter-spacing: -0.025em;
+    }
+
+    body.is-dashboard .task-list-item :is(.row-inline-picker[open] > .row-inline-picker-menu, .row-assignee-picker[open] > .assignee-picker-menu) :is(.row-inline-picker-option, .assignee-option) {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        min-height: 52px;
+        padding: 0 14px;
+        border-radius: 16px;
+        font-size: 0.92rem;
+        font-weight: 720;
+        text-align: left;
+    }
+
+    body.is-dashboard .task-list-item :is(.row-inline-picker[open] > .row-inline-picker-menu, .row-assignee-picker[open] > .assignee-picker-menu) :is(.row-inline-picker-option, .row-inline-picker-option > span, .row-inline-picker-option .row-inline-picker-summary-text, .row-inline-picker-option .row-inline-picker-option-flag, .assignee-option, .assignee-option .assignee-option-text) {
+        color: var(--mobile-text);
+    }
+
+    body.is-dashboard .task-list-item .status-inline-picker[open] .row-inline-picker-option[data-status-color] {
+        border-color: rgba(var(--wf-status-rgb), 0.42);
+        background:
+            linear-gradient(180deg, rgba(var(--wf-status-rgb), 0.18), rgba(var(--wf-status-rgb), 0.1)),
+            rgba(255, 255, 255, 0.035);
+        color: #fff6eb;
+        color: color-mix(in srgb, var(--wf-status-color) 18%, #ffffff 82%);
+    }
+
+    body.is-dashboard .task-list-item .status-inline-picker[open] .row-inline-picker-option[data-status-color].is-active,
+    body.is-dashboard .task-list-item .status-inline-picker[open] .row-inline-picker-option[data-status-color]:hover,
+    body.is-dashboard .task-list-item .status-inline-picker[open] .row-inline-picker-option[data-status-color]:focus-visible {
+        border-color: rgba(var(--wf-status-rgb), 0.62);
+        background:
+            linear-gradient(180deg, rgba(var(--wf-status-rgb), 0.26), rgba(var(--wf-status-rgb), 0.14)),
+            rgba(255, 255, 255, 0.05);
+        color: #ffffff;
+        color: color-mix(in srgb, var(--wf-status-color) 12%, #ffffff 88%);
+    }
+
+    body.is-dashboard .task-list-item .priority-inline-picker[open] .row-inline-picker-option.priority-low {
+        color: #d9e7ff;
+        border-color: rgba(var(--state-priority-low-rgb), 0.42);
+        background:
+            linear-gradient(180deg, rgba(var(--state-priority-low-rgb), 0.2), rgba(var(--state-priority-low-rgb), 0.1)),
+            rgba(255, 255, 255, 0.03);
+    }
+
+    body.is-dashboard .task-list-item .priority-inline-picker[open] .row-inline-picker-option.priority-medium {
+        color: #ffe0bb;
+        border-color: rgba(var(--state-priority-medium-rgb), 0.44);
+        background:
+            linear-gradient(180deg, rgba(var(--state-priority-medium-rgb), 0.22), rgba(var(--state-priority-medium-rgb), 0.12)),
+            rgba(255, 255, 255, 0.03);
+    }
+
+    body.is-dashboard .task-list-item .priority-inline-picker[open] .row-inline-picker-option.priority-high {
+        color: #ffd1b0;
+        border-color: rgba(var(--state-priority-high-rgb), 0.44);
+        background:
+            linear-gradient(180deg, rgba(var(--state-priority-high-rgb), 0.22), rgba(var(--state-priority-high-rgb), 0.12)),
+            rgba(255, 255, 255, 0.03);
+    }
+
+    body.is-dashboard .task-list-item .priority-inline-picker[open] .row-inline-picker-option.priority-urgent {
+        color: #ffbbbb;
+        border-color: rgba(var(--state-priority-urgent-rgb), 0.44);
+        background:
+            linear-gradient(180deg, rgba(var(--state-priority-urgent-rgb), 0.2), rgba(var(--state-priority-urgent-rgb), 0.12)),
+            rgba(255, 255, 255, 0.03);
+    }
+
+    body.is-dashboard .task-list-item .priority-inline-picker[open] .row-inline-picker-option.priority-low .row-inline-picker-option-flag {
+        color: #7fb0ff;
+    }
+
+    body.is-dashboard .task-list-item .priority-inline-picker[open] .row-inline-picker-option.priority-medium .row-inline-picker-option-flag {
+        color: #ffbd73;
+    }
+
+    body.is-dashboard .task-list-item .priority-inline-picker[open] .row-inline-picker-option.priority-high .row-inline-picker-option-flag {
+        color: #ff9f68;
+    }
+
+    body.is-dashboard .task-list-item .priority-inline-picker[open] .row-inline-picker-option.priority-urgent .row-inline-picker-option-flag {
+        color: #ff8f8f;
+    }
+
+    body.is-dashboard .task-list-item .priority-inline-picker[open] .row-inline-picker-option:is(.priority-low, .priority-medium, .priority-high, .priority-urgent):is(.is-active, :hover, :focus-visible) {
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    body.is-dashboard .task-list-item .row-assignee-picker[open] > .assignee-picker-menu {
+        --assignee-option-text-color: rgba(243, 240, 234, 0.96);
+        --assignee-option-text-hover-color: #ffffff;
+        --assignee-option-text-active-color: #ffffff;
+    }
+
+    body.is-dashboard .task-list-item .row-assignee-picker[open] > .assignee-picker-menu .assignee-option {
+        border-color: rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    body.is-dashboard .task-list-item .row-assignee-picker[open] > .assignee-picker-menu .assignee-option:hover,
+    body.is-dashboard .task-list-item .row-assignee-picker[open] > .assignee-picker-menu .assignee-option:focus-within,
+    body.is-dashboard .task-list-item .row-assignee-picker[open] > .assignee-picker-menu .assignee-option:has(input:checked) {
+        border-color: rgba(var(--color-accent-500-rgb), 0.34);
+        background: rgba(var(--color-accent-500-rgb), 0.12);
+    }
+
+    body.is-dashboard .task-list-item .row-assignee-picker[open] > .assignee-picker-menu input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        flex: 0 0 18px;
     }
 
     body.is-dashboard [data-create-modal],
