@@ -7251,19 +7251,27 @@ body.is-dashboard .top-nav.dashboard-nav .btn-logout::after {
         width: 32px;
         height: 32px;
         border-color: rgba(var(--color-accent-500-rgb), 0.28);
-        background: rgba(var(--color-accent-500-rgb), 0.1);
-        background-image: none;
+        background: rgba(var(--color-accent-500-rgb), 0.1) !important;
+        background-color: rgba(var(--color-accent-500-rgb), 0.1) !important;
+        background-image: none !important;
         color: #f1c879;
-        box-shadow: none;
+        box-shadow: none !important;
+        filter: none !important;
+        text-shadow: none !important;
+        appearance: none;
+        -webkit-appearance: none;
     }
 
     body.is-dashboard .task-group-head-actions .group-add-button.task-group-add-button:hover,
     body.is-dashboard .task-group-head-actions .group-add-button.task-group-add-button:focus-visible {
         border-color: rgba(var(--color-accent-500-rgb), 0.34);
-        background: rgba(var(--color-accent-500-rgb), 0.14);
-        background-image: none;
+        background: rgba(var(--color-accent-500-rgb), 0.14) !important;
+        background-color: rgba(var(--color-accent-500-rgb), 0.14) !important;
+        background-image: none !important;
         color: #ffe1a2;
-        box-shadow: none;
+        box-shadow: none !important;
+        filter: none !important;
+        text-shadow: none !important;
     }
 
     body.is-dashboard .task-list-rows {
