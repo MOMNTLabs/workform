@@ -31,8 +31,21 @@ foreach ($taskTitleTagOptions as $taskTitleTagOptionValue) {
 }
 $statusMetaByKey = is_array($statusConfig['meta_by_key'] ?? null) ? $statusConfig['meta_by_key'] : [];
 $workspaceSwitchView = normalizeDashboardViewKey((string) ($_GET['view'] ?? 'overview'));
-$workspaceSwitchRedirectPath = dashboardPath($workspaceSwitchView !== '' ? $workspaceSwitchView : 'overview');
-$serverSelectedDashboardView = $workspaceSwitchView !== '' ? $workspaceSwitchView : 'overview';
+$serverSelectedDashboardView = resolveWorkspaceDashboardView(
+    $workspaceSwitchView !== '' ? $workspaceSwitchView : 'overview',
+    $currentWorkspaceId ?? null,
+    $currentWorkspace ?? null,
+    !empty($showUsersDashboardTab),
+    'overview'
+);
+$workspaceSwitchRedirectParams = [];
+if ($serverSelectedDashboardView === 'accounting') {
+    $workspaceSwitchAccountingPeriod = normalizeAccountingPeriodKey((string) ($_GET['accounting_period'] ?? ''));
+    if ($workspaceSwitchAccountingPeriod !== '') {
+        $workspaceSwitchRedirectParams['accounting_period'] = $workspaceSwitchAccountingPeriod;
+    }
+}
+$workspaceSwitchRedirectPath = dashboardPath($serverSelectedDashboardView, $workspaceSwitchRedirectParams);
 ?>
 <script
     type="application/json"
@@ -818,12 +831,30 @@ $serverSelectedDashboardView = $workspaceSwitchView !== '' ? $workspaceSwitchVie
         </section>
 
         <section class="tasklist-wrap panel" id="tasks" data-dashboard-view-panel="tasks"<?= $serverSelectedDashboardView !== 'tasks' ? ' hidden' : '' ?>>
+            <?php
+            $storedTaskGroupDoneHiddenMap = storedTaskGroupDoneHiddenMap($currentWorkspaceId ?? null);
+            $initialVisibleTaskCount = 0;
+            foreach ($tasksGroupedByGroup as $initialGroupName => $initialGroupTasks) {
+                $initialGroupDoneHidden = !empty(
+                    $storedTaskGroupDoneHiddenMap[normalizeStoredTaskGroupStateName((string) $initialGroupName)]
+                );
+                foreach ($initialGroupTasks as $initialTask) {
+                    $initialStatusKey = normalizeTaskStatus((string) ($initialTask['status'] ?? ''));
+                    $initialStatusMeta = $statusMetaByKey[$initialStatusKey] ?? taskStatusMeta($initialStatusKey);
+                    $initialStatusKind = (string) ($initialTask['status_kind'] ?? $initialStatusMeta['kind'] ?? 'todo');
+                    if ($initialGroupDoneHidden && $initialStatusKind === 'done') {
+                        continue;
+                    }
+                    $initialVisibleTaskCount++;
+                }
+            }
+            ?>
             <div class="panel-header board-header">
                 <div>
                     <h2>Lista de tarefas</h2>
                 </div>
                 <div class="board-summary">
-                    <span data-board-visible-count><?= e((string) count($tasks)) ?> visíveis</span>
+                    <span data-board-visible-count><?= e((string) $initialVisibleTaskCount) ?> visíveis</span>
                     <span data-board-total-count><?= e((string) $stats['total']) ?> total</span>
                 </div>
             </div>
@@ -1079,9 +1110,15 @@ $serverSelectedDashboardView = $workspaceSwitchView !== '' ? $workspaceSwitchVie
                         $taskGroupPermission = $taskGroupPermissions[$groupName] ?? ['can_view' => true, 'can_access' => true];
                         $taskGroupCanAccess = !empty($taskGroupPermission['can_access']);
                         $taskGroupPermissionsModalKey = 'task-group-perm-' . md5((string) $groupName);
+                        $taskGroupDoneHidden = !empty(
+                            $storedTaskGroupDoneHiddenMap[normalizeStoredTaskGroupStateName((string) $groupName)]
+                        );
+                        $taskGroupDoneToggleLabel = $taskGroupDoneHidden ? 'Exibir concluídas' : 'Ocultar concluídas';
+                        $groupVisibleTaskCount = 0;
+                        $groupHiddenDoneCount = 0;
                         ?>
                         <section
-                            class="task-group<?= $taskGroupCanAccess ? '' : ' task-group-readonly' ?>"
+                            class="task-group<?= $taskGroupCanAccess ? '' : ' task-group-readonly' ?><?= $taskGroupDoneHidden ? ' is-done-hidden' : '' ?>"
                             aria-labelledby="group-<?= e(md5((string) $groupName)) ?>"
                             data-task-group
                             data-group-name="<?= e((string) $groupName) ?>"
@@ -1134,9 +1171,9 @@ $serverSelectedDashboardView = $workspaceSwitchView !== '' ? $workspaceSwitchVie
                                         data-toggle-group-done
                                         data-label-hide="Ocultar concluídas"
                                         data-label-show="Exibir concluídas"
-                                        aria-pressed="false"
-                                        aria-label="Ocultar concluídas do grupo <?= e((string) $groupName) ?>"
-                                    >Ocultar concluídas</button>
+                                        aria-pressed="<?= $taskGroupDoneHidden ? 'true' : 'false' ?>"
+                                        aria-label="<?= e($taskGroupDoneToggleLabel) ?> do grupo <?= e((string) $groupName) ?>"
+                                    ><?= e($taskGroupDoneToggleLabel) ?></button>
                                     <?php if (!empty($canManageWorkspace) && empty($isPersonalWorkspace)): ?>
                                         <button
                                             type="button"
@@ -1219,6 +1256,12 @@ $serverSelectedDashboardView = $workspaceSwitchView !== '' ? $workspaceSwitchVie
                                         (string) ($task['description'] ?? ''),
                                         is_array($task['history'] ?? null) ? $task['history'] : []
                                     );
+                                    $taskStartsHidden = $taskGroupDoneHidden && $statusKind === 'done';
+                                    if ($taskStartsHidden) {
+                                        $groupHiddenDoneCount++;
+                                    } else {
+                                        $groupVisibleTaskCount++;
+                                    }
                                     ?>
                                     <article
                                         class="task-list-item task-status-<?= e($statusKind) ?><?= $isOverdueMarked ? ' has-overdue-flag' : '' ?>"
@@ -1232,6 +1275,7 @@ $serverSelectedDashboardView = $workspaceSwitchView !== '' ? $workspaceSwitchVie
                                         data-status-order="<?= e((string) $statusOrder) ?>"
                                         style="<?= e($statusCssVars) ?>"
                                         draggable="<?= $taskGroupCanAccess ? 'true' : 'false' ?>"
+                                        <?= $taskStartsHidden ? 'hidden' : '' ?>
                                     >
                                         <form method="post" class="task-list-form" id="update-task-<?= e((string) $taskId) ?>" data-task-autosave-form>
                                             <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
@@ -1542,12 +1586,113 @@ $serverSelectedDashboardView = $workspaceSwitchView !== '' ? $workspaceSwitchVie
                                         </form>
                                     </article>
                                 <?php endforeach; ?>
+                                <?php if ($groupHiddenDoneCount > 0 && $groupVisibleTaskCount === 0 && $groupTasks): ?>
+                                    <div class="task-group-hidden-done-row" data-task-group-hidden-done-row>
+                                        <?= e($groupHiddenDoneCount === 1 ? '1 tarefa concluída oculta.' : $groupHiddenDoneCount . ' tarefas concluídas ocultas.') ?>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                         </section>
                     <?php endforeach; ?>
                 <?php endif; ?>
             </div>
         </section>
+        <script>
+            (() => {
+                const workspaceId = String(document.body?.dataset?.workspaceId || "").trim() || "0";
+                const storageKey = `wf_group_done_hidden:${workspaceId}:tasks`;
+                let decoded = {};
+                try {
+                    const raw = window.localStorage?.getItem(storageKey) || "";
+                    decoded = raw ? JSON.parse(raw) : {};
+                } catch (_error) {
+                    return;
+                }
+
+                if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) {
+                    return;
+                }
+
+                const hiddenMap = {};
+                Object.entries(decoded).forEach(([groupName, hidden]) => {
+                    const normalizedGroupName = String(groupName || "").trim().toLocaleLowerCase();
+                    if (!normalizedGroupName || !hidden) return;
+                    hiddenMap[normalizedGroupName] = true;
+                });
+
+                const cookieName = `wf_group_done_hidden_tasks_${workspaceId}`;
+                const hiddenGroupNames = Object.keys(hiddenMap);
+                if (!hiddenGroupNames.length) {
+                    document.cookie = `${cookieName}=; path=/; max-age=0; SameSite=Lax`;
+                } else {
+                    document.cookie = `${cookieName}=${encodeURIComponent(
+                        JSON.stringify(hiddenMap)
+                    )}; path=/; max-age=31536000; SameSite=Lax`;
+                }
+
+                let visibleTaskCount = 0;
+                document.querySelectorAll("[data-task-groups-list] [data-task-group]").forEach((groupSection) => {
+                    if (!(groupSection instanceof HTMLElement)) return;
+                    const groupName = String(groupSection.dataset.groupName || "").trim().toLocaleLowerCase();
+                    const shouldHideDone = Boolean(hiddenMap[groupName]);
+                    const dropzone = groupSection.querySelector("[data-task-dropzone]");
+                    if (!(dropzone instanceof HTMLElement)) return;
+
+                    groupSection.classList.toggle("is-done-hidden", shouldHideDone);
+                    const toggleButton = groupSection.querySelector("[data-toggle-group-done]");
+                    const rawGroupName = String(groupSection.dataset.groupName || "Geral").trim() || "Geral";
+                    if (toggleButton instanceof HTMLButtonElement) {
+                        const nextLabel = shouldHideDone
+                            ? String(toggleButton.dataset.labelShow || "").trim() || "Exibir concluídas"
+                            : String(toggleButton.dataset.labelHide || "").trim() || "Ocultar concluídas";
+                        toggleButton.textContent = nextLabel;
+                        toggleButton.classList.toggle("is-active", shouldHideDone);
+                        toggleButton.setAttribute("aria-pressed", shouldHideDone ? "true" : "false");
+                        toggleButton.setAttribute("aria-label", `${nextLabel} do grupo ${rawGroupName}`);
+                    }
+
+                    let groupVisibleTaskCount = 0;
+                    let groupHiddenDoneCount = 0;
+                    dropzone.querySelectorAll("[data-task-item]").forEach((taskItem) => {
+                        if (!(taskItem instanceof HTMLElement)) return;
+                        const isDoneTask = String(taskItem.dataset.statusKind || "").trim() === "done";
+                        if (shouldHideDone && isDoneTask) {
+                            taskItem.hidden = true;
+                            groupHiddenDoneCount += 1;
+                            return;
+                        }
+
+                        taskItem.hidden = false;
+                        groupVisibleTaskCount += 1;
+                        visibleTaskCount += 1;
+                    });
+
+                    const hiddenDoneRow = dropzone.querySelector("[data-task-group-hidden-done-row]");
+                    if (groupHiddenDoneCount > 0 && groupVisibleTaskCount === 0) {
+                        const hiddenLabel =
+                            groupHiddenDoneCount === 1
+                                ? "1 tarefa concluída oculta."
+                                : `${groupHiddenDoneCount} tarefas concluídas ocultas.`;
+                        if (hiddenDoneRow instanceof HTMLElement) {
+                            hiddenDoneRow.textContent = hiddenLabel;
+                        } else {
+                            const row = document.createElement("div");
+                            row.className = "task-group-hidden-done-row";
+                            row.dataset.taskGroupHiddenDoneRow = "";
+                            row.textContent = hiddenLabel;
+                            dropzone.append(row);
+                        }
+                    } else if (hiddenDoneRow instanceof HTMLElement) {
+                        hiddenDoneRow.remove();
+                    }
+                });
+
+                const boardVisibleCount = document.querySelector("[data-board-visible-count]");
+                if (boardVisibleCount instanceof HTMLElement) {
+                    boardVisibleCount.textContent = `${visibleTaskCount} visíveis`;
+                }
+            })();
+        </script>
 
         <section class="vault-wrap panel" id="vault" data-dashboard-view-panel="vault"<?= $serverSelectedDashboardView !== 'vault' ? ' hidden' : '' ?>>
             <div class="panel-header board-header vault-header">
@@ -3671,6 +3816,19 @@ $serverSelectedDashboardView = $workspaceSwitchView !== '' ? $workspaceSwitchVie
     <section class="modal-card task-image-preview-card" role="dialog" aria-modal="true" aria-label="Mídia de referência">
         <header class="modal-head task-image-preview-head">
             <div class="task-image-preview-title" data-task-image-preview-title></div>
+            <a
+                class="task-image-preview-download"
+                data-task-image-preview-download
+                href="#"
+                download
+                target="_blank"
+                rel="noreferrer noopener"
+                aria-label="Baixar midia"
+                hidden
+            >
+                <span aria-hidden="true">&#8681;</span>
+                <span>Baixar</span>
+            </a>
             <button type="button" class="modal-close-button" data-close-task-image-preview aria-label="Fechar visualização da mídia">
                 <span aria-hidden="true">&#10005;</span>
             </button>

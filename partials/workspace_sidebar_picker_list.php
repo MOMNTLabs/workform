@@ -1,6 +1,20 @@
 <?php
 $workspaceSwitchView = normalizeDashboardViewKey((string) ($_GET['view'] ?? 'overview'));
-$workspaceSwitchRedirectPath = dashboardPath($workspaceSwitchView !== '' ? $workspaceSwitchView : 'overview');
+$workspaceSwitchResolvedView = resolveWorkspaceDashboardView(
+    $workspaceSwitchView !== '' ? $workspaceSwitchView : 'overview',
+    $currentWorkspaceId ?? null,
+    $currentWorkspace ?? null,
+    !empty($showUsersDashboardTab),
+    'overview'
+);
+$workspaceSwitchRedirectParams = [];
+if ($workspaceSwitchResolvedView === 'accounting') {
+    $workspaceSwitchAccountingPeriod = normalizeAccountingPeriodKey((string) ($_GET['accounting_period'] ?? ''));
+    if ($workspaceSwitchAccountingPeriod !== '') {
+        $workspaceSwitchRedirectParams['accounting_period'] = $workspaceSwitchAccountingPeriod;
+    }
+}
+$workspaceSwitchRedirectPath = dashboardPath($workspaceSwitchResolvedView, $workspaceSwitchRedirectParams);
 ?>
 <?php foreach ($userWorkspaces as $workspaceOption): ?>
     <?php

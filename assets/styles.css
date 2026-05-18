@@ -9232,6 +9232,11 @@ body.is-dashboard.is-account-settings .account-privacy-card h3 {
     gap: 10px;
 }
 
+.task-detail-ref-media-card {
+    position: relative;
+    min-width: 0;
+}
+
 .task-detail-ref-image-link {
     appearance: none;
     position: relative;
@@ -9307,6 +9312,35 @@ body.is-dashboard.is-account-settings .account-privacy-card h3 {
     white-space: nowrap;
     pointer-events: none;
     backdrop-filter: blur(8px);
+}
+
+.task-detail-ref-download-link {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(7, 12, 25, 0.8);
+    color: rgba(238, 246, 255, 0.96);
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1;
+    text-decoration: none;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+
+.task-detail-ref-download-link:hover,
+.task-detail-ref-download-link:focus-visible {
+    border-color: rgba(120, 204, 255, 0.6);
+    background: rgba(30, 56, 91, 0.86);
+    outline: none;
 }
 
 .task-detail-view-meta {
@@ -10479,6 +10513,7 @@ body.is-dashboard.is-account-settings .account-privacy-card h3 {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 8px;
+    gap: 10px;
 }
 
 .task-image-preview-title {
@@ -10492,6 +10527,36 @@ body.is-dashboard.is-account-settings .account-privacy-card h3 {
     overflow: hidden;
     text-overflow: ellipsis;
     padding-right: 12px;
+}
+
+.task-image-preview-download {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 36px;
+    margin-left: auto;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(7, 12, 25, 0.8);
+    color: rgba(238, 246, 255, 0.96);
+    font-size: 0.84rem;
+    font-weight: 700;
+    line-height: 1;
+    text-decoration: none;
+}
+
+.task-image-preview-download:hover,
+.task-image-preview-download:focus-visible {
+    border-color: rgba(120, 204, 255, 0.6);
+    background: rgba(30, 56, 91, 0.86);
+    outline: none;
+}
+
+.task-image-preview-download > span:first-child {
+    font-size: 1rem;
+    line-height: 1;
+    transform: translateY(-1px);
 }
 
 .task-image-preview-body {
@@ -10579,6 +10644,12 @@ body.is-dashboard.is-account-settings .account-privacy-card h3 {
     .task-image-preview-card {
         padding-left: 10px;
         padding-right: 10px;
+    }
+
+    .task-image-preview-download {
+        min-height: 32px;
+        padding-inline: 11px;
+        font-size: 0.78rem;
     }
 
     .task-image-preview-body {

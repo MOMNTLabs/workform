@@ -2500,6 +2500,18 @@ window.addEventListener("DOMContentLoaded", () => {
       .trim()
       .slice(0, 180);
 
+  const resolveReferenceMediaAssetUrl = (value) => {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    if (/^(?:data|blob):/i.test(raw)) return raw;
+
+    try {
+      return new URL(raw, window.location.href).toString();
+    } catch (_error) {
+      return "";
+    }
+  };
+
   const normalizeReferenceMediaMimeType = (value) =>
     String(value || "")
       .replace(/\s+/g, "")
@@ -3104,14 +3116,15 @@ window.addEventListener("DOMContentLoaded", () => {
       safeMedia.forEach((mediaItem, index) => {
         const url = referenceMediaPreviewUrl(mediaItem);
         if (!url) return;
+        const card = document.createElement("div");
+        card.className = "task-detail-ref-media-card";
+        const previewIndex = previewIndexByKey.get(referenceMediaItemKey(mediaItem) || url) ?? index;
 
         const trigger = document.createElement("button");
         trigger.type = "button";
         trigger.className = "task-detail-ref-image-link";
         trigger.dataset.taskRefImagePreview = url;
-        trigger.dataset.taskRefImageIndex = String(
-          previewIndexByKey.get(referenceMediaItemKey(mediaItem) || url) ?? index
-        );
+        trigger.dataset.taskRefImageIndex = String(previewIndex);
         trigger.setAttribute(
           "aria-label",
           isVideoReferenceMediaItem(mediaItem)
@@ -3131,7 +3144,26 @@ window.addEventListener("DOMContentLoaded", () => {
           title.textContent = mediaItem.title || mediaItem.name;
           trigger.append(title);
         }
-        taskDetailViewImages.append(trigger);
+        card.append(trigger);
+
+        const downloadUrl = referenceMediaDownloadUrl(mediaItem);
+        if (downloadUrl) {
+          const downloadLink = document.createElement("a");
+          downloadLink.className = "task-detail-ref-download-link";
+          downloadLink.href = downloadUrl;
+          downloadLink.target = "_blank";
+          downloadLink.rel = "noreferrer noopener";
+          downloadLink.setAttribute("download", referenceMediaDownloadName(mediaItem, previewIndex));
+          downloadLink.title = referenceMediaDisplayLabel(mediaItem) || `Midia ${previewIndex + 1}`;
+          downloadLink.setAttribute(
+            "aria-label",
+            `Baixar ${referenceMediaDisplayLabel(mediaItem) || `midia ${previewIndex + 1}`}`
+          );
+          downloadLink.textContent = "Baixar";
+          card.append(downloadLink);
+        }
+
+        taskDetailViewImages.append(card);
       });
     }
     if (taskDetailViewImagesWrap instanceof HTMLElement) {
@@ -3807,12 +3839,45 @@ window.addEventListener("DOMContentLoaded", () => {
   const getTaskGroupDoneHiddenStorageKey = () =>
     `wf_group_done_hidden:${collapseStorageWorkspaceId}:tasks`;
 
-  const readStoredTaskGroupDoneHiddenMap = () => {
-    if (!window.localStorage) return {};
+  const getTaskGroupDoneHiddenCookieName = () =>
+    `wf_group_done_hidden_tasks_${collapseStorageWorkspaceId}`;
+
+  const writeStoredTaskGroupDoneHiddenCookie = (map) => {
+    if (!(document instanceof Document)) return;
+
+    const normalizedMap = {};
+    if (map && typeof map === "object" && !Array.isArray(map)) {
+      Object.entries(map).forEach(([groupName, hidden]) => {
+        const normalizedGroupName = normalizeGroupCollapseStorageName(groupName);
+        if (!normalizedGroupName || !hidden) return;
+        normalizedMap[normalizedGroupName] = true;
+      });
+    }
+
+    const cookieName = getTaskGroupDoneHiddenCookieName();
+    if (!Object.keys(normalizedMap).length) {
+      document.cookie = `${cookieName}=; path=/; max-age=0; SameSite=Lax`;
+      return;
+    }
+
+    document.cookie = `${cookieName}=${encodeURIComponent(
+      JSON.stringify(normalizedMap)
+    )}; path=/; max-age=31536000; SameSite=Lax`;
+  };
+
+  const readStoredTaskGroupDoneHiddenCookieMap = () => {
+    if (!(document instanceof Document)) return {};
+
+    const cookieName = getTaskGroupDoneHiddenCookieName();
+    const cookieEntry = String(document.cookie || "")
+      .split(";")
+      .map((entry) => entry.trim())
+      .find((entry) => entry.startsWith(`${cookieName}=`));
+    if (!cookieEntry) return {};
 
     try {
-      const raw = window.localStorage.getItem(getTaskGroupDoneHiddenStorageKey());
-      const decoded = raw ? JSON.parse(raw) : {};
+      const rawValue = cookieEntry.slice(cookieName.length + 1);
+      const decoded = JSON.parse(decodeURIComponent(rawValue));
       if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) {
         return {};
       }
@@ -3824,12 +3889,38 @@ window.addEventListener("DOMContentLoaded", () => {
         map[normalizedKey] = Boolean(value);
       });
       return map;
-    } catch (error) {
+    } catch (_error) {
       return {};
     }
   };
 
+  const readStoredTaskGroupDoneHiddenMap = () => {
+    if (!window.localStorage) return readStoredTaskGroupDoneHiddenCookieMap();
+
+    try {
+      const raw = window.localStorage.getItem(getTaskGroupDoneHiddenStorageKey());
+      if (!raw) {
+        return readStoredTaskGroupDoneHiddenCookieMap();
+      }
+      const decoded = raw ? JSON.parse(raw) : {};
+      if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) {
+        return readStoredTaskGroupDoneHiddenCookieMap();
+      }
+
+      const map = {};
+      Object.entries(decoded).forEach(([key, value]) => {
+        const normalizedKey = normalizeGroupCollapseStorageName(key);
+        if (!normalizedKey) return;
+        map[normalizedKey] = Boolean(value);
+      });
+      return map;
+    } catch (error) {
+      return readStoredTaskGroupDoneHiddenCookieMap();
+    }
+  };
+
   const writeStoredTaskGroupDoneHiddenMap = (map) => {
+    writeStoredTaskGroupDoneHiddenCookie(map);
     if (!window.localStorage) return;
 
     try {
@@ -7939,6 +8030,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const taskImagePreviewTitle = document.querySelector("[data-task-image-preview-title]");
   const taskImagePreviewImage = document.querySelector("[data-task-image-preview-img]");
   const taskImagePreviewVideo = document.querySelector("[data-task-image-preview-video]");
+  const taskImagePreviewDownload = document.querySelector("[data-task-image-preview-download]");
   const taskImagePreviewPrevButton = document.querySelector("[data-task-image-preview-prev]");
   const taskImagePreviewNextButton = document.querySelector("[data-task-image-preview-next]");
   const taskDetailViewHistory = document.querySelector("[data-task-detail-view-history]");
@@ -9354,6 +9446,66 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const referenceMediaDownloadUrl = (item) => {
+    if (!item || typeof item !== "object") return "";
+
+    const candidates = [item.downloadUrl, item.src, item.previewUrl];
+    for (const candidate of candidates) {
+      const resolvedUrl = resolveReferenceMediaAssetUrl(candidate);
+      if (resolvedUrl) return resolvedUrl;
+    }
+
+    return "";
+  };
+
+  const referenceMediaExtensionFromMimeType = (mimeType) => {
+    switch (String(mimeType || "").toLowerCase()) {
+      case "image/jpeg":
+      case "image/jpg":
+        return "jpg";
+      case "image/png":
+        return "png";
+      case "image/webp":
+        return "webp";
+      case "image/gif":
+        return "gif";
+      case "image/svg+xml":
+        return "svg";
+      case "image/avif":
+        return "avif";
+      case "video/mp4":
+        return "mp4";
+      case "video/webm":
+        return "webm";
+      case "video/quicktime":
+        return "mov";
+      case "video/ogg":
+        return "ogv";
+      default:
+        return "";
+    }
+  };
+
+  const sanitizeReferenceMediaFilename = (value) =>
+    String(value || "")
+      .replace(/[<>:"/\\|?*\x00-\x1F]+/g, "-")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/[. ]+$/g, "")
+      .slice(0, 180);
+
+  const referenceMediaDownloadName = (item, index = 0) => {
+    const extension = referenceMediaExtensionFromMimeType(item?.mimeType || "");
+    const explicitLabel = sanitizeReferenceMediaFilename(referenceMediaDisplayLabel(item));
+    if (explicitLabel) {
+      return /\.[A-Za-z0-9]{2,6}$/.test(explicitLabel) || !extension
+        ? explicitLabel
+        : `${explicitLabel}.${extension}`;
+    }
+
+    return extension ? `midia-${index + 1}.${extension}` : `midia-${index + 1}`;
+  };
+
   const normalizeTaskImagePreviewCollection = (images = []) => {
     const seen = new Set();
     const items = [];
@@ -9388,6 +9540,27 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const syncTaskImagePreviewDownload = (previewItem = null, index = 0) => {
+    if (!(taskImagePreviewDownload instanceof HTMLAnchorElement)) return;
+
+    const downloadUrl = referenceMediaDownloadUrl(previewItem);
+    if (!downloadUrl) {
+      taskImagePreviewDownload.hidden = true;
+      taskImagePreviewDownload.removeAttribute("href");
+      taskImagePreviewDownload.removeAttribute("download");
+      taskImagePreviewDownload.removeAttribute("title");
+      taskImagePreviewDownload.setAttribute("aria-label", "Baixar midia");
+      return;
+    }
+
+    const itemLabel = referenceMediaDisplayLabel(previewItem) || `midia ${index + 1}`;
+    taskImagePreviewDownload.hidden = false;
+    taskImagePreviewDownload.href = downloadUrl;
+    taskImagePreviewDownload.setAttribute("download", referenceMediaDownloadName(previewItem, index));
+    taskImagePreviewDownload.title = `Baixar ${itemLabel}`;
+    taskImagePreviewDownload.setAttribute("aria-label", `Baixar ${itemLabel}`);
+  };
+
   const showTaskImagePreviewByIndex = (index) => {
     if (!(taskImagePreviewImage instanceof HTMLImageElement)) return false;
     if (!(taskImagePreviewVideo instanceof HTMLVideoElement)) return false;
@@ -9403,6 +9576,7 @@ window.addEventListener("DOMContentLoaded", () => {
         referenceMediaDisplayLabel(previewItem) || `Midia ${nextIndex + 1}`;
       taskImagePreviewTitle.title = taskImagePreviewTitle.textContent;
     }
+    syncTaskImagePreviewDownload(previewItem, nextIndex);
 
     taskImagePreviewState.currentIndex = nextIndex;
     if (previewItem.kind === "video") {
@@ -9478,6 +9652,7 @@ window.addEventListener("DOMContentLoaded", () => {
       taskImagePreviewVideo.removeAttribute("aria-label");
       taskImagePreviewVideo.load();
     }
+    syncTaskImagePreviewDownload(null, 0);
     taskImagePreviewModal.classList.remove("is-video-preview");
     syncTaskImagePreviewNavigation();
     syncBodyModalLock();

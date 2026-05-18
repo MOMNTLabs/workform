@@ -46,6 +46,34 @@
       : "browser";
   };
 
+  const launchSplash = document.querySelector("[data-pwa-launch-splash]");
+  const launchSplashStartsActive =
+    launchSplash instanceof HTMLElement &&
+    document.documentElement.dataset.pwaLaunchSplash === "active";
+  const launchSplashStartedAt = launchSplashStartsActive ? Date.now() : 0;
+  let launchSplashDismissScheduled = false;
+
+  const dismissLaunchSplash = () => {
+    if (!(launchSplash instanceof HTMLElement) || !launchSplashStartsActive) {
+      return;
+    }
+    if (launchSplashDismissScheduled) {
+      return;
+    }
+
+    launchSplashDismissScheduled = true;
+    const elapsed = Date.now() - launchSplashStartedAt;
+    const remainingVisibleMs = Math.max(0, 520 - elapsed);
+
+    window.setTimeout(() => {
+      document.documentElement.dataset.pwaLaunchSplash = "closing";
+      window.setTimeout(() => {
+        launchSplash.hidden = true;
+        document.documentElement.removeAttribute("data-pwa-launch-splash");
+      }, 260);
+    }, remainingVisibleMs);
+  };
+
   const lockViewportZoom = () => {
     document.documentElement.style.touchAction = "pan-x pan-y";
     document.body.style.touchAction = "pan-x pan-y";
@@ -158,6 +186,14 @@
   syncDisplayMode();
   if (isMobileInstallContext) {
     lockViewportZoom();
+  }
+  if (launchSplashStartsActive) {
+    if (document.readyState === "complete") {
+      dismissLaunchSplash();
+    } else {
+      window.addEventListener("load", dismissLaunchSplash, { once: true });
+      window.setTimeout(dismissLaunchSplash, 4200);
+    }
   }
   window
     .matchMedia?.("(display-mode: standalone)")

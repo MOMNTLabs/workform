@@ -1,10 +1,29 @@
 ﻿        <section class="tasklist-wrap panel" id="tasks" data-dashboard-view-panel="tasks" hidden>
+<?php
+$statusMetaByKey = is_array($statusConfig['meta_by_key'] ?? null) ? $statusConfig['meta_by_key'] : [];
+$storedTaskGroupDoneHiddenMap = storedTaskGroupDoneHiddenMap($currentWorkspaceId ?? null);
+$initialVisibleTaskCount = 0;
+foreach ($tasksGroupedByGroup as $initialGroupName => $initialGroupTasks) {
+    $initialGroupDoneHidden = !empty(
+        $storedTaskGroupDoneHiddenMap[normalizeStoredTaskGroupStateName((string) $initialGroupName)]
+    );
+    foreach ($initialGroupTasks as $initialTask) {
+        $initialStatusKey = normalizeTaskStatus((string) ($initialTask['status'] ?? ''));
+        $initialStatusMeta = $statusMetaByKey[$initialStatusKey] ?? taskStatusMeta($initialStatusKey);
+        $initialStatusKind = (string) ($initialTask['status_kind'] ?? $initialStatusMeta['kind'] ?? 'todo');
+        if ($initialGroupDoneHidden && $initialStatusKind === 'done') {
+            continue;
+        }
+        $initialVisibleTaskCount++;
+    }
+}
+?>
             <div class="panel-header board-header">
                 <div>
                     <h2>Lista de tarefas</h2>
                 </div>
                 <div class="board-summary">
-                    <span data-board-visible-count><?= e((string) count($tasks)) ?> visíveis</span>
+                    <span data-board-visible-count><?= e((string) $initialVisibleTaskCount) ?> visíveis</span>
                     <span data-board-total-count><?= e((string) $stats['total']) ?> total</span>
                 </div>
             </div>
@@ -281,9 +300,15 @@ $statusMetaByKey = is_array($statusConfig['meta_by_key'] ?? null) ? $statusConfi
                         $taskGroupPermission = $taskGroupPermissions[$groupName] ?? ['can_view' => true, 'can_access' => true];
                         $taskGroupCanAccess = !empty($taskGroupPermission['can_access']);
                         $taskGroupPermissionsModalKey = 'task-group-perm-' . md5((string) $groupName);
+                        $taskGroupDoneHidden = !empty(
+                            $storedTaskGroupDoneHiddenMap[normalizeStoredTaskGroupStateName((string) $groupName)]
+                        );
+                        $taskGroupDoneToggleLabel = $taskGroupDoneHidden ? 'Exibir concluídas' : 'Ocultar concluídas';
+                        $groupVisibleTaskCount = 0;
+                        $groupHiddenDoneCount = 0;
                         ?>
                         <section
-                            class="task-group<?= $taskGroupCanAccess ? '' : ' task-group-readonly' ?>"
+                            class="task-group<?= $taskGroupCanAccess ? '' : ' task-group-readonly' ?><?= $taskGroupDoneHidden ? ' is-done-hidden' : '' ?>"
                             aria-labelledby="group-<?= e(md5((string) $groupName)) ?>"
                             data-task-group
                             data-group-name="<?= e((string) $groupName) ?>"
@@ -336,9 +361,9 @@ $statusMetaByKey = is_array($statusConfig['meta_by_key'] ?? null) ? $statusConfi
                                         data-toggle-group-done
                                         data-label-hide="Ocultar concluídas"
                                         data-label-show="Exibir concluídas"
-                                        aria-pressed="false"
-                                        aria-label="Ocultar concluídas do grupo <?= e((string) $groupName) ?>"
-                                    >Ocultar concluídas</button>
+                                        aria-pressed="<?= $taskGroupDoneHidden ? 'true' : 'false' ?>"
+                                        aria-label="<?= e($taskGroupDoneToggleLabel) ?> do grupo <?= e((string) $groupName) ?>"
+                                    ><?= e($taskGroupDoneToggleLabel) ?></button>
                                     <?php if (!empty($canManageWorkspace) && empty($isPersonalWorkspace)): ?>
                                         <button
                                             type="button"
@@ -421,6 +446,12 @@ $statusMetaByKey = is_array($statusConfig['meta_by_key'] ?? null) ? $statusConfi
                                         (string) ($task['description'] ?? ''),
                                         is_array($task['history'] ?? null) ? $task['history'] : []
                                     );
+                                    $taskStartsHidden = $taskGroupDoneHidden && $statusKind === 'done';
+                                    if ($taskStartsHidden) {
+                                        $groupHiddenDoneCount++;
+                                    } else {
+                                        $groupVisibleTaskCount++;
+                                    }
                                     ?>
                                     <article
                                         class="task-list-item task-status-<?= e($statusKind) ?><?= $isOverdueMarked ? ' has-overdue-flag' : '' ?>"
@@ -434,6 +465,7 @@ $statusMetaByKey = is_array($statusConfig['meta_by_key'] ?? null) ? $statusConfi
                                         data-status-order="<?= e((string) $statusOrder) ?>"
                                         style="<?= e($statusCssVars) ?>"
                                         draggable="<?= $taskGroupCanAccess ? 'true' : 'false' ?>"
+                                        <?= $taskStartsHidden ? 'hidden' : '' ?>
                                     >
                                         <form method="post" class="task-list-form" id="update-task-<?= e((string) $taskId) ?>" data-task-autosave-form>
                                             <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
@@ -742,6 +774,11 @@ $statusMetaByKey = is_array($statusConfig['meta_by_key'] ?? null) ? $statusConfi
                                         </form>
                                     </article>
                                 <?php endforeach; ?>
+                                <?php if ($groupHiddenDoneCount > 0 && $groupVisibleTaskCount === 0 && $groupTasks): ?>
+                                    <div class="task-group-hidden-done-row" data-task-group-hidden-done-row>
+                                        <?= e($groupHiddenDoneCount === 1 ? '1 tarefa concluída oculta.' : $groupHiddenDoneCount . ' tarefas concluídas ocultas.') ?>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                         </section>
                     <?php endforeach; ?>

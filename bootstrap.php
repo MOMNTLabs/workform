@@ -9387,6 +9387,72 @@ function workspaceEnabledDashboardViews(?int $workspaceId = null, ?array $worksp
     return array_values(array_unique($views));
 }
 
+function resolveWorkspaceDashboardView(
+    ?string $requestedView,
+    ?int $workspaceId = null,
+    ?array $workspace = null,
+    bool $includeUsers = true,
+    string $fallbackView = 'overview'
+): string {
+    $enabledViews = workspaceEnabledDashboardViews($workspaceId, $workspace, $includeUsers);
+    $normalizedRequestedView = normalizeDashboardViewKey((string) $requestedView);
+    if ($normalizedRequestedView !== '' && in_array($normalizedRequestedView, $enabledViews, true)) {
+        return $normalizedRequestedView;
+    }
+
+    $normalizedFallbackView = normalizeDashboardViewKey($fallbackView);
+    if ($normalizedFallbackView !== '' && in_array($normalizedFallbackView, $enabledViews, true)) {
+        return $normalizedFallbackView;
+    }
+
+    if (in_array('overview', $enabledViews, true)) {
+        return 'overview';
+    }
+
+    if (in_array('tasks', $enabledViews, true)) {
+        return 'tasks';
+    }
+
+    return $enabledViews[0] ?? 'overview';
+}
+
+function normalizeStoredTaskGroupStateName(string $value): string
+{
+    return mb_strtolower(trim($value));
+}
+
+function taskGroupDoneHiddenCookieName(?int $workspaceId = null): string
+{
+    $workspaceId = $workspaceId && $workspaceId > 0 ? $workspaceId : (int) (activeWorkspaceId() ?? 0);
+    return 'wf_group_done_hidden_tasks_' . max(0, $workspaceId);
+}
+
+function storedTaskGroupDoneHiddenMap(?int $workspaceId = null): array
+{
+    $cookieName = taskGroupDoneHiddenCookieName($workspaceId);
+    $rawCookieValue = trim((string) ($_COOKIE[$cookieName] ?? ''));
+    if ($rawCookieValue === '') {
+        return [];
+    }
+
+    $decoded = json_decode(rawurldecode($rawCookieValue), true);
+    if (!is_array($decoded)) {
+        return [];
+    }
+
+    $map = [];
+    foreach ($decoded as $groupName => $hidden) {
+        $normalizedGroupName = normalizeStoredTaskGroupStateName((string) $groupName);
+        if ($normalizedGroupName === '') {
+            continue;
+        }
+
+        $map[$normalizedGroupName] = !empty($hidden);
+    }
+
+    return $map;
+}
+
 function workspaceUpdateSidebarToolsConfiguration(PDO $pdo, int $workspaceId, array $sidebarTools): array
 {
     if ($workspaceId <= 0) {

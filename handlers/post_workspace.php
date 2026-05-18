@@ -28,13 +28,48 @@ function handleWorkspacePostAction(PDO $pdo, string $action): bool
                 }
 
                 setActiveWorkspaceId($workspaceId);
+                $targetWorkspace = workspaceById($workspaceId);
                 $requestedRedirectPath = trim((string) ($_POST['redirect_to'] ?? ''));
-                $redirectPath = $requestedRedirectPath !== ''
-                    ? appPath($requestedRedirectPath)
-                    : dashboardPath('tasks');
-                if (!in_array($redirectPath, $allowedSwitchWorkspaceRedirects, true)) {
-                    $redirectPath = dashboardPath('tasks');
+                if ($requestedRedirectPath === '') {
+                    redirectTo(dashboardPath(
+                        resolveWorkspaceDashboardView('tasks', $workspaceId, $targetWorkspace, true, 'tasks')
+                    ));
                 }
+
+                $safeRequestedRedirectPath = safeRedirectPath($requestedRedirectPath, dashboardPath('overview'));
+                $requestedQueryParams = [];
+                $parsedRequestedRedirect = parse_url($safeRequestedRedirectPath);
+                if (
+                    $parsedRequestedRedirect !== false
+                    && isset($parsedRequestedRedirect['query'])
+                    && trim((string) $parsedRequestedRedirect['query']) !== ''
+                ) {
+                    parse_str((string) $parsedRequestedRedirect['query'], $requestedQueryParams);
+                }
+
+                $requestedView = normalizeDashboardViewKey((string) ($requestedQueryParams['view'] ?? 'overview'));
+                if ($requestedView === '') {
+                    $requestedView = 'overview';
+                }
+
+                $resolvedView = resolveWorkspaceDashboardView(
+                    $requestedView,
+                    $workspaceId,
+                    $targetWorkspace,
+                    true,
+                    'overview'
+                );
+                $redirectParams = [];
+                if ($resolvedView === 'accounting') {
+                    $requestedAccountingPeriod = normalizeAccountingPeriodKey(
+                        (string) ($requestedQueryParams['accounting_period'] ?? '')
+                    );
+                    if ($requestedAccountingPeriod !== '') {
+                        $redirectParams['accounting_period'] = $requestedAccountingPeriod;
+                    }
+                }
+
+                $redirectPath = dashboardPath($resolvedView, $redirectParams);
                 redirectTo($redirectPath);
 
             case 'create_workspace':
