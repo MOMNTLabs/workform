@@ -6676,6 +6676,19 @@ body.is-dashboard .task-detail-ref-title {
     text-transform: uppercase;
 }
 
+body.is-dashboard .task-detail-ref-bulk-download {
+    border-color: rgba(var(--color-accent-500-rgb), 0.22);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 244, 223, 0.94);
+}
+
+body.is-dashboard .task-detail-ref-bulk-download:hover,
+body.is-dashboard .task-detail-ref-bulk-download:focus-visible {
+    border-color: rgba(var(--color-accent-500-rgb), 0.4);
+    background: rgba(var(--color-accent-500-rgb), 0.14);
+    color: #fff7dc;
+}
+
 body.is-dashboard .task-detail-ref-links {
     gap: 10px;
 }

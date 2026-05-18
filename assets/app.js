@@ -3066,6 +3066,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const previewIndexByKey = new Map(
       previewMedia.map((item, index) => [referenceMediaItemKey(item) || item.previewUrl, index])
     );
+    let downloadableMediaCount = 0;
     taskDetailViewPreviewItems = [...previewMedia];
     if (!previewMedia.length) {
       taskImagePreviewState.currentIndex = -1;
@@ -3148,18 +3149,27 @@ window.addEventListener("DOMContentLoaded", () => {
 
         const downloadUrl = referenceMediaDownloadUrl(mediaItem);
         if (downloadUrl) {
+          downloadableMediaCount += 1;
+          const downloadLabel = referenceMediaDisplayLabel(mediaItem) || `midia ${previewIndex + 1}`;
           const downloadLink = document.createElement("a");
           downloadLink.className = "task-detail-ref-download-link";
           downloadLink.href = downloadUrl;
           downloadLink.target = "_blank";
           downloadLink.rel = "noreferrer noopener";
           downloadLink.setAttribute("download", referenceMediaDownloadName(mediaItem, previewIndex));
-          downloadLink.title = referenceMediaDisplayLabel(mediaItem) || `Midia ${previewIndex + 1}`;
-          downloadLink.setAttribute(
-            "aria-label",
-            `Baixar ${referenceMediaDisplayLabel(mediaItem) || `midia ${previewIndex + 1}`}`
-          );
-          downloadLink.textContent = "Baixar";
+          downloadLink.title = `Baixar ${downloadLabel}`;
+          downloadLink.setAttribute("aria-label", `Baixar ${downloadLabel}`);
+
+          const downloadIcon = document.createElement("span");
+          downloadIcon.className = "task-detail-ref-download-icon";
+          downloadIcon.setAttribute("aria-hidden", "true");
+          downloadIcon.innerHTML = "&#8681;";
+
+          const srText = document.createElement("span");
+          srText.className = "sr-only";
+          srText.textContent = `Baixar ${downloadLabel}`;
+
+          downloadLink.append(downloadIcon, srText);
           card.append(downloadLink);
         }
 
@@ -3168,6 +3178,16 @@ window.addEventListener("DOMContentLoaded", () => {
     }
     if (taskDetailViewImagesWrap instanceof HTMLElement) {
       taskDetailViewImagesWrap.hidden = safeMedia.length === 0;
+    }
+    if (taskDetailViewDownloadAllButton instanceof HTMLButtonElement) {
+      const canDownloadAll = downloadableMediaCount > 1;
+      taskDetailViewDownloadAllButton.hidden = !canDownloadAll;
+      taskDetailViewDownloadAllButton.disabled = !canDownloadAll;
+      const label = canDownloadAll
+        ? `Baixar ${downloadableMediaCount} midias`
+        : "Baixar todas as midias";
+      taskDetailViewDownloadAllButton.title = label;
+      taskDetailViewDownloadAllButton.setAttribute("aria-label", label);
     }
 
     if (taskDetailViewReferences instanceof HTMLElement) {
@@ -8026,6 +8046,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const taskDetailViewLinks = document.querySelector("[data-task-detail-view-links]");
   const taskDetailViewImagesWrap = document.querySelector("[data-task-detail-view-images-wrap]");
   const taskDetailViewImages = document.querySelector("[data-task-detail-view-images]");
+  const taskDetailViewDownloadAllButton = document.querySelector("[data-task-detail-download-all]");
   const taskImagePreviewModal = document.querySelector("[data-task-image-preview-modal]");
   const taskImagePreviewTitle = document.querySelector("[data-task-image-preview-title]");
   const taskImagePreviewImage = document.querySelector("[data-task-image-preview-img]");
@@ -9504,6 +9525,51 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     return extension ? `midia-${index + 1}.${extension}` : `midia-${index + 1}`;
+  };
+
+  const triggerReferenceMediaDownload = ({
+    href = "",
+    download = "",
+    target = "",
+    rel = "noreferrer noopener",
+  } = {}) => {
+    const normalizedHref = String(href || "").trim();
+    if (!normalizedHref) return false;
+
+    const trigger = document.createElement("a");
+    trigger.href = normalizedHref;
+    trigger.rel = String(rel || "").trim() || "noreferrer noopener";
+    if (download) {
+      trigger.setAttribute("download", String(download));
+    }
+    if (target) {
+      trigger.target = String(target);
+    }
+    trigger.hidden = true;
+
+    document.body.append(trigger);
+    trigger.click();
+    trigger.remove();
+    return true;
+  };
+
+  const startReferenceMediaBatchDownload = (downloadLinks = []) => {
+    let startedCount = 0;
+
+    (Array.isArray(downloadLinks) ? downloadLinks : []).forEach((downloadLink) => {
+      if (!(downloadLink instanceof HTMLAnchorElement)) return;
+      const started = triggerReferenceMediaDownload({
+        href: downloadLink.href,
+        download: downloadLink.getAttribute("download") || "",
+        target: downloadLink.target || "",
+        rel: downloadLink.rel || "noreferrer noopener",
+      });
+      if (started) {
+        startedCount += 1;
+      }
+    });
+
+    return startedCount;
   };
 
   const normalizeTaskImagePreviewCollection = (images = []) => {
@@ -15587,6 +15653,26 @@ window.addEventListener("DOMContentLoaded", () => {
         items: taskDetailViewPreviewItems,
         index: Number.isFinite(previewIndex) && previewIndex >= 0 ? previewIndex : 0,
       });
+      return;
+    }
+
+    const downloadAllTrigger = target.closest("[data-task-detail-download-all]");
+    if (downloadAllTrigger instanceof HTMLButtonElement) {
+      const downloadLinks = Array.from(
+        taskDetailViewImages?.querySelectorAll(".task-detail-ref-download-link") || []
+      );
+      const startedCount = startReferenceMediaBatchDownload(downloadLinks);
+      if (!startedCount) {
+        showClientFlash("error", "Nenhuma midia disponivel para download.");
+        return;
+      }
+
+      showClientFlash(
+        "success",
+        startedCount === 1
+          ? "Download da midia iniciado."
+          : `Downloads de ${startedCount} midias iniciados.`
+      );
       return;
     }
 

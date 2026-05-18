@@ -3345,14 +3345,23 @@ $workspaceSwitchRedirectPath = dashboardPath($serverSelectedDashboardView, $work
                         </div>
 
                         <div class="task-detail-view-block" data-task-detail-view-references hidden>
-                            <div class="task-detail-view-label">Links</div>
+                            <div class="task-detail-view-label">Referências</div>
 
                             <div class="task-detail-ref-section" data-task-detail-view-images-wrap hidden>
-                                <div class="task-detail-ref-title">Imagens</div>
+                                <div class="task-detail-ref-head">
+                                    <div class="task-detail-ref-title">Mídias</div>
+                                    <button
+                                        type="button"
+                                        class="btn btn-mini btn-ghost task-detail-ref-bulk-download"
+                                        data-task-detail-download-all
+                                        hidden
+                                    >Baixar todas</button>
+                                </div>
                                 <div class="task-detail-ref-images" data-task-detail-view-images></div>
                             </div>
 
                             <div class="task-detail-ref-section" data-task-detail-view-links-wrap hidden>
+                                <div class="task-detail-ref-title">Links</div>
                                 <div class="task-detail-ref-links" data-task-detail-view-links></div>
                             </div>
                         </div>
